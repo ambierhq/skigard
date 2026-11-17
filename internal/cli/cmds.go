@@ -38,7 +38,7 @@ func cmdInit(c *ctx, args []string) error {
 	if *git {
 		if _, err := os.Stat(c.app.Home.Root + "/.git"); err == nil {
 			c.printf("already a git repository\n")
-		} else if out, err := exec.Command("git", "-C", c.app.Home.Root, "init", "-q").CombinedOutput(); err != nil {
+		} else if out, err := exec.CommandContext(c.ctx, "git", "-C", c.app.Home.Root, "init", "-q").CombinedOutput(); err != nil { //nolint:gosec // fixed git arguments; the path is the user's own home
 			return util.Errf("git init: %v: %s", err, strings.TrimSpace(string(out)))
 		} else {
 			c.printf("git repository created (quarantine/ and state/ are ignored)\n")
@@ -86,7 +86,9 @@ func cmdDetect(c *ctx, args []string) error {
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", d.Status, d.ID, d.Name, v, d.GlobalAbs)
 	}
-	w.Flush()
+	if err := w.Flush(); err != nil {
+		return err
+	}
 	if unv > 0 {
 		c.printf("\n%d harness(es) are unverified: listed, but installs need --include-unverified.\n", unv)
 	}
@@ -304,7 +306,9 @@ func pickReviewer(c *ctx, rv []core.Reviewer) (string, error) {
 		man, err := store.LoadManifest(c.app.Home)
 		if err == nil {
 			man.Settings.ReviewHarness = id
-			store.SaveManifest(c.app.Home, man)
+			if err := store.SaveManifest(c.app.Home, man); err != nil {
+				fmt.Fprintf(os.Stderr, "could not save your choice: %v\n", err)
+			}
 		}
 	}
 	return id, nil
@@ -730,7 +734,9 @@ func cmdStats(c *ctx, args []string) error {
 		body += r.Body
 	}
 	fmt.Fprintf(w, "TOTAL\t~%d\t~%d\n", res, body)
-	w.Flush()
+	if err := w.Flush(); err != nil {
+		return err
+	}
 	c.printf("estimates assume ~4 characters per token\n")
 	return nil
 }
@@ -887,7 +893,7 @@ func cmdHarness(c *ctx, args []string) error {
 				out = append(out, h)
 			}
 		}
-		man.Harness = append(out, e)
+		man.Harness = append(append([]harness.Entry{}, out...), e)
 		if err := store.SaveManifest(c.app.Home, man); err != nil {
 			return err
 		}
@@ -928,7 +934,9 @@ func cmdRules(c *ctx, args []string) error {
 	for _, r := range cat {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", r[0], r[1], r[2], r[3], r[4])
 	}
-	w.Flush()
+	if err := w.Flush(); err != nil {
+		return err
+	}
 	c.printf("rules version %s\n", scan.RulesVersion)
 	return nil
 }

@@ -83,7 +83,7 @@ machine, (3) access to secrets (ssh keys, cloud credentials, env files, tokens, 
 (6) obfuscation (encoded blobs, invisible characters, hidden comments), (7) risky dependencies or remote scripts.
 Respond with ONLY one JSON object, no prose, in this exact shape:
 {"verdict":"pass|concerns|fail","summary":"2-4 sentences","description_matches":true,
- "findings":[{"file":"path","line":1,"quote":"exact text from the file","severity":"low|medium|high|critical","why":"reason"}]}
+"findings":[{"file":"path","line":1,"quote":"exact text from the file","severity":"low|medium|high|critical","why":"reason"}]}
 Use "fail" when anything is clearly malicious or unsafe, "concerns" when something needs a human's attention,
 "pass" only when you read everything and found nothing worrying. Quotes must be copied exactly from the files.`
 
@@ -122,7 +122,7 @@ func BuildInput(dir, name string, rep *scan.Report) (*Input, error) {
 			skipped = append(skipped, rel)
 			return nil
 		}
-		data, err := os.ReadFile(p)
+		data, err := os.ReadFile(p) //nolint:gosec // walks skigard-owned quarantine (mode 0700), not attacker-writable
 		if err != nil || bytes.IndexByte(data, 0) >= 0 || !utf8.Valid(data) {
 			skipped = append(skipped, rel)
 			return nil
@@ -386,7 +386,7 @@ func (r Runner) Run(ctx context.Context, t Template, model string, in *Input) (s
 		return "", err
 	}
 	defer os.RemoveAll(work)
-	cmd := exec.CommandContext(ctx, path, t.Args(SystemPrompt, model)...)
+	cmd := exec.CommandContext(ctx, path, t.Args(SystemPrompt, model)...) //nolint:gosec // path comes from LookPath of a fixed template binary; content goes only to stdin
 	cmd.Dir = work
 	cmd.Env = ScrubEnv(r.Environ, t.EnvPrefixes)
 	stdin := in.Prompt

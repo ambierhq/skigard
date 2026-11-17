@@ -66,9 +66,17 @@ var allowedHosts = map[string]bool{
 // PublicAddr reports whether an IP is a routable public address.
 func PublicAddr(a netip.Addr) bool {
 	a = a.Unmap()
-	return a.IsValid() && !a.IsLoopback() && !a.IsPrivate() && !a.IsLinkLocalUnicast() &&
-		!a.IsLinkLocalMulticast() && !a.IsMulticast() && !a.IsUnspecified() && !a.IsInterfaceLocalMulticast() &&
-		!(a.Is4() && a.As4()[0] == 100 && a.As4()[1]&0xc0 == 64) // CGNAT 100.64/10
+	if !a.IsValid() || a.IsLoopback() || a.IsPrivate() || a.IsLinkLocalUnicast() || a.IsLinkLocalMulticast() ||
+		a.IsMulticast() || a.IsUnspecified() || a.IsInterfaceLocalMulticast() {
+		return false
+	}
+	if a.Is4() {
+		b := a.As4()
+		if b[0] == 100 && b[1]&0xc0 == 64 { // CGNAT 100.64.0.0/10
+			return false
+		}
+	}
+	return true
 }
 
 // CheckRedirect enforces https, a host allowlist and a redirect cap.

@@ -11,8 +11,8 @@ import sys
 
 binary, home, name, answer = sys.argv[1:5]
 # Remove every agent marker so approve does not (correctly) refuse.
-env = {k: v for k, v in os.environ.items()
-       if not k.startswith(("PI_", "CLAUDE", "CODEX", "GEMINI", "OPENCODE", "CURSOR", "GOOSE", "AMP_"))}
+AGENT_PREFIXES = ("PI_", "CLAUDE", "CODEX", "GEMINI", "OPENCODE", "CURSOR", "GOOSE", "AMP_")
+env = {k: v for k, v in os.environ.items() if not k.startswith(AGENT_PREFIXES)}
 env["SKIGARD_HOME"] = home
 pid, fd = pty.fork()
 if pid == 0:

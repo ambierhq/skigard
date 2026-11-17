@@ -168,7 +168,7 @@ func (a *App) Approve(name string, o ApproveOpts) (*Approved, error) {
 	}
 	if err := os.Rename(stage, final); err != nil {
 		if backup != "" {
-			os.Rename(backup, final)
+			_ = os.Rename(backup, final) // best-effort rollback; the original error is returned
 		}
 		return nil, err
 	}

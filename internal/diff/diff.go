@@ -96,7 +96,7 @@ func list(dir string) (map[string]file, error) {
 			out[filepath.ToSlash(rel)] = file{data: []byte("<" + info.Mode().String() + ">")}
 			return nil
 		}
-		data, err := os.ReadFile(p)
+		data, err := os.ReadFile(p) //nolint:gosec // walks skigard-owned directories (quarantine/approved store)
 		if err != nil {
 			return err
 		}

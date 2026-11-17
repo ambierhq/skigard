@@ -136,7 +136,8 @@ The override is recorded and `status`/`verify` keep showing it. This repository'
 
 ```sh
 mise install          # go 1.27
-mise run check        # vet, staticcheck, tests
+mise run check        # golangci-lint + editorconfig + tests
+mise run fmt          # format
 mise run e2e          # builds the binary and drives approve through a real pty
 mise run fuzz         # short fuzz runs of the parsers
 ```

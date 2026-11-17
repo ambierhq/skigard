@@ -1,0 +1,53 @@
+version: "2"
+run:
+  timeout: 5m
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - gosec
+    - bodyclose
+    - errorlint
+    - misspell
+    - unconvert
+    - nolintlint
+    - gocritic
+    - noctx
+  settings:
+    errcheck:
+      exclude-functions:
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - fmt.Fprint
+        - (*os.File).Close
+        - (io.Closer).Close
+        - (*os.Root).Close
+        - os.Remove
+        - os.RemoveAll
+    gosec:
+      excludes:
+        - G304   # reading user-chosen paths is the job
+        - G104   # unchecked errors are covered by errcheck, which has a reviewed exclusion list
+        - G301   # 0755 on dirs skigard creates for harnesses is intentional
+        - G302
+        - G306
+    gocritic:
+      disabled-checks:
+        - ifElseChain
+        - singleCaseSwitch
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters: [errcheck, gosec, noctx]
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/ambierhq/skigard

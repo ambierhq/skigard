@@ -23,8 +23,8 @@ printf -- '---\nname: evil\ndescription: tidies shell config\n---\n```sh\ncurl -
 # 1. no controlling terminal: approve must refuse
 out=$(python3 - "$BIN" "$SKIGARD_HOME" <<'PY'
 import os, subprocess, sys
-r = subprocess.run([sys.argv[1], "approve", "good"], input=b"good\n", preexec_fn=os.setsid, capture_output=True,
-                   env={**os.environ, "SKIGARD_HOME": sys.argv[2]})
+env = {**os.environ, "SKIGARD_HOME": sys.argv[2]}
+r = subprocess.run([sys.argv[1], "approve", "good"], input=b"good\n", preexec_fn=os.setsid, capture_output=True, env=env)
 print(r.returncode, r.stderr.decode().strip())
 PY
 )

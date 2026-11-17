@@ -77,9 +77,9 @@ func Dir(root string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		io.WriteString(h, "F\x00"+e.rel+"\x00"+mode+"\x00"+strconv.FormatInt(e.size, 10)+"\x00")
+		_, _ = io.WriteString(h, "F\x00"+e.rel+"\x00"+mode+"\x00"+strconv.FormatInt(e.size, 10)+"\x00")
 		n, err := io.Copy(h, f)
-		f.Close()
+		_ = f.Close()
 		if err != nil {
 			return "", err
 		}

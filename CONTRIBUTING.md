@@ -2,7 +2,8 @@
 
 ```sh
 mise install
-mise run check     # go vet, staticcheck, go test ./...
+mise run check     # golangci-lint (gofmt, goimports, gosec, staticcheck, errcheck...), editorconfig, go test ./...
+mise run fmt       # format Go code
 mise run e2e
 ```
 

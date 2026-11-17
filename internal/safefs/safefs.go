@@ -59,6 +59,11 @@ func CopyTree(src, dst string, lim Limits) (*Result, error) {
 		return nil, err
 	}
 	defer root.Close()
+	srcRoot, err := os.OpenRoot(src)
+	if err != nil {
+		return nil, err
+	}
+	defer srcRoot.Close()
 	res := &Result{}
 	err = filepath.WalkDir(src, func(p string, d fs.DirEntry, werr error) error {
 		if werr != nil {
@@ -101,7 +106,7 @@ func CopyTree(src, dst string, lim Limits) (*Result, error) {
 		if res.Bytes > lim.MaxTotalBytes {
 			return fmt.Errorf("tree too large (limit %d bytes)", lim.MaxTotalBytes)
 		}
-		in, err := os.Open(p)
+		in, err := srcRoot.Open(rel) // rooted: a path swapped for a symlink cannot escape src
 		if err != nil {
 			return err
 		}
@@ -229,7 +234,7 @@ func ExtractTarGz(r io.Reader, dst string, lim Limits) (*Result, error) {
 				return nil, errors.New("archive compression ratio is suspicious")
 			}
 			res.Files++
-			if err := writeFile(root, rel, tr, hdr.Size, fs.FileMode(hdr.Mode)); err != nil {
+			if err := writeFile(root, rel, tr, hdr.Size, fs.FileMode(uint32(hdr.Mode&0o7777))); err != nil {
 				return nil, err
 			}
 		case tar.TypeSymlink, tar.TypeLink:

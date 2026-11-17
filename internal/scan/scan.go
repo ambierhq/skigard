@@ -131,7 +131,7 @@ func Scan(root string, opts Options) (*Report, error) {
 			rep.Files = append(rep.Files, fi)
 			return nil
 		}
-		data, err := os.ReadFile(p)
+		data, err := os.ReadFile(p) //nolint:gosec // scanner reads skigard-owned quarantine; size was checked by Lstat above
 		if err != nil {
 			return err
 		}

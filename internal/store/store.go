@@ -71,7 +71,9 @@ func (h Home) Init() error {
 		if err := os.MkdirAll(d, 0o700); err != nil {
 			return err
 		}
-		os.Chmod(d, 0o700)
+		if err := os.Chmod(d, 0o700); err != nil {
+			return err
+		}
 	}
 	if _, err := os.Stat(filepath.Join(h.Root, ".gitignore")); os.IsNotExist(err) {
 		if err := os.WriteFile(filepath.Join(h.Root, ".gitignore"), []byte(gitignore), 0o644); err != nil {
