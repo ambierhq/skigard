@@ -119,6 +119,19 @@ detected and listed but installed to only with `--include-unverified`, until som
 `skigard install ... --scope project` copies approved skills into the repository's harness directories. Commit
 `./.skigard/skigard.lock` with `SKIGARD_HOME=./.skigard`.
 
+## FAQ
+
+**Why is my security-review skill (or `archify`) blocked?** The scanner matches text, not intent. A skill that *talks
+about* `~/.ssh`, `curl | sh` or "ignore previous instructions" (a checklist, a deny-list regex) looks like one that does
+it. High and critical findings cannot be accepted away; read the skill, then approve with `--override --reason "..."`.
+The override is recorded and `status`/`verify` keep showing it. This repository's own `skills/review-skill` is such a skill.
+
+**Can an agent run `skigard review`?** Yes, review is advisory and costs your own plan. It cannot approve.
+
+**Does it work without an agent installed?** Yes. Scan, approve, lock and verify need no agent at all.
+
+**Which models see my skill?** Only if you run `review`: the harness you choose sends it to its provider. Use `--manual` to avoid that.
+
 ## Development
 
 ```sh
