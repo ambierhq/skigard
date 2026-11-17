@@ -1,0 +1,55 @@
+version: 2
+project_name: skigard
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: skigard
+    main: ./cmd/skigard
+    binary: skigard
+    env: [CGO_ENABLED=0]
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X github.com/ambierhq/skigard/internal/cli.Version={{.Version}}
+  - id: skigard-windows
+    main: ./cmd/skigard
+    binary: skigard
+    env: [CGO_ENABLED=0]
+    goos: [windows]
+    goarch: [amd64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X github.com/ambierhq/skigard/internal/cli.Version={{.Version}}
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files: [LICENSE, THIRD_PARTY_NOTICES.md, README.md]
+
+checksum:
+  name_template: checksums.txt
+
+# Sign the checksum file with cosign keyless (GitHub OIDC) once the repository exists.
+# signs:
+#   - cmd: cosign
+#     args: ["sign-blob", "--yes", "--output-signature=${signature}", "--output-certificate=${certificate}", "${artifact}"]
+#     artifacts: checksum
+
+changelog:
+  sort: asc
+  filters:
+    exclude: ["^docs:", "^test:", "^chore:"]
+
+# brews:   # enable when the ambierhq/homebrew-tap repository exists
+#   - repository: {owner: ambierhq, name: homebrew-tap}
+#     homepage: https://github.com/ambierhq/skigard
+#     description: Lockfile and review gate for agent skills
+#     license: MIT

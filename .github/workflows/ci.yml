@@ -1,0 +1,35 @@
+name: ci
+on:
+  push: {branches: [main]}
+  pull_request:
+permissions: {contents: read}
+jobs:
+  test:
+    strategy:
+      matrix: {os: [ubuntu-latest, macos-latest]}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: {go-version-file: go.mod}
+      - run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go run honnef.co/go/tools/cmd/staticcheck@latest ./...
+      - run: go test -race ./...
+      - run: scripts/e2e.sh
+      - name: docs are generated
+        run: |
+          go test ./internal/harness -run Docs -update
+          go test ./internal/scan -run Docs -update
+          git diff --exit-code docs/
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: {go-version-file: go.mod}
+      - run: |
+          go test ./internal/source -run XXX -fuzz=FuzzParse -fuzztime=30s
+          go test ./internal/safefs -run XXX -fuzz=FuzzCleanEntry -fuzztime=30s
+          go test ./internal/skill -run XXX -fuzz=FuzzFrontmatter -fuzztime=30s
+          go test ./internal/review -run XXX -fuzz=FuzzParse -fuzztime=30s

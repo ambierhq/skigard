@@ -1,0 +1,42 @@
+[tools]
+go = "1.27"
+
+[tasks.build]
+description = "Build ./dist/skigard"
+run = "go build -trimpath -ldflags \"-s -w -X github.com/ambierhq/skigard/internal/cli.Version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)\" -o dist/skigard ./cmd/skigard"
+
+[tasks.test]
+description = "Unit tests"
+run = "go test ./..."
+
+[tasks.lint]
+description = "gofmt, go vet, staticcheck"
+run = [
+  "test -z \"$(gofmt -l .)\" || (gofmt -l . && exit 1)",
+  "go vet ./...",
+  "go run honnef.co/go/tools/cmd/staticcheck@latest ./...",
+]
+
+[tasks.check]
+description = "lint + tests"
+depends = ["lint", "test"]
+
+[tasks.e2e]
+description = "End-to-end test of the built binary (approve through a real pty)"
+run = "scripts/e2e.sh"
+
+[tasks.fuzz]
+description = "Short fuzz runs"
+run = [
+  "go test ./internal/source -run XXX -fuzz=FuzzParse -fuzztime=20s",
+  "go test ./internal/safefs -run XXX -fuzz=FuzzCleanEntry -fuzztime=20s",
+  "go test ./internal/skill -run XXX -fuzz=FuzzFrontmatter -fuzztime=20s",
+  "go test ./internal/review -run XXX -fuzz=FuzzParse -fuzztime=20s",
+]
+
+[tasks.docs]
+description = "Regenerate docs/harnesses.md and docs/rules.md"
+run = [
+  "go test ./internal/harness -run Docs -update",
+  "go test ./internal/scan -run Docs -update",
+]

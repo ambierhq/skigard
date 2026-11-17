@@ -1,0 +1,13 @@
+# Copy to .github/workflows/skills.yml in a repository that commits .skigard/ (SKIGARD_HOME=./.skigard).
+# It fails the build if an installed skill no longer matches what was approved, or if anything unapproved appears.
+name: skills
+on: [pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      SKIGARD_HOME: ${{ github.workspace }}/.skigard
+    steps:
+      - uses: actions/checkout@v4
+      - run: curl -fsSL https://raw.githubusercontent.com/ambierhq/skigard/main/scripts/install.sh | sh
+      - run: skigard verify --strict

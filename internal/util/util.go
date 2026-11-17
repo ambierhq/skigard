@@ -1,0 +1,158 @@
+// Package util holds small helpers shared across skigard: user-facing errors,
+// name validation, terminal-safe output and atomic file writes.
+package util
+
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"time"
+	"unicode"
+	"unicode/utf8"
+)
+
+// Exit codes returned by the CLI.
+const (
+	ExitOK         = 0
+	ExitPolicy     = 1 // findings, drift, refused by policy
+	ExitUsage      = 2 // usage or runtime error
+	ExitCancelled  = 3
+	ExitIncomplete = 4 // coverage incomplete
+)
+
+// Error is a user-facing error carrying an exit code.
+type Error struct {
+	Msg  string
+	Code int
+}
+
+func (e *Error) Error() string { return e.Msg }
+
+// Errf returns a user error with ExitUsage.
+func Errf(format string, a ...any) error {
+	return &Error{Msg: fmt.Sprintf(format, a...), Code: ExitUsage}
+}
+
+// Policyf returns a user error with ExitPolicy.
+func Policyf(format string, a ...any) error {
+	return &Error{Msg: fmt.Sprintf(format, a...), Code: ExitPolicy}
+}
+
+// Cancelled returns a cancellation error.
+func Cancelled(msg string) error { return &Error{Msg: msg, Code: ExitCancelled} }
+
+// CodeOf maps an error to an exit code.
+func CodeOf(err error) int {
+	if err == nil {
+		return ExitOK
+	}
+	var e *Error
+	if errors.As(err, &e) {
+		return e.Code
+	}
+	return ExitUsage
+}
+
+// Now returns the current UTC time in RFC 3339 form.
+func Now() string { return time.Now().UTC().Format(time.RFC3339) }
+
+var nameRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+
+// CheckName validates a skill or plugin name.
+func CheckName(name string) error {
+	if len(name) > 64 || !nameRe.MatchString(name) {
+		return Errf("invalid name %q: use lowercase letters, digits and single hyphens (max 64 chars)", name)
+	}
+	return nil
+}
+
+// Clean makes untrusted text safe for a terminal: control characters (including
+// ESC) and bidi/zero-width characters are replaced by visible escapes.
+func Clean(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case r == '\n' || r == '\t':
+			b.WriteRune(r)
+		case r == utf8.RuneError || r < 0x20 || r == 0x7f || (r >= 0x80 && r < 0xa0):
+			fmt.Fprintf(&b, "\\x%02x", r&0xff)
+		case unicode.Is(unicode.Cf, r) || (r >= 0xe0000 && r <= 0xe007f):
+			fmt.Fprintf(&b, "\\u{%x}", r)
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+// OneLine is Clean with newlines collapsed, truncated to max runes.
+func OneLine(s string, max int) string {
+	s = strings.Join(strings.Fields(strings.ReplaceAll(s, "\t", " ")), " ")
+	s = Clean(s)
+	if r := []rune(s); len(r) > max {
+		return string(r[:max]) + "..."
+	}
+	return s
+}
+
+var secretRes = []*regexp.Regexp{
+	regexp.MustCompile(`AKIA[0-9A-Z]{16}`),
+	regexp.MustCompile(`gh[pousr]_[A-Za-z0-9]{30,}`),
+	regexp.MustCompile(`sk-[A-Za-z0-9_-]{20,}`),
+	regexp.MustCompile(`xox[baprs]-[A-Za-z0-9-]{10,}`),
+	regexp.MustCompile(`-----BEGIN [A-Z ]*PRIVATE KEY-----`),
+	regexp.MustCompile(`(?i)(api[_-]?key|secret|token|password)\s*[:=]\s*["']?[A-Za-z0-9/+_\-]{16,}`),
+}
+
+// MaskSecrets hides credential-looking substrings so reports never leak them.
+func MaskSecrets(s string) string {
+	for _, re := range secretRes {
+		s = re.ReplaceAllStringFunc(s, func(m string) string {
+			if len(m) <= 8 {
+				return "****"
+			}
+			return m[:4] + "****"
+		})
+	}
+	return s
+}
+
+// AtomicWrite writes data to path via a temp file in the same directory.
+func AtomicWrite(path string, data []byte, perm os.FileMode) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(dir, ".tmp-*")
+	if err != nil {
+		return err
+	}
+	name := tmp.Name()
+	defer os.Remove(name)
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(perm); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(name, path)
+}
+
+// RandomHex returns n random bytes as hex.
+func RandomHex(n int) string {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(b)
+}

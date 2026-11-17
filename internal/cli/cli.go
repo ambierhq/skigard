@@ -1,0 +1,171 @@
+// Package cli is skigard's command-line front end. It is a thin layer over
+// internal/core: parse flags, call a workflow, print the result.
+package cli
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"os/signal"
+	"strings"
+
+	"github.com/ambierhq/skigard/internal/core"
+	"github.com/ambierhq/skigard/internal/store"
+	"github.com/ambierhq/skigard/internal/util"
+)
+
+// Version is set at build time with -ldflags "-X .../internal/cli.Version=...".
+var Version = "dev"
+
+type command struct {
+	name, args, summary string
+	run                 func(c *ctx, args []string) error
+}
+
+type ctx struct {
+	app  *core.App
+	out  io.Writer
+	errw io.Writer
+	home string
+	json bool
+	ctx  context.Context
+}
+
+var commands []command
+
+func init() {
+	commands = []command{
+		{"init", "[--git]", "create the skigard home directory", cmdInit},
+		{"detect", "[--all]", "list agent harnesses found on this machine", cmdDetect},
+		{"add", "SOURCE [--skill N | --all]", "fetch a skill into quarantine and scan it", cmdAdd},
+		{"scan", "NAME|PATH [--format text|json|sarif]", "scan a skill", cmdScan},
+		{"review", "NAME [--harness ID | --manual]", "have an agent harness review a quarantined skill (advisory)", cmdReview},
+		{"diff", "NAME", "show quarantined changes against the approved version", cmdDiff},
+		{"approve", "NAME", "HUMAN ONLY: approve a quarantined skill", cmdApprove},
+		{"reject", "NAME", "delete a quarantined skill", cmdReject},
+		{"update", "[NAME...]", "re-fetch approved skills; changes go to quarantine", cmdUpdate},
+		{"install", "NAME... | --plugin P", "install approved skills into harnesses", cmdInstall},
+		{"uninstall", "[NAME...]", "remove skills installed by skigard", cmdUninstall},
+		{"sync", "", "install every approved skill into the default harnesses", cmdSync},
+		{"verify", "", "check lock, store, installs and marketplace (CI-friendly)", cmdVerify},
+		{"list", "", "list approved and quarantined skills", cmdList},
+		{"show", "NAME", "print a skill's SKILL.md and file list", cmdShow},
+		{"status", "", "summary of this home", cmdStatus},
+		{"doctor", "", "check the environment", cmdDoctor},
+		{"stats", "--tokens", "estimate the context cost of approved skills", cmdStats},
+		{"plugin", "create|delete|add|remove|show|list", "manage plugins (groups of approved skills)", cmdPlugin},
+		{"marketplace", "build|check", "generate or check the Claude/OMP marketplace", cmdMarketplace},
+		{"harness", "list|add", "inspect or extend the harness registry", cmdHarness},
+		{"rules", "", "list scanner rules", cmdRules},
+		{"migrate", "--from-skm PATH", "import approved skills from an skm repository", cmdMigrate},
+		{"version", "", "print the version", cmdVersion},
+	}
+}
+
+// Run executes skigard and returns the process exit code.
+func Run(args []string, stdout, stderr io.Writer) int {
+	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
+		usage(stdout)
+		return util.ExitOK
+	}
+	if args[0] == "-v" || args[0] == "--version" {
+		fmt.Fprintln(stdout, "skigard", Version)
+		return util.ExitOK
+	}
+	var cmd *command
+	for i := range commands {
+		if commands[i].name == args[0] {
+			cmd = &commands[i]
+		}
+	}
+	if cmd == nil {
+		fmt.Fprintf(stderr, "skigard: unknown command %q\n\n", args[0])
+		usage(stderr)
+		return util.ExitUsage
+	}
+	c := &ctx{out: stdout, errw: stderr}
+	cx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	c.ctx = cx
+	if err := cmd.run(c, args[1:]); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return util.ExitOK
+		}
+		fmt.Fprintf(stderr, "skigard: %s\n", util.Clean(err.Error()))
+		return util.CodeOf(err)
+	}
+	return util.ExitOK
+}
+
+func usage(w io.Writer) {
+	fmt.Fprintln(w, "skigard "+Version+": a review-gated, lockfile-based manager for agent skills")
+	fmt.Fprintln(w, "\nUsage: skigard COMMAND [ARGS]\n\nCommands:")
+	for _, c := range commands {
+		fmt.Fprintf(w, "  %-12s %s\n", c.name, c.summary)
+	}
+	fmt.Fprintln(w, "\nTypical flow:  add -> scan -> review -> approve (in a real terminal) -> install")
+	fmt.Fprintln(w, "Run `skigard COMMAND -h` for a command's flags. Home: $SKIGARD_HOME or ~/.config/skigard.")
+}
+
+// flags creates a FlagSet with the flags every command shares.
+func (c *ctx) flags(name string) *flag.FlagSet {
+	fs := flag.NewFlagSet("skigard "+name, flag.ContinueOnError)
+	fs.SetOutput(c.errw)
+	fs.StringVar(&c.home, "home", "", "skigard home directory (default $SKIGARD_HOME or ~/.config/skigard)")
+	fs.BoolVar(&c.json, "json", false, "machine-readable output")
+	return fs
+}
+
+// parse allows flags and positional arguments in any order.
+func parse(fs *flag.FlagSet, args []string) ([]string, error) {
+	var pos []string
+	for {
+		if err := fs.Parse(args); err != nil {
+			return nil, err
+		}
+		if fs.NArg() == 0 {
+			return pos, nil
+		}
+		pos = append(pos, fs.Arg(0))
+		args = fs.Args()[1:]
+	}
+}
+
+// open builds the App once flags are parsed.
+func (c *ctx) open() error {
+	h, err := store.Resolve(c.home)
+	if err != nil {
+		return err
+	}
+	c.app = core.New(h, Version, c.out, c.errw)
+	return nil
+}
+
+func (c *ctx) printJSON(v any) error {
+	enc := json.NewEncoder(c.out)
+	enc.SetIndent("", "  ")
+	return enc.Encode(v)
+}
+
+func (c *ctx) printf(format string, args ...any) { fmt.Fprintf(c.out, format, args...) }
+
+func split(s string) []string {
+	var out []string
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func needArgs(pos []string, n int, usage string) error {
+	if len(pos) < n {
+		return util.Errf("usage: skigard %s", usage)
+	}
+	return nil
+}

@@ -1,0 +1,5 @@
+/dist/
+/skigard
+*.test
+*.prof
+.DS_Store

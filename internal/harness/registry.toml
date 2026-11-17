@@ -1,0 +1,97 @@
+# skigard harness registry.
+#
+# One entry per agent harness that reads Agent Skills from a directory.
+#   global   user-scope skills dir; "~" = home, "{config}" = $XDG_CONFIG_HOME or ~/.config
+#   project  project-scope skills dir, relative to the project root
+#   env_home / env_sub  if env var env_home is set, the global dir is $env_home/env_sub
+#   bins     executables whose presence means "installed"
+#   dirs     config dirs whose presence means "configured" (default: parent of global)
+#   apps     macOS app bundles whose presence means "installed"
+#   env      environment variables set when skigard runs inside this harness
+#   verified skigard has confirmed the paths against the harness's own documentation
+#            or a machine that runs it. Unverified entries are listed by `detect`
+#            but only installed to with --include-unverified.
+#
+# Paths were gathered by studying how other skill managers lay out ~75 agents
+# (see README credits) and then written down independently. Please send a PR to
+# fix or verify any entry.
+harness = [
+  { id = "claude-code", name = "Claude Code", project = ".claude/skills", global = "~/.claude/skills", env_home = "CLAUDE_CONFIG_DIR", env_sub = "skills", bins = ["claude"], env = ["CLAUDECODE"], verified = true },
+  { id = "pi", name = "Pi", project = ".agents/skills", global = "~/.agents/skills", bins = ["pi"], dirs = ["~/.pi"], env = ["PI_CODING_AGENT"], verified = true },
+  { id = "omp", name = "Oh My Pi", project = ".agents/skills", global = "~/.agents/skills", bins = ["omp"], dirs = ["~/.omp"], verified = true },
+  { id = "codex", name = "Codex", project = ".agents/skills", global = "~/.agents/skills", env_home = "CODEX_HOME", env_sub = "skills", bins = ["codex"], dirs = ["~/.codex"] },
+  { id = "gemini-cli", name = "Gemini CLI", project = ".agents/skills", global = "~/.gemini/skills", bins = ["gemini"], env = ["GEMINI_CLI"] },
+  { id = "opencode", name = "OpenCode", project = ".agents/skills", global = "{config}/opencode/skills", bins = ["opencode"], env = ["OPENCODE"] },
+  { id = "cursor", name = "Cursor", project = ".agents/skills", global = "~/.cursor/skills", bins = ["cursor-agent"], apps = ["/Applications/Cursor.app"], env = ["CURSOR_AGENT"] },
+  { id = "github-copilot", name = "GitHub Copilot", project = ".agents/skills", global = "~/.copilot/skills", bins = ["copilot"] },
+  { id = "amp", name = "Amp", project = ".agents/skills", global = "{config}/agents/skills", bins = ["amp"], dirs = ["{config}/amp"] },
+  { id = "replit", name = "Replit", project = ".agents/skills", global = "{config}/agents/skills", dirs = ["{config}/replit"] },
+  { id = "universal", name = "Universal (.agents)", project = ".agents/skills", global = "{config}/agents/skills", dirs = ["{config}/agents"] },
+  { id = "cline", name = "Cline", project = ".agents/skills", global = "~/.agents/skills", bins = ["cline"], dirs = ["~/.cline"] },
+  { id = "dexto", name = "Dexto", project = ".agents/skills", global = "~/.agents/skills", bins = ["dexto"], dirs = ["~/.dexto"] },
+  { id = "kimi-code-cli", name = "Kimi Code CLI", project = ".agents/skills", global = "~/.agents/skills", bins = ["kimi"], dirs = ["~/.kimi"] },
+  { id = "loaf", name = "Loaf", project = ".agents/skills", global = "~/.agents/skills", dirs = ["~/.loaf"] },
+  { id = "sarvam-code", name = "Sarvam Code", project = ".agents/skills", global = "~/.agents/skills", env_home = "SARVAM_HOME", dirs = ["~/.sarvam"] },
+  { id = "warp", name = "Warp", project = ".agents/skills", global = "~/.agents/skills", apps = ["/Applications/Warp.app"], dirs = ["~/.warp"] },
+  { id = "zed", name = "Zed", project = ".agents/skills", global = "~/.agents/skills", bins = ["zed"], apps = ["/Applications/Zed.app"], dirs = ["{config}/zed"] },
+  { id = "antigravity", name = "Antigravity", project = ".agents/skills", global = "~/.gemini/config/skills", apps = ["/Applications/Antigravity.app"], dirs = ["~/.gemini/antigravity"] },
+  { id = "antigravity-cli", name = "Antigravity CLI", project = ".agents/skills", global = "~/.gemini/config/skills", bins = ["agy"], dirs = ["~/.gemini/antigravity-cli"] },
+  { id = "deepagents", name = "Deep Agents", project = ".agents/skills", global = "~/.deepagents/agent/skills", dirs = ["~/.deepagents"] },
+  { id = "firebender", name = "Firebender", project = ".agents/skills", global = "~/.firebender/skills" },
+  { id = "kilo", name = "Kilo Code", project = ".agents/skills", global = "~/.kilo/skills", bins = ["kilo"] },
+  { id = "promptscript", name = "PromptScript", project = ".agents/skills", global = "~/.agents/skills", dirs = [] },
+  { id = "aider-desk", name = "AiderDesk", project = ".aider-desk/skills", global = "~/.aider-desk/skills" },
+  { id = "astrbot", name = "AstrBot", project = "data/skills", global = "~/.astrbot/data/skills", dirs = ["~/.astrbot"] },
+  { id = "autohand-code", name = "Autohand Code", project = ".autohand/skills", global = "~/.autohand/skills", env_home = "AUTOHAND_HOME", env_sub = "skills", bins = ["autohand"] },
+  { id = "augment", name = "Augment", project = ".augment/skills", global = "~/.augment/skills", bins = ["auggie"] },
+  { id = "bob", name = "Bob", project = ".bob/skills", global = "~/.bob/skills" },
+  { id = "openclaw", name = "OpenClaw", project = "skills", global = "~/.openclaw/skills", bins = ["openclaw"], dirs = ["~/.openclaw", "~/.clawdbot", "~/.moltbot"] },
+  { id = "codearts-agent", name = "CodeArts Agent", project = ".codeartsdoer/skills", global = "~/.codeartsdoer/skills" },
+  { id = "codebuddy", name = "CodeBuddy", project = ".codebuddy/skills", global = "~/.codebuddy/skills", bins = ["codebuddy"] },
+  { id = "codemaker", name = "CodeMaker", project = ".codemaker/skills", global = "~/.codemaker/skills" },
+  { id = "codestudio", name = "CodeStudio", project = ".codestudio/skills", global = "~/.codestudio/skills" },
+  { id = "command-code", name = "Command Code", project = ".commandcode/skills", global = "~/.commandcode/skills" },
+  { id = "continue", name = "Continue", project = ".continue/skills", global = "~/.continue/skills", bins = ["cn"] },
+  { id = "cortex", name = "Cortex Code", project = ".cortex/skills", global = "~/.snowflake/cortex/skills", dirs = ["~/.snowflake/cortex"] },
+  { id = "crush", name = "Crush", project = ".crush/skills", global = "{config}/crush/skills", bins = ["crush"] },
+  { id = "devin", name = "Devin", project = ".devin/skills", global = "{config}/devin/skills", bins = ["devin"] },
+  { id = "eve", name = "Eve", project = "agent/skills", global = "", dirs = [] },
+  { id = "forgecode", name = "ForgeCode", project = ".forge/skills", global = "~/.forge/skills", bins = ["forge"] },
+  { id = "goose", name = "Goose", project = ".goose/skills", global = "{config}/goose/skills", bins = ["goose"] },
+  { id = "grok", name = "Grok CLI", project = ".grok/skills", global = "~/.grok/skills", env_home = "GROK_HOME", env_sub = "skills", bins = ["grok"] },
+  { id = "hermes-agent", name = "Hermes Agent", project = ".hermes/skills", global = "~/.hermes/skills", env_home = "HERMES_HOME", env_sub = "skills", bins = ["hermes"] },
+  { id = "inference-sh", name = "inference.sh", project = ".inferencesh/skills", global = "~/.inferencesh/skills" },
+  { id = "jazz", name = "Jazz", project = ".jazz/skills", global = "~/.jazz/skills" },
+  { id = "junie", name = "Junie", project = ".junie/skills", global = "~/.junie/skills", bins = ["junie"] },
+  { id = "iflow-cli", name = "iFlow CLI", project = ".iflow/skills", global = "~/.iflow/skills", bins = ["iflow"] },
+  { id = "kimchi", name = "Kimchi", project = ".kimchi/skills", global = "{config}/kimchi/harness/skills", dirs = ["{config}/kimchi"] },
+  { id = "kiro-cli", name = "Kiro CLI", project = ".kiro/skills", global = "~/.kiro/skills", bins = ["kiro-cli"], apps = ["/Applications/Kiro.app"] },
+  { id = "kode", name = "Kode", project = ".kode/skills", global = "~/.kode/skills" },
+  { id = "lingma", name = "Lingma", project = ".lingma/skills", global = "~/.lingma/skills" },
+  { id = "mcpjam", name = "MCPJam", project = ".mcpjam/skills", global = "~/.mcpjam/skills" },
+  { id = "minimax-code", name = "MiniMax Code", project = ".minimax/skills", global = "~/.minimax/skills", apps = ["/Applications/MiniMax Code.app"] },
+  { id = "mistral-vibe", name = "Mistral Vibe", project = ".vibe/skills", global = "~/.vibe/skills", env_home = "VIBE_HOME", env_sub = "skills", bins = ["vibe"] },
+  { id = "moxby", name = "Moxby", project = ".moxby/skills", global = "~/.moxby/skills" },
+  { id = "mux", name = "Mux", project = ".mux/skills", global = "~/.mux/skills" },
+  { id = "openhands", name = "OpenHands", project = ".openhands/skills", global = "~/.openhands/skills", bins = ["openhands"] },
+  { id = "ona", name = "Ona", project = ".ona/skills", global = "~/.ona/skills" },
+  { id = "posit-assistant", name = "Posit Assistant", project = ".posit/assistant/skills", global = "~/.posit/assistant/skills", dirs = ["~/.posit/assistant", "~/.positai"] },
+  { id = "qoder", name = "Qoder", project = ".qoder/skills", global = "~/.qoder/skills" },
+  { id = "qoder-cn", name = "Qoder CN", project = ".qoder/skills", global = "~/.qoder-cn/skills" },
+  { id = "qwen-code", name = "Qwen Code", project = ".qwen/skills", global = "~/.qwen/skills", bins = ["qwen"] },
+  { id = "reasonix", name = "Reasonix", project = ".reasonix/skills", global = "~/.reasonix/skills", env_home = "REASONIX_HOME", env_sub = "skills" },
+  { id = "rovodev", name = "Rovo Dev", project = ".rovodev/skills", global = "~/.rovodev/skills" },
+  { id = "roo", name = "Roo Code", project = ".roo/skills", global = "~/.roo/skills" },
+  { id = "tabnine-cli", name = "Tabnine CLI", project = ".tabnine/agent/skills", global = "~/.tabnine/agent/skills", bins = ["tabnine"], dirs = ["~/.tabnine"] },
+  { id = "terramind", name = "Terramind", project = ".terramind/skills", global = "~/.terramind/skills" },
+  { id = "tinycloud", name = "TinyCloud", project = ".tinycloud/skills", global = "~/.tinycloud/skills" },
+  { id = "trae", name = "Trae", project = ".trae/skills", global = "~/.trae/skills", apps = ["/Applications/Trae.app"] },
+  { id = "trae-cn", name = "Trae CN", project = ".trae/skills", global = "~/.trae-cn/skills", apps = ["/Applications/Trae CN.app"] },
+  { id = "windsurf", name = "Windsurf", project = ".windsurf/skills", global = "~/.codeium/windsurf/skills", bins = ["windsurf"], apps = ["/Applications/Windsurf.app"], dirs = ["~/.codeium/windsurf"] },
+  { id = "zcode", name = "ZCode", project = ".zcode/skills", global = "~/.zcode/skills", apps = ["/Applications/ZCode.app"] },
+  { id = "zencoder", name = "Zencoder", project = ".zencoder/skills", global = "~/.zencoder/skills" },
+  { id = "zenflow", name = "Zenflow", project = ".zencoder/skills", global = "~/.zencoder/skills" },
+  { id = "neovate", name = "Neovate", project = ".neovate/skills", global = "~/.neovate/skills", bins = ["neovate"] },
+  { id = "pochi", name = "Pochi", project = ".pochi/skills", global = "~/.pochi/skills" },
+  { id = "adal", name = "AdaL", project = ".adal/skills", global = "~/.adal/skills" },
+]
