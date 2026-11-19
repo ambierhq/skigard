@@ -33,9 +33,17 @@ The installed copy stays at the approved version until then.
 
 ## How is it different from vercel-labs/skills?
 
-[`vercel-labs/skills`](https://github.com/vercel-labs/skills) (`npx skills`) is the widely used installer and discovery CLI for the agent skills ecosystem, with a large agent list, `skills.sh` search and a
-`skills-lock.json` with a content hash. Its job is getting skills into your agents conveniently. skigard's job is the gate: quarantine, a scan, an optional review and a **human approval** pinned to a hash, with
-`verify` for CI. They solve different problems and can sit side by side; skigard credits it for the harness map and the shared `.agents/skills` directory.
+[`vercel-labs/skills`](https://github.com/vercel-labs/skills) (`npx skills`) is the widely used installer and discovery CLI for agent skills: `add`, `find`, `use`, `check`, `update`, `remove`, `init`, `list`,
+a `skills-lock.json` with a content hash, and the [skills.sh](https://skills.sh) directory.
+
+skigard can be used instead of the skills installer. It covers `add`, `update`, `uninstall` and `list`, and adds the gate: quarantine, a scan, an optional review and a **human approval** pinned to a hash,
+a hash-pinned lock, and `verify` to detect drift in CI.
+
+What you give up today: discovery and search (`skills find`, the skills.sh directory), the `skills init` template, and one-off `skills use`. Many people will find skills on skills.sh and add them through skigard.
+
+It is not a drop-in. The lock file is different (`skigard.lock`); an importer for `skills-lock.json` is planned but not built (`skigard migrate` only reads `skm` repositories).
+skigard fetches from GitHub (public repositories, or private ones with `GITHUB_TOKEN`) and from local directories; other hosts such as GitLab are not supported yet.
+skigard credits vercel-labs/skills for the harness map and the shared `.agents/skills` directory.
 
 ## How is it different from asm (luongnv89/asm)?
 

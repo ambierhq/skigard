@@ -2,10 +2,45 @@
 
 skigard is a pipeline with one rule: **nothing reaches an agent until a human has approved those exact bytes.**
 
+```mermaid
+%%{init: {'theme':'neutral','flowchart':{'curve':'basis'}}}%%
+flowchart TD
+  A["skigard add"] --> Q["Quarantine<br/>archive, never executed"]
+  Q --> S["Scan<br/>deterministic rules"]
+  S --> R["Agent review<br/>advisory only"]
+  R --> H["Human approve<br/>real terminal, /dev/tty"]
+  H --> L[("skigard.lock<br/>commit + SHA-256")]
+  L --> I["Install<br/>into detected harnesses"]
+  L -.-> V["skigard verify<br/>CI drift check"]
+  L -. "skigard update" .-> U["Re-fetch + diff"]
+  U --> Q
+  classDef human fill:#5AA9FF,stroke:#1d5fa8,color:#0b1a2b,stroke-width:2px
+  classDef step fill:#eeeeee,stroke:#777777,color:#111111
+  class H human
+  class A,Q,S,R,L,I,V,U step
 ```
-add ──► quarantine ──► scan ──► review (advisory) ──► approve (human) ──► skigard.lock ──► install
- ▲                                                                                          │
- └─────────────────────── update: re-fetch, diff, review again ◄───────────────────────────┘
+
+Who does what, and where an agent is refused:
+
+```mermaid
+%%{init: {'theme':'neutral'}}%%
+sequenceDiagram
+  actor Human
+  participant Agent
+  participant Skigard as skigard
+  participant Harness as Harness
+  Human->>Skigard: add owner/repo
+  Skigard->>Skigard: fetch to quarantine, scan
+  Human->>Skigard: review (optional)
+  Skigard-->>Human: findings, advisory verdict
+  Agent->>Skigard: approve
+  Skigard--xAgent: refused (needs a real terminal, no --yes)
+  Human->>Skigard: approve (types at /dev/tty)
+  Skigard->>Skigard: write skigard.lock (commit + hash)
+  Human->>Skigard: install
+  Skigard->>Harness: copy approved files
+  Harness-->>Agent: skill available
+  Note over Human,Harness: verify recomputes hashes, fails on drift
 ```
 
 ## Skill
