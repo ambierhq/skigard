@@ -10,7 +10,7 @@ export default defineConfig({
   site: SITE,
   base: BASE,
   trailingSlash: "always",
-  build: { format: "directory" },
+  build: { format: "directory", inlineStylesheets: "always" },
   integrations: [
     starlight({
       title: "skigard",
