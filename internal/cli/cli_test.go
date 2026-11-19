@@ -135,3 +135,19 @@ func TestPluginAndHarnessCommands(t *testing.T) {
 		t.Fatalf("doctor: %d", code)
 	}
 }
+
+func TestCompletion(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "h")
+	for _, shell := range []string{"bash", "zsh", "fish", "powershell"} {
+		code, out, errs := run(t, home, "completion", shell)
+		if code != 0 || !strings.Contains(out, "approve") || !strings.Contains(out, "skigard") {
+			t.Fatalf("completion %s: %d %q %q", shell, code, out, errs)
+		}
+	}
+	if code, _, _ := run(t, home, "completion", "tcsh"); code != util.ExitUsage {
+		t.Fatalf("unknown shell: %d", code)
+	}
+	if code, _, _ := run(t, home, "completion"); code != util.ExitUsage {
+		t.Fatalf("no shell: %d", code)
+	}
+}

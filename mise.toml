@@ -1,7 +1,7 @@
 [tools]
 go = "1.27"
 golangci-lint = "2.15.0"
-editorconfig-checker = "latest"
+editorconfig-checker = "4.0.2"
 
 [tasks.build]
 description = "Build ./dist/skigard"
@@ -50,3 +50,11 @@ run = [
   "go test ./internal/harness -run Docs -update",
   "go test ./internal/scan -run Docs -update",
 ]
+
+[tasks.vuln]
+description = "govulncheck (pinned)"
+run = "go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./..."
+
+[tasks.snapshot]
+description = "Local GoReleaser snapshot build into ./dist (no signing, SBOM, docker or publishing)"
+run = "go run github.com/goreleaser/goreleaser/v2@v2.20.2 release --snapshot --clean --skip=sign,sbom,docker,publish"

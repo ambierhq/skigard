@@ -1,55 +1,150 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 version: 2
 project_name: skigard
 
 before:
   hooks:
-    - go mod tidy
-    - go test ./...
+    - go mod verify
+    # Shell completions are generated from the CLI itself and packaged into archives and nfpms.
+    - sh -c 'rm -rf completions && mkdir completions && go run ./cmd/skigard completion bash > completions/skigard.bash && go run ./cmd/skigard completion zsh > completions/_skigard && go run ./cmd/skigard completion fish > completions/skigard.fish && go run ./cmd/skigard completion powershell > completions/skigard.ps1'
 
 builds:
   - id: skigard
     main: ./cmd/skigard
     binary: skigard
     env: [CGO_ENABLED=0]
-    goos: [darwin, linux]
+    goos: [darwin, linux, windows]
     goarch: [amd64, arm64]
     flags: [-trimpath]
-    ldflags:
-      - -s -w -X github.com/ambierhq/skigard/internal/cli.Version={{.Version}}
-  - id: skigard-windows
-    main: ./cmd/skigard
-    binary: skigard
-    env: [CGO_ENABLED=0]
-    goos: [windows]
-    goarch: [amd64, arm64]
-    flags: [-trimpath]
+    mod_timestamp: "{{ .CommitTimestamp }}"
     ldflags:
       - -s -w -X github.com/ambierhq/skigard/internal/cli.Version={{.Version}}
 
 archives:
-  - formats: [tar.gz]
+  - id: skigard
+    formats: [tar.gz]
+    # Do not change: mise (ubi:, github:) and eget rely on this pattern, with the binary at the archive root.
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
         formats: [zip]
-    files: [LICENSE, THIRD_PARTY_NOTICES.md, README.md]
+    files:
+      - LICENSE
+      - THIRD_PARTY_NOTICES.md
+      - README.md
+      - src: completions/*
+        dst: completions
+        strip_parent: true
 
 checksum:
   name_template: checksums.txt
+  algorithm: sha256
 
-# Sign the checksum file with cosign keyless (GitHub OIDC) once the repository exists.
-# signs:
-#   - cmd: cosign
-#     args: ["sign-blob", "--yes", "--output-signature=${signature}", "--output-certificate=${certificate}", "${artifact}"]
-#     artifacts: checksum
+sboms:
+  - id: archive-sbom
+    artifacts: archive
+    documents: ["${artifact}.sbom.json"]
+    cmd: syft
+    args: ["${artifact}", "--output", "spdx-json=${document}"]
+
+# Keyless signing (GitHub OIDC). Verify with:
+#   cosign verify-blob --bundle checksums.txt.sigstore.json \
+#     --certificate-identity-regexp '^https://github.com/ambierhq/skigard/\.github/workflows/release\.yml@refs/tags/v' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com checksums.txt
+signs:
+  - id: checksum
+    cmd: cosign
+    artifacts: checksum
+    signature: "${artifact}.sigstore.json"
+    args: ["sign-blob", "--yes", "--bundle=${signature}", "${artifact}"]
+  - id: archive
+    cmd: cosign
+    artifacts: archive
+    signature: "${artifact}.sigstore.json"
+    args: ["sign-blob", "--yes", "--bundle=${signature}", "${artifact}"]
+
+nfpms:
+  - id: skigard
+    package_name: skigard
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    vendor: Ambier Oy
+    maintainer: Ambier Oy <skigard@ambierhq.com>
+    homepage: https://github.com/ambierhq/skigard
+    description: Lockfile and review gate for agent skills
+    license: MIT
+    formats: [deb, rpm, apk, archlinux]
+    bindir: /usr/bin
+    contents:
+      - src: LICENSE
+        dst: /usr/share/licenses/skigard/LICENSE
+      - src: completions/skigard.bash
+        dst: /usr/share/bash-completion/completions/skigard
+      - src: completions/_skigard
+        dst: /usr/share/zsh/site-functions/_skigard
+      - src: completions/skigard.fish
+        dst: /usr/share/fish/vendor_completions.d/skigard.fish
+
+dockers_v2:
+  - id: skigard
+    images: [ghcr.io/ambierhq/skigard]
+    tags:
+      - "{{ .Version }}"
+      - "{{ if not .Prerelease }}latest{{ end }}"
+    platforms: [linux/amd64, linux/arm64]
+    dockerfile: Dockerfile
+    labels:
+      org.opencontainers.image.title: skigard
+      org.opencontainers.image.description: Lockfile and review gate for agent skills
+      org.opencontainers.image.source: https://github.com/ambierhq/skigard
+      org.opencontainers.image.licenses: MIT
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+
+docker_signs:
+  - cmd: cosign
+    artifacts: manifests
+    args: ["sign", "--yes", "${artifact}@${digest}"]
+
+# Publishers. Each one is skipped unless its token is present in the environment.
+# Homebrew: GoReleaser v2.20 deprecates `brews` and its replacement `homebrew_casks` is macOS-only, so the
+# formula (macOS and Linux) is rendered by scripts/homebrew-formula.sh in the release workflow instead.
+
+scoops:
+  - name: skigard
+    ids: [skigard]
+    homepage: https://github.com/ambierhq/skigard
+    description: Lockfile and review gate for agent skills
+    license: MIT
+    skip_upload: '{{ if index .Env "SCOOP_BUCKET_TOKEN" }}false{{ else }}true{{ end }}'
+    repository:
+      owner: ambierhq
+      name: scoop-bucket
+      token: '{{ index .Env "SCOOP_BUCKET_TOKEN" }}'
+
+winget:
+  - name: skigard
+    package_identifier: Ambier.Skigard
+    publisher: Ambier Oy
+    publisher_url: https://ambierhq.com
+    publisher_support_url: https://github.com/ambierhq/skigard/issues
+    short_description: Lockfile and review gate for agent skills
+    homepage: https://github.com/ambierhq/skigard
+    license: MIT
+    license_url: https://github.com/ambierhq/skigard/blob/main/LICENSE
+    skip_upload: '{{ if index .Env "WINGET_TOKEN" }}false{{ else }}true{{ end }}'
+    repository:
+      owner: ambierhq
+      name: winget-pkgs
+      branch: "skigard-{{ .Version }}"
+      token: '{{ index .Env "WINGET_TOKEN" }}'
+      pull_request:
+        enabled: true
+        base:
+          owner: microsoft
+          name: winget-pkgs
+          branch: master
 
 changelog:
   sort: asc
   filters:
-    exclude: ["^docs:", "^test:", "^chore:"]
-
-# brews:   # enable when the ambierhq/homebrew-tap repository exists
-#   - repository: {owner: ambierhq, name: homebrew-tap}
-#     homepage: https://github.com/ambierhq/skigard
-#     description: Lockfile and review gate for agent skills
-#     license: MIT
+    exclude: ["^docs:", "^test:", "^chore:", "^ci:"]
