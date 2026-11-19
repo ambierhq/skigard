@@ -48,6 +48,7 @@ jobs:
     steps:
       - name: Skip when no Cloudflare token is configured
         id: gate
+        working-directory: .  # no checkout has happened yet, so the default `website` directory does not exist
         run: |
           if [ -n "$CLOUDFLARE_API_TOKEN" ]; then echo "go=true" >> "$GITHUB_OUTPUT"; else echo "No CLOUDFLARE_API_TOKEN, skipping deploy."; fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
