@@ -3,7 +3,8 @@ package skill
 import "testing"
 
 func FuzzFrontmatter(f *testing.F) {
-	for _, s := range []string{"---\nname: a\n---\n", "---\n", "", "---\nname: >\n  x\n---", "\ufeff---\na: b\n---\nbody"} {
+	for _, s := range []string{"---\nname: a\n---\n", "---\n", "", "---\nname: >\n  x\n---", "\ufeff---\na: b\n---\nbody",
+		"---\nname: con\ndescription: x\n---\n", "---\nname: NUL\n---\n", "---\r\nname: com1\r\n---\r\n"} {
 		f.Add(s)
 	}
 	f.Fuzz(func(t *testing.T, s string) {

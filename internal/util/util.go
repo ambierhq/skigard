@@ -68,6 +68,9 @@ func CheckName(name string) error {
 	if len(name) > 64 || !nameRe.MatchString(name) {
 		return Errf("invalid name %q: use lowercase letters, digits and single hyphens (max 64 chars)", name)
 	}
+	if IsWindowsReservedName(name) {
+		return Errf("invalid name %q: it is a reserved Windows device name and cannot be a directory there", name)
+	}
 	return nil
 }
 
