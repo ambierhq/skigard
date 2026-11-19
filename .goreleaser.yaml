@@ -144,6 +144,13 @@ winget:
           name: winget-pkgs
           branch: master
 
+# The installers are release assets so ambierhq.com/skigard/install.{sh,ps1} can redirect to
+# https://github.com/ambierhq/skigard/releases/latest/download/install.{sh,ps1}.
+release:
+  extra_files:
+    - glob: scripts/install.sh
+    - glob: scripts/install.ps1
+
 changelog:
   sort: asc
   filters:
