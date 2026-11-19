@@ -40,23 +40,23 @@ func completionScript(shell string) (string, error) {
 	case "bash":
 		return fmt.Sprintf(`# bash completion for skigard
 _skigard() {
-  local cur="${COMP_WORDS[COMP_CWORD]}"
-  if [ "$COMP_CWORD" -eq 1 ]; then
-    COMPREPLY=($(compgen -W "%s" -- "$cur"))
-  else
-    COMPREPLY=($(compgen -f -- "$cur"))
-  fi
+	local cur="${COMP_WORDS[COMP_CWORD]}"
+	if [ "$COMP_CWORD" -eq 1 ]; then
+		COMPREPLY=($(compgen -W "%s" -- "$cur"))
+	else
+		COMPREPLY=($(compgen -f -- "$cur"))
+	fi
 }
 complete -F _skigard skigard
 `, words), nil
 	case "zsh":
 		return fmt.Sprintf(`#compdef skigard
 _skigard() {
-  if (( CURRENT == 2 )); then
-    compadd -- %s
-  else
-    _files
-  fi
+	if (( CURRENT == 2 )); then
+		compadd -- %s
+	else
+		_files
+	fi
 }
 compdef _skigard skigard
 `, words), nil
@@ -74,11 +74,11 @@ compdef _skigard skigard
 		}
 		return fmt.Sprintf(`# PowerShell completion for skigard
 Register-ArgumentCompleter -Native -CommandName skigard -ScriptBlock {
-  param($wordToComplete, $commandAst, $cursorPosition)
-  if ($commandAst.CommandElements.Count -gt 2) { return }
-  @(%s) | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
-    [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
-  }
+	param($wordToComplete, $commandAst, $cursorPosition)
+	if ($commandAst.CommandElements.Count -gt 2) { return }
+	@(%s) | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+		[System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+	}
 }
 `, strings.Join(quoted, ", ")), nil
 	}
