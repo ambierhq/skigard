@@ -83,6 +83,7 @@ jobs:
           go test ./internal/safefs -run XXX -fuzz=FuzzCleanEntry -fuzztime=30s
           go test ./internal/skill -run XXX -fuzz=FuzzFrontmatter -fuzztime=30s
           go test ./internal/review -run XXX -fuzz=FuzzParse -fuzztime=30s
+          go test ./internal/hash -run XXX -fuzz=FuzzDirVersionDeterministic -fuzztime=30s
   # Not a required check. go.mod and go.sum must be tidy and verified.
   go-mod:
     permissions: {contents: read}
