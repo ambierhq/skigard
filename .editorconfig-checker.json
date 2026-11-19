@@ -1,3 +1,3 @@
 {
-  "Exclude": ["^dist/", "/testdata/", "\\.git/", "go\\.sum$", "^docs/harnesses\\.md$", "^docs/rules\\.md$"]
+  "Exclude": ["^dist/", "/testdata/", "\\.git/", "go\\.sum$", "^docs/harnesses\\.md$", "^docs/rules\\.md$", "^docs/commands\\.md$"]
 }

@@ -1,0 +1,4 @@
+# Not live yet (the site ships with the first release) or not real URLs.
+^https://ambierhq\.com/skigard
+^https://github\.com/ambierhq/skigard/\.github/
+^https://token\.actions\.githubusercontent\.com

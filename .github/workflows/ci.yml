@@ -38,6 +38,7 @@ jobs:
         run: |
           go test ./internal/harness -run Docs -update
           go test ./internal/scan -run Docs -update
+          go test ./internal/cli -run Docs -update
           git diff --exit-code docs/
   cross-compile:
     permissions: {contents: read}

@@ -46,11 +46,16 @@ run = [
 ]
 
 [tasks.docs]
-description = "Regenerate docs/harnesses.md and docs/rules.md"
+description = "Regenerate docs/harnesses.md, docs/rules.md and docs/commands.md"
 run = [
   "go test ./internal/harness -run Docs -update",
   "go test ./internal/scan -run Docs -update",
+  "go test ./internal/cli -run Docs -update",
 ]
+
+[tasks.links]
+description = "Check relative Markdown links and anchors (external URLs: the weekly lychee workflow)"
+run = "python3 scripts/check-links.py"
 
 [tasks.vuln]
 description = "govulncheck (pinned)"
