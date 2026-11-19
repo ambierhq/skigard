@@ -75,9 +75,7 @@ add ──► quarantine ──► scan ──► review (agent, advisory) ─�
 | winget | `winget install Ambier.Skigard` | coming with v0.1.0 |
 | Scoop | `scoop bucket add ambierhq https://github.com/ambierhq/scoop-bucket && scoop install skigard` | coming with v0.1.0 |
 | npx / npm | `npx skigard` or `npm i -g skigard` | coming with v0.1.0 |
-| apt (Debian, Ubuntu) | `sudo apt install skigard` | coming with v0.1.0 |
-| dnf (Fedora, RHEL) | `sudo dnf install skigard` | coming with v0.1.0 |
-| pacman (Arch) | `sudo pacman -S skigard` | coming with v0.1.0 |
+| apt, dnf, pacman repositories | not available; planned if there is demand. Install the `.deb`, `.rpm` or `.pkg.tar.zst` from a GitHub Release (see [Linux](docs/install/linux.md)) | planned if there is demand |
 | Nix | `nix run github:ambierhq/skigard` | coming with v0.1.0 |
 | Docker | `docker run --rm ghcr.io/ambierhq/skigard` | coming with v0.1.0 |
 | mise | `mise use -g skigard` | coming with v0.1.0 |

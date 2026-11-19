@@ -20,16 +20,14 @@ release is tagged. Until then, the only working route is Go (or building from so
 | GitHub Releases | archives, `.deb`, `.rpm`, `.apk`, Arch packages, checksums, SBOMs, cosign signatures | all | coming with v0.1.0 |
 | Homebrew | `brew install ambierhq/tap/skigard` | macOS, Linux | coming with v0.1.0 |
 | npx / npm | `npx skigard`, `npm i -g skigard` | all | coming with v0.1.0 |
-| apt | `sudo apt install skigard` | Debian, Ubuntu | coming with v0.1.0 |
-| dnf | `sudo dnf install skigard` | Fedora, RHEL | coming with v0.1.0 |
-| pacman | `sudo pacman -S skigard` | Arch | coming with v0.1.0 |
+| apt, dnf, pacman repositories | not available; install the `.deb`, `.rpm` or `.pkg.tar.zst` from a GitHub Release ([Linux](linux.md)) | Debian, Ubuntu, Fedora, RHEL, Arch | planned if there is demand |
 | winget | `winget install Ambier.Skigard` | Windows | coming with v0.1.0 (first submission is reviewed by Microsoft) |
 | Scoop | `scoop bucket add ambierhq https://github.com/ambierhq/scoop-bucket` then `scoop install skigard` | Windows | coming with v0.1.0 |
 | Nix | `nix run github:ambierhq/skigard` | Linux, macOS | coming with v0.1.0 |
 | Docker | `docker run ghcr.io/ambierhq/skigard` | Linux | coming with v0.1.0 |
 | mise | `mise use -g skigard` | all | coming with v0.1.0 |
 
-Channel details: [apt](apt.md), [dnf](dnf.md), [pacman](pacman.md), [npm](npm.md), [Nix](nix.md), [mise](mise.md).
+Channel details: [npm](npm.md), [Nix](nix.md), [mise](mise.md).
 Maintainer view (secrets, switches, registry PRs): [packaging/README.md](../../packaging/README.md).
 
 ## Verify what you downloaded

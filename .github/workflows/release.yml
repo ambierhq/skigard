@@ -10,7 +10,6 @@ on:
       - packaging/**
       - scripts/homebrew-formula.sh
       - .github/workflows/release.yml
-      - .github/workflows/repos.yml
       - npm/**
       - scripts/npm-pack.mjs
   workflow_dispatch:
@@ -102,17 +101,6 @@ jobs:
           git add Formula/skigard.rb
           git diff --cached --quiet || { git commit -m "skigard ${version}" && git push origin HEAD; }
   # Everything below runs only after the release exists, and only does something when its switch is configured.
-  repos:
-    needs: release
-    if: github.event_name == 'push'
-    permissions: {contents: read}
-    uses: ./.github/workflows/repos.yml  # zizmor: ignore[self-repository] actionlint rejects the $/ form
-    with: {tag: "${{ github.ref_name }}"}
-    secrets:
-      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
   # npm trusted publishing (OIDC, provenance) must be configured on npmjs.com for THIS workflow file (release.yml).
   # Skipped unless the repository variable NPM_PUBLISH is "true".
   npm:
