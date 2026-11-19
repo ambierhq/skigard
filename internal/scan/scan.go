@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/ambierhq/skigard/internal/hash"
@@ -212,6 +213,28 @@ func invisible(r rune) bool {
 	return false
 }
 
+// hasHidden reports whether line holds an invisible character that could hide
+// content. A zero-width joiner or non-joiner between two non-ASCII characters
+// (Indic and Arabic-script shaping, emoji sequences) is ordinary text and does
+// not count; between ASCII, or at the edge of a word, it still does.
+func hasHidden(line string) bool {
+	rs := []rune(line)
+	for i, r := range rs {
+		if !invisible(r) {
+			continue
+		}
+		if (r == 0x200c || r == 0x200d) && i > 0 && i+1 < len(rs) && joinable(rs[i-1]) && joinable(rs[i+1]) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func joinable(r rune) bool {
+	return r > 0x7f && !invisible(r) && (unicode.IsLetter(r) || unicode.IsMark(r) || unicode.IsSymbol(r) || unicode.IsNumber(r))
+}
+
 func (s *state) scanText(rel, ext, text string) {
 	isDoc := docExt[ext]
 	isMD := ext == ".md" || ext == ".markdown" || ext == ".html" || ext == ".htm"
@@ -227,11 +250,8 @@ func (s *state) scanText(rel, ext, text string) {
 		if isDoc && (strings.HasPrefix(t, "```") || strings.HasPrefix(t, "~~~")) {
 			inFence = !inFence
 		}
-		for _, r := range line {
-			if invisible(r) {
-				s.addStructural("SKG-OBF-001", rel, n, "zero-width, bidi or tag characters", line)
-				break
-			}
+		if hasHidden(line) {
+			s.addStructural("SKG-OBF-001", rel, n, "zero-width, bidi or tag characters", line)
 		}
 		prose := isDoc && !inFence
 		lower := strings.ToLower(line)
@@ -239,7 +259,7 @@ func (s *state) scanText(rel, ext, text string) {
 			if r.MarkdownOnly && !isMD {
 				continue
 			}
-			if !r.maybe(lower) || !r.Re.MatchString(line) {
+			if !r.maybe(lower) || !r.match(line) {
 				continue
 			}
 			sev := r.Sev

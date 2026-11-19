@@ -52,7 +52,7 @@ const (
 const SchemaVersion = 1
 
 // RulesVersion changes whenever the rule set changes.
-const RulesVersion = "2026.1"
+const RulesVersion = "2026.2"
 
 // Finding is a single scanner signal.
 type Finding struct {
