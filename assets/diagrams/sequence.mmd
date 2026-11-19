@@ -1,0 +1,18 @@
+%%{init: {'theme':'neutral'}}%%
+sequenceDiagram
+  actor Human
+  participant Agent
+  participant Skigard as skigard
+  participant Harness as Harness
+  Human->>Skigard: add owner/repo
+  Skigard->>Skigard: fetch to quarantine, scan
+  Human->>Skigard: review (optional)
+  Skigard-->>Human: findings, advisory verdict
+  Agent->>Skigard: approve
+  Skigard--xAgent: refused (needs a real terminal, no --yes)
+  Human->>Skigard: approve (types at /dev/tty)
+  Skigard->>Skigard: write skigard.lock (commit + hash)
+  Human->>Skigard: install
+  Skigard->>Harness: copy approved files
+  Harness-->>Agent: skill available
+  Note over Human,Harness: verify recomputes hashes, fails on drift

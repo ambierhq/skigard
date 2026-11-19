@@ -44,11 +44,25 @@ skigard puts a gate in front of that: **fetch to quarantine, scan, optional agen
 | Each agent has its own skills folder | Installs once into every detected harness (Claude Code, Pi, Codex, Cursor, Gemini CLI, OpenCode and about 70 more) |
 | No way to notice drift | `skigard verify` fails CI if the lock, the store or the installs change |
 
+```mermaid
+%%{init: {'theme':'neutral','flowchart':{'curve':'basis'}}}%%
+flowchart TD
+  A["skigard add"] --> Q["Quarantine<br/>archive, never executed"]
+  Q --> S["Scan<br/>deterministic rules"]
+  S --> R["Agent review<br/>advisory only"]
+  R --> H["Human approve<br/>real terminal, /dev/tty"]
+  H --> L[("skigard.lock<br/>commit + SHA-256")]
+  L --> I["Install<br/>into detected harnesses"]
+  L -.-> V["skigard verify<br/>CI drift check"]
+  L -. "skigard update" .-> U["Re-fetch + diff"]
+  U --> Q
+  classDef human fill:#5AA9FF,stroke:#1d5fa8,color:#0b1a2b,stroke-width:2px
+  classDef step fill:#eeeeee,stroke:#777777,color:#111111
+  class H human
+  class A,Q,S,R,L,I,V,U step
 ```
-add ──► quarantine ──► scan ──► review (agent, advisory) ──► approve (human, /dev/tty) ──► skigard.lock ──► install
- ▲                                                                                              │
- └──────────────────────────── update: re-fetch, diff, review again ◄──────────────────────────┘
-```
+
+<sub>Source and rendered copies: [assets/diagrams](assets/diagrams). `verify` and `update` branch off the lock.</sub>
 
 <p align="center">
   <img alt="skigard adding, scanning, approving and installing a skill" src="assets/media/demo.gif" width="800">
@@ -184,8 +198,13 @@ No telemetry and no update check. It talks to GitHub only when you `add` or `upd
 
 <details><summary><b>How is it different from vercel-labs/skills?</b></summary>
 
-[`vercel-labs/skills`](https://github.com/vercel-labs/skills) is the popular installer and discovery CLI (`npx skills`, `skills.sh`, a lock file with a content hash). Its focus is getting skills into
-agents conveniently. skigard's focus is the gate: quarantine, scan, human approval pinned to a hash, and `verify` for CI. They are complementary.
+[`vercel-labs/skills`](https://github.com/vercel-labs/skills) (`npx skills`) is the popular installer and discovery CLI: `add`, `find`, `use`, `check`, `update`, `remove`, `init`, `list`, a `skills-lock.json` with a content hash, and the [skills.sh](https://skills.sh) directory.
+
+skigard can be used instead of the skills installer. It covers `add`, `update`, `remove` (`uninstall`) and `list`, and adds the gate: quarantine, a scan, an optional review, **human approval** pinned to a hash, a hash-pinned lock and `verify` for drift in CI.
+
+What you give up today: discovery and search (`skills find`, the skills.sh directory), the `skills init` template, and one-off `skills use`. Many people will find skills on skills.sh and add them through skigard.
+It is not a drop-in: the lock file is different (`skigard.lock`), and an importer for `skills-lock.json` is planned, not built (`skigard migrate` only reads [skm](https://github.com/ambierhq/skm) repositories).
+Sources are GitHub (public, or private with `GITHUB_TOKEN`) and local directories; other hosts such as GitLab are not supported yet.
 </details>
 
 <details><summary><b>How is it different from asm (luongnv89/asm)?</b></summary>
@@ -229,6 +248,8 @@ Releases are signed (cosign, keyless), come with SBOMs, and CI is pinned and har
 
 - `v0.1.0`: first release and every install channel above.
 - `skigard-action`, a reusable GitHub Action for `verify`.
+- `skigard find`: search skills.sh or a catalog (discovery is the main thing skigard lacks today).
+- An importer for `skills-lock.json` from vercel-labs/skills.
 - Verify more harnesses (each one needs a person to confirm its skills directory).
 - Automated review on Windows, once the reviewer CLIs have been verified there.
 - Signed approvals, and Windows code signing.
