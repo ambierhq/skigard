@@ -13,13 +13,9 @@ sudo pacman -Sy skigard
 
 Without the repository: `sudo pacman -U <url of skigard_<version>_linux_<arch>.pkg.tar.zst from the GitHub release>`.
 
-## AUR
+## Other routes
 
-`skigard` builds the tagged source (runs the tests in `check()`), `skigard-bin` installs the release binary:
+There is no AUR package. Install through the ambierhq pacman repository above, or with `pacman -U` of the release asset.
+The official Arch repositories would need a Package Maintainer to adopt skigard; until then they are not an option.
 
-```sh
-yay -S skigard        # or: paru -S skigard-bin
-```
-
-The PKGBUILDs live in [`packaging/arch`](../../packaging/arch/PKGBUILD) and [`packaging/aur`](../../packaging/aur). Read the PKGBUILD
-before you build, as with any AUR package. The AUR is a convenience channel; it is not the official Arch repositories.
+To build from source, the PKGBUILD lives in [`packaging/arch`](../../packaging/arch/PKGBUILD). Read it before you build.

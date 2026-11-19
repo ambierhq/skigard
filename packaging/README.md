@@ -8,7 +8,7 @@ binaries, `.deb/.rpm/.pkg.tar.zst`, `install.sh` and `install.ps1` are GitHub re
 |---|---|---|---|
 | npm | `npm/`, `scripts/npm-pack.mjs`, `.github/workflows/release.yml` | `node --test npm/test/`, `scripts/npm-smoke.sh dist VERSION` | repo variable `NPM_PUBLISH=true`, `@ambierhq` npm org, trusted publisher per package (workflow `release.yml`, environment `npm`) |
 | apt / rpm / pacman | `packaging/repos/`, `.github/workflows/repos.yml` | `build-apt.sh` locally; apt, rpm and arch in containers via the workflow | secrets `GPG_PRIVATE_KEY` (+ `GPG_PASSPHRASE`), `CLOUDFLARE_API_TOKEN` (+ `CLOUDFLARE_ACCOUNT_ID`); Worker `ambier-releases` on `releases.ambierhq.com` |
-| Arch / AUR | `packaging/arch`, `packaging/aur`, `.github/workflows/{arch,aur}.yml` | `docker run archlinux ... packaging/arch/test.sh` (CI does) | secret `AUR_SSH_KEY` (the AUR packages must first be created by the owner) |
+| Arch (source build) | `packaging/arch`, `.github/workflows/arch.yml` | `docker run archlinux ... packaging/arch/test.sh` (CI does) | none (no AUR package; the pacman repo row above ships the `.pkg.tar.zst`) |
 | Nix | `flake.nix`, `packaging/nixpkgs/package.nix`, `.github/workflows/nix.yml` | `nix build` (CI does) | none for the flake; nixpkgs PR is the owner's |
 | aqua / mise | `packaging/aqua/registry.yaml`, `packaging/mise/registry-entry.toml` | `mise use github:...[api_url=...]` against `scripts/fake-github-release.py` | PRs below, after v0.1.0 |
 | GitHub Action | `ambierhq/skigard-action` | its own CI | tag `v1` after the owner approves |
@@ -36,9 +36,8 @@ is the owner's (`GPG_PRIVATE_KEY`); CI tests use a throwaway key and never deplo
 1. Tag `v0.1.0` (release workflow builds everything and uploads `install.sh` / `install.ps1` as assets).
 2. Cloudflare: Worker `ambier-releases`, custom domain `releases.ambierhq.com`; secrets `CLOUDFLARE_API_TOKEN`, `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`; publish the key fingerprint in `SECURITY.md`.
 3. npm: create the `@ambierhq` org, add trusted publishers for `skigard` and the six `@ambierhq/skigard-*` packages, set `NPM_PUBLISH=true`, re-run `npm-publish` for the tag. (Trusted publishers can only be configured for an existing package: publish the first version of each package once, manually with 2FA, or use a placeholder.)
-4. AUR: create the account and `skigard` / `skigard-bin` packages, set `AUR_SSH_KEY`.
-5. Redirects for `ambierhq.com/skigard/install.{sh,ps1}` to `releases/latest/download/install.{sh,ps1}` (site Worker).
-6. Submit the registry PRs below. Tag `v1` on `skigard-action` after review.
+4. Redirects for `ambierhq.com/skigard/install.{sh,ps1}` to `releases/latest/download/install.{sh,ps1}` (site Worker).
+5. Submit the registry PRs below. Tag `v1` on `skigard-action` after review.
 
 ## aqua-registry PR (do not open before v0.1.0 exists)
 
