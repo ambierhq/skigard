@@ -71,7 +71,7 @@ const (
 )
 
 // InstallSkill links or copies the approved skill at store into dir/name.
-func InstallSkill(dir, name, store, mode, contentHash string, force bool) (*Record, error) {
+func InstallSkill(dir, name, store, mode string, id hash.Identity, force bool) (*Record, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func InstallSkill(dir, name, store, mode, contentHash string, force bool) (*Reco
 	if fi, err := os.Lstat(dest); err == nil {
 		if mode == ModeSymlink && fi.Mode()&os.ModeSymlink != 0 {
 			if cur, _ := os.Readlink(dest); cur == store {
-				return record(name, dest, mode, store, contentHash), nil
+				return record(name, dest, mode, store, id.Content), nil
 			}
 		}
 		if !force {
@@ -108,7 +108,7 @@ func InstallSkill(dir, name, store, mode, contentHash string, force bool) (*Reco
 		if _, err := safefs.CopyTree(store, tmp, safefs.DefaultLimits()); err != nil {
 			return nil, err
 		}
-		if got, err := hash.Dir(tmp); err != nil || got != contentHash {
+		if st, err := hash.Check(tmp, id); err != nil || !st.OK() {
 			return nil, util.Errf("staged copy of %s does not match its approved hash", name)
 		}
 		if err := os.Chmod(tmp, 0o755); err != nil {
@@ -120,7 +120,7 @@ func InstallSkill(dir, name, store, mode, contentHash string, force bool) (*Reco
 	default:
 		return nil, util.Errf("unknown install mode %q", mode)
 	}
-	return record(name, dest, mode, store, contentHash), nil
+	return record(name, dest, mode, store, id.Content), nil
 }
 
 func record(name, dest, mode, store, h string) *Record {
@@ -128,7 +128,7 @@ func record(name, dest, mode, store, h string) *Record {
 }
 
 // Check verifies one install record. It returns a list of problems.
-func Check(r Record, wantHash string) []string {
+func Check(r Record, want hash.Identity) []string {
 	var out []string
 	fi, err := os.Lstat(r.Path)
 	if err != nil {
@@ -146,11 +146,14 @@ func Check(r Record, wantHash string) []string {
 			out = append(out, "broken symlink: "+r.Path)
 		}
 	case ModeCopy:
-		got, err := hash.Dir(r.Path)
-		if err != nil {
+		st, err := hash.Check(r.Path, want)
+		switch {
+		case err != nil:
 			out = append(out, "cannot hash "+r.Path+": "+err.Error())
-		} else if got != wantHash {
+		case !st.ContentOK:
 			out = append(out, "content differs from approved hash: "+r.Path)
+		case !st.ExecOK:
+			out = append(out, "executable files differ from those approved: "+r.Path)
 		}
 	}
 	return out

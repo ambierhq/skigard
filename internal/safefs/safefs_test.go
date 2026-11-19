@@ -167,3 +167,33 @@ func TestExtractAcceptsPlainNames(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestExtractAndCopyRecordSourceExecBits(t *testing.T) {
+	data := tarball(t,
+		ent{name: "r-abc/", typ: tar.TypeDir, mode: 0o755},
+		ent{name: "r-abc/SKILL.md", body: "x"},
+		ent{name: "r-abc/run.sh", body: "#!/bin/sh", mode: 0o755},
+		ent{name: "r-abc/sub/tool", body: "t", mode: 0o700},
+		ent{name: "r-abc/sub/data", body: "d", mode: 0o640},
+	)
+	dst := filepath.Join(t.TempDir(), "x")
+	res, err := ExtractTarGz(bytes.NewReader(data), dst, DefaultLimits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Recorded from the tar headers, so identical on Windows where the bit cannot be stored.
+	if got := strings.Join(res.Exec, ","); got != "run.sh,sub/tool" {
+		t.Fatalf("tar exec set = %q", got)
+	}
+	cp, err := CopyTree(dst, filepath.Join(t.TempDir(), "y"), DefaultLimits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "run.sh,sub/tool"
+	if runtime.GOOS == "windows" {
+		want = ""
+	}
+	if got := strings.Join(cp.Exec, ","); got != want {
+		t.Fatalf("copy exec set = %q, want %q", got, want)
+	}
+}
