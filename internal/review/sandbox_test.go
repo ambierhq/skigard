@@ -64,6 +64,9 @@ type sbEnv struct {
 // choice (bwrap, else Landlock, on Linux) and, on Linux, Landlock explicitly.
 func sbEach(t *testing.T, fn func(t *testing.T, e *sbEnv)) {
 	t.Helper()
+	if preferLandlock {
+		t.Fatal("preferLandlock leaked from another test")
+	}
 	t.Run("default", func(t *testing.T) { fn(t, newSBEnv(t)) })
 	if runtime.GOOS != "linux" {
 		return
