@@ -60,10 +60,17 @@ archives (never `git checkout`, which `core.autocrlf` rewrites) and copied byte 
 
 ## Execute bit
 
-Windows files have no execute bit, so skigard hashes every file there with mode `-`. A skill that contains
-executable scripts therefore has a different content hash on Windows than on Linux or macOS. A lock file written on
-one family of systems does not verify the same skill on the other if it contains such scripts. Skills without
-executable files, which is most of them, are unaffected.
+Windows files have no execute bit. Since hash version 2 the **content hash does not include the file mode**, so one
+skill has the same `content_hash` on Windows, Linux and macOS, and a lock written on one verifies on the others.
+
+The execute bits are recorded separately as the lock entry's `exec_set` (taken from the source archive's modes at
+fetch time, so it is right even when you fetch on Windows) with its own `exec_hash`. Windows cannot represent or check
+it: there, `verify` reports the exec set as "not applicable" and checks only the content hash. The check is enforced
+on Linux and macOS.
+
+Locks from before hash v2 (`hash_version = 1`) still verify, but a skill with executable scripts has two different v1
+hashes, so on Windows it verifies only if it has none. Run `skigard lock upgrade` on Linux or macOS to move such entries
+to version 2. See [lockfile.md](lockfile.md).
 
 ## File names skigard refuses
 

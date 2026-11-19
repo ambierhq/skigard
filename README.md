@@ -3,7 +3,7 @@
 **A lockfile and review gate for agent skills.** Nothing reaches your agents until a human has approved those exact bytes.
 
 skigard fetches skills (a folder with a `SKILL.md`) from GitHub or disk into **quarantine**, scans them, optionally has an
-agent you already use review them, makes **you** approve them in a real terminal, pins the approval to a **content hash**
+agent you already use review them, makes **you** approve them in a real terminal, pins the approval to a **content hash** (SHA-256, the same on Linux, macOS and Windows)
 in a lockfile, and then installs them into every agent harness it finds on your machine (Claude Code, Pi, Codex, Cursor,
 Gemini CLI, OpenCode, and about 75 more).
 
@@ -87,6 +87,7 @@ Installs are symlinks from each harness's skills directory into `skills/`, or co
 | `reject NAME` | delete from quarantine |
 | `update [NAME...]` | re-fetch approved skills; changes go to quarantine |
 | `install NAME... [--plugin P] [--to IDS] [--scope user\|project] [--copy] [--include-unverified]` | install approved skills |
+| `lock upgrade [NAME...]` | move older lock entries to hash v2 (only if the old hash still matches) |
 | `uninstall [NAME...]`, `sync` | remove what skigard installed / install everything approved |
 | `verify [--strict]` | lock, store, installs and marketplace agree (exit 1 if not) |
 | `list`, `show NAME`, `status`, `doctor`, `stats --tokens` | inspect |
