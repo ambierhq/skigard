@@ -54,6 +54,9 @@ const (
 	llNetConnectTCP = 1 << 1 // ABI 4
 )
 
+// preferLandlock makes planSandbox use Landlock even when bwrap works (tests).
+var preferLandlock bool
+
 var (
 	probeOnce  sync.Once
 	probeIso   string
@@ -109,6 +112,13 @@ func planSandbox(path string, args []string, p Policy) (cmdPath string, cmdArgs 
 		return "", nil, Isolation{}, nil, err
 	}
 	noop := func() {}
+	if preferLandlock && landlockABI() >= 1 {
+		mode = IsoLandlock
+		probeNote = ""
+		if abi := landlockABI(); abi < 4 {
+			probeNote = fmt.Sprintf("network is not restricted (Landlock ABI %d < 4)", abi)
+		}
+	}
 	if mode == IsoBwrap {
 		a := bwrapArgs(p)
 		a = append(a, "--", path)

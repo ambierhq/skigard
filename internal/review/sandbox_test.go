@@ -60,6 +60,31 @@ type sbEnv struct {
 	iso         Isolation
 }
 
+// sbEach runs a test against every OS sandbox available here: the default
+// choice (bwrap, else Landlock, on Linux) and, on Linux, Landlock explicitly.
+func sbEach(t *testing.T, fn func(t *testing.T, e *sbEnv)) {
+	t.Helper()
+	t.Run("default", func(t *testing.T) { fn(t, newSBEnv(t)) })
+	if runtime.GOOS != "linux" {
+		return
+	}
+	t.Run("landlock", func(t *testing.T) {
+		if landlockABIForTest() < 1 {
+			if os.Getenv("GITHUB_ACTIONS") != "" {
+				t.Fatal("Landlock is not available on this CI runner")
+			}
+			t.Skip("Landlock is not available in this kernel")
+		}
+		preferLandlock = true
+		defer func() { preferLandlock = false }()
+		e := newSBEnv(t)
+		if _, err := e.run(t, true, "read", filepath.Join(e.allow, "cfg")); err != nil || e.iso.Mode != IsoLandlock {
+			t.Fatalf("expected the landlock sandbox, got %q (%v)", e.iso.Mode, err)
+		}
+		fn(t, e)
+	})
+}
+
 func newSBEnv(t *testing.T) *sbEnv {
 	t.Helper()
 	mode, err := osSandboxAvailable()
@@ -131,89 +156,94 @@ func (e *sbEnv) run(t *testing.T, sandboxed bool, op, arg string) (string, error
 }
 
 func TestSandboxAllowedRead(t *testing.T) {
-	e := newSBEnv(t)
-	arg := filepath.Join(e.allow, "cfg")
-	if out, err := e.run(t, false, "read", arg); err != nil || out != "allowed" {
-		t.Fatalf("control run without sandbox failed: %v %q", err, out)
-	}
-	out, err := e.run(t, true, "read", arg)
-	if err != nil || out != "allowed" {
-		t.Fatalf("allowed read failed under %s: %v %q", e.iso.Mode, err, out)
-	}
+	sbEach(t, func(t *testing.T, e *sbEnv) {
+		arg := filepath.Join(e.allow, "cfg")
+		if out, err := e.run(t, false, "read", arg); err != nil || out != "allowed" {
+			t.Fatalf("control run without sandbox failed: %v %q", err, out)
+		}
+		out, err := e.run(t, true, "read", arg)
+		if err != nil || out != "allowed" {
+			t.Fatalf("allowed read failed under %s: %v %q", e.iso.Mode, err, out)
+		}
+	})
 }
 
 func TestSandboxDeniesReadOutsideAllowlist(t *testing.T) {
-	e := newSBEnv(t)
-	key := filepath.Join(e.home, ".ssh", "id_rsa")
-	if out, err := e.run(t, false, "read", key); err != nil || out != "PRIVATE KEY" {
-		t.Fatalf("control run without sandbox failed: %v %q", err, out)
-	}
-	out, err := e.run(t, true, "read", key)
-	if !denied(out, err) || strings.Contains(out, "PRIVATE KEY") {
-		t.Fatalf("read of a file in the fake HOME outside the allowlist succeeded under %s: %q", e.iso.Mode, out)
-	}
+	sbEach(t, func(t *testing.T, e *sbEnv) {
+		key := filepath.Join(e.home, ".ssh", "id_rsa")
+		if out, err := e.run(t, false, "read", key); err != nil || out != "PRIVATE KEY" {
+			t.Fatalf("control run without sandbox failed: %v %q", err, out)
+		}
+		out, err := e.run(t, true, "read", key)
+		if !denied(out, err) || strings.Contains(out, "PRIVATE KEY") {
+			t.Fatalf("read of a file in the fake HOME outside the allowlist succeeded under %s: %q", e.iso.Mode, out)
+		}
+	})
 }
 
 func TestSandboxDeniesWriteOutsideWorkDir(t *testing.T) {
-	e := newSBEnv(t)
-	outside := filepath.Join(e.home, "pwned")
-	if out, err := e.run(t, true, "write", outside); !denied(out, err) {
-		t.Fatalf("write outside the temp dir succeeded under %s", e.iso.Mode)
-	}
-	if _, err := os.Stat(outside); err == nil {
-		t.Fatal("file was created outside the temp dir")
-	}
-	// the read-only allowlist is not writable either
-	if out, err := e.run(t, true, "write", filepath.Join(e.allow, "cfg")); !denied(out, err) {
-		t.Fatalf("write into a read-only allowlisted dir succeeded under %s", e.iso.Mode)
-	}
-	inside := filepath.Join(e.work, "ok")
-	if out, err := e.run(t, true, "write", inside); err != nil {
-		t.Fatalf("write inside the temp dir failed under %s: %v %s", e.iso.Mode, err, out)
-	}
+	sbEach(t, func(t *testing.T, e *sbEnv) {
+		outside := filepath.Join(e.home, "pwned")
+		if out, err := e.run(t, true, "write", outside); !denied(out, err) {
+			t.Fatalf("write outside the temp dir succeeded under %s", e.iso.Mode)
+		}
+		if _, err := os.Stat(outside); err == nil {
+			t.Fatal("file was created outside the temp dir")
+		}
+		// the read-only allowlist is not writable either
+		if out, err := e.run(t, true, "write", filepath.Join(e.allow, "cfg")); !denied(out, err) {
+			t.Fatalf("write into a read-only allowlisted dir succeeded under %s", e.iso.Mode)
+		}
+		inside := filepath.Join(e.work, "ok")
+		if out, err := e.run(t, true, "write", inside); err != nil {
+			t.Fatalf("write inside the temp dir failed under %s: %v %s", e.iso.Mode, err, out)
+		}
+	})
 }
 
 func TestSandboxDeniesNonHTTPSPort(t *testing.T) {
-	e := newSBEnv(t)
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	must(t, err)
-	defer ln.Close()
-	go func() {
-		for {
-			c, err := ln.Accept()
-			if err != nil {
-				return
+	sbEach(t, func(t *testing.T, e *sbEnv) {
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		must(t, err)
+		defer ln.Close()
+		go func() {
+			for {
+				c, err := ln.Accept()
+				if err != nil {
+					return
+				}
+				c.Close()
 			}
-			c.Close()
+		}()
+		addr := ln.Addr().String()
+		if out, err := e.run(t, false, "connect", addr); err != nil {
+			t.Fatalf("control connect without sandbox failed: %v %s", err, out)
 		}
-	}()
-	addr := ln.Addr().String()
-	if out, err := e.run(t, false, "connect", addr); err != nil {
-		t.Fatalf("control connect without sandbox failed: %v %s", err, out)
-	}
-	out, err := e.run(t, true, "connect", addr)
-	switch {
-	case e.iso.Mode == IsoBwrap:
-		t.Skipf("bubblewrap shares the host network, so it cannot restrict ports (recorded as a known gap): %s", e.iso.Note)
-	case e.iso.Mode == IsoLandlock && landlockABIForTest() < 4:
-		t.Skipf("Landlock ABI %d cannot restrict TCP connect (needs 4): %s", landlockABIForTest(), e.iso.Note)
-	}
-	if !denied(out, err) {
-		t.Fatalf("connection to a non-443 port succeeded under %s", e.iso.Mode)
-	}
+		out, err := e.run(t, true, "connect", addr)
+		switch {
+		case e.iso.Mode == IsoBwrap:
+			t.Skipf("bubblewrap shares the host network, so it cannot restrict ports (recorded as a known gap): %s", e.iso.Note)
+		case e.iso.Mode == IsoLandlock && landlockABIForTest() < 4:
+			t.Skipf("Landlock ABI %d cannot restrict TCP connect (needs 4): %s", landlockABIForTest(), e.iso.Note)
+		}
+		if !denied(out, err) {
+			t.Fatalf("connection to a non-443 port succeeded under %s", e.iso.Mode)
+		}
+	})
 }
 
 func TestSandboxDeniesExecOutsideAllowlist(t *testing.T) {
-	e := newSBEnv(t)
-	tool, err := exec.LookPath("true")
-	must(t, err)
-	out, err := e.run(t, true, "exec", tool)
-	if !denied(out, err) {
-		if e.iso.Mode == IsoBwrap {
-			t.Skip("bubblewrap exposes /usr read-only and does not restrict exec (documented gap)")
+	sbEach(t, func(t *testing.T, e *sbEnv) {
+		tool, err := exec.LookPath("true")
+		must(t, err)
+		out, err := e.run(t, true, "exec", tool)
+		if !denied(out, err) {
+			if e.iso.Mode == IsoBwrap {
+				t.Skip("bubblewrap exposes /usr read-only and does not restrict exec (documented gap)")
+			}
+			t.Fatalf("executing %s was not refused under %s: %v %s", tool, e.iso.Mode, err, out)
 		}
-		t.Fatalf("executing %s was not refused under %s: %v %s", tool, e.iso.Mode, err, out)
-	}
+	})
 }
 
 func TestSandboxUnavailableNeedsPolicyOnlyFlag(t *testing.T) {
@@ -301,7 +331,7 @@ func TestSandboxMode(t *testing.T) {
 	if !ok {
 		t.Fatalf("unexpected sandbox %q on %s", mode, runtime.GOOS)
 	}
-	line := fmt.Sprintf("reviewer sandbox exercised on %s/%s: %s (landlock ABI %d)", runtime.GOOS, runtime.GOARCH, mode, landlockABIForTest())
+	line := fmt.Sprintf("reviewer sandbox exercised on %s/%s: default=%s, also tested explicitly: landlock=%v (ABI %d)", runtime.GOOS, runtime.GOARCH, mode, runtime.GOOS == "linux" && landlockABIForTest() >= 1, landlockABIForTest())
 	t.Log(line)
 	if f := os.Getenv("GITHUB_STEP_SUMMARY"); f != "" {
 		if w, err := os.OpenFile(f, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600); err == nil {
