@@ -29,9 +29,25 @@ prompt on stdin.
 
 ## What the reviewer sees and cannot do
 
+Isolation today is **by policy, not by an OS sandbox**. skigard asks the harness to run without capabilities and
+controls what it hands over; it does not confine the harness process.
+
+What exists:
+
+- tools, MCP, extensions, skills and sessions are disabled with the harness's own flags (table above);
+- an empty temporary working directory;
+- a scrubbed environment (below);
+- the skill goes on stdin only, never in argv;
+- a timeout and output size caps.
+
+What does **not** exist yet: OS-level filesystem isolation (the harness process can still read any file your user
+can, such as `~/.ssh`) and network isolation (it can connect anywhere). The flags are only as good as the harness's
+implementation of them. Because the reviewer is advisory and can only raise concern, a compromised review cannot
+approve or lower a verdict, but it could still read files or send data. Use `--manual` if that matters.
+
 - It receives the skill's files as text on **stdin** inside random delimiters, plus the scanner's findings.
   Skill content never appears in the argument list.
-- It runs with **no tools**, in an **empty temporary working directory**, with a **scrubbed environment**:
+- It runs with **tools disabled by flag**, in an **empty temporary working directory**, with a **scrubbed environment**:
   only `PATH`, `HOME`, locale and proxy variables, plus the credential prefixes that harness needs
   (for example `ANTHROPIC_*` for Claude). `GITHUB_TOKEN`, `AWS_*` (unless the harness needs it), SSH agent sockets and
   everything else are removed.

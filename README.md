@@ -98,7 +98,7 @@ Every command takes `--json` and `--home PATH`. Exit codes: `0` ok, `1` policy/d
 
 1. **Scan** (`skigard scan`): [34 rules](docs/rules.md) plus capability chains. Any `high`/`critical` finding is
    a **block**; `medium` or incomplete coverage is a **review**. Binary or oversized files make coverage *partial*.
-2. **Review** (optional): an installed harness reads the files with all tools disabled. It can only add doubt.
+2. **Review** (optional): an installed harness reads the files with its tools disabled by flag (isolation by policy, no OS sandbox yet; see [docs/review.md](docs/review.md)). It can only add doubt.
 3. **Approve**: you see the scan, the review and the diff against what you approved before, and type the skill name.
    A block, partial coverage or a failing review needs `--override --reason "..."`, which is recorded and shown by
    `status` and `verify` forever. `--accept REASON` can accept low/medium findings (never high/critical).
