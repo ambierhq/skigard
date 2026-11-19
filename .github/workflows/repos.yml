@@ -3,30 +3,29 @@ name: repos
 # `ambier-releases` (static assets, https://releases.ambierhq.com). No R2.
 #  - pull requests touching packaging/repos: build from a GoReleaser snapshot with a THROWAWAY key and install from the
 #    result in clean ubuntu/debian/fedora/arch containers. Nothing is deployed.
-#  - after the `release` workflow succeeds on a tag: build from the last 3 releases with the real key and deploy,
+#  - called by the `release` workflow after a tag release succeeded: build from the last 3 releases with the real key and deploy,
 #    but only when GPG_PRIVATE_KEY and CLOUDFLARE_API_TOKEN exist. Without them the job reports and exits green.
 on:
   pull_request:
     paths:
       - packaging/repos/**
       - .github/workflows/repos.yml
-  workflow_run:
-    workflows: [release]
-    types: [completed]
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      tag: {description: "release tag being published, e.g. v0.1.0", type: string, required: true}
+    secrets:
+      GPG_PRIVATE_KEY: {required: false}
+      GPG_PASSPHRASE: {required: false}
+      CLOUDFLARE_API_TOKEN: {required: false}
+      CLOUDFLARE_ACCOUNT_ID: {required: false}
 permissions: {}
 jobs:
   build:
-    # workflow_run fires for the snapshot runs of `release` too; only tag pushes publish.
-    if: >-
-      github.event_name != 'workflow_run' ||
-      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' &&
-        startsWith(github.event.workflow_run.head_branch, 'v'))
     permissions: {contents: read}
     timeout-minutes: 30
     runs-on: ubuntu-latest
     env:
-      PUBLISH: ${{ github.event_name == 'workflow_run' && 'true' || 'false' }}
+      PUBLISH: ${{ inputs.tag != '' && 'true' || 'false' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {fetch-depth: 0, persist-credentials: false}
@@ -105,7 +104,7 @@ jobs:
           retention-days: 3
   deploy:
     needs: build
-    if: github.event_name == 'workflow_run'
+    if: inputs.tag != ''
     permissions: {contents: read}
     timeout-minutes: 15
     runs-on: ubuntu-latest

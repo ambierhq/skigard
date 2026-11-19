@@ -10,6 +10,10 @@ on:
       - packaging/**
       - scripts/homebrew-formula.sh
       - .github/workflows/release.yml
+      - .github/workflows/repos.yml
+      - .github/workflows/aur.yml
+      - npm/**
+      - scripts/npm-pack.mjs
   workflow_dispatch:
 permissions: {}
 jobs:
@@ -98,3 +102,64 @@ jobs:
           git config user.email "skigard@ambierhq.com"
           git add Formula/skigard.rb
           git diff --cached --quiet || { git commit -m "skigard ${version}" && git push origin HEAD; }
+  # Everything below runs only after the release exists, and only does something when its switch is configured.
+  repos:
+    needs: release
+    if: github.event_name == 'push'
+    permissions: {contents: read}
+    uses: ./.github/workflows/repos.yml
+    with: {tag: "${{ github.ref_name }}"}
+    secrets:
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+  aur:
+    needs: release
+    if: github.event_name == 'push'
+    permissions: {contents: read}
+    uses: ./.github/workflows/aur.yml
+    with: {tag: "${{ github.ref_name }}"}
+    secrets:
+      AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+  # npm trusted publishing (OIDC, provenance) must be configured on npmjs.com for THIS workflow file (release.yml).
+  # Skipped unless the repository variable NPM_PUBLISH is "true".
+  npm:
+    needs: release
+    if: github.event_name == 'push' && vars.NPM_PUBLISH == 'true'
+    permissions:
+      contents: read
+      id-token: write   # npm trusted publishing + provenance
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - name: download the archives and verify them against checksums.txt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir dist
+          gh release download "$TAG" --dir dist --pattern 'skigard_*.tar.gz' --pattern 'skigard_*.zip' --pattern checksums.txt
+          (cd dist && grep -E '\.(tar\.gz|zip)$' checksums.txt | sha256sum --check --strict)
+      - name: build the packages (versions equal the tag)
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node scripts/npm-pack.mjs --dist dist --version "${TAG#v}" --out npm-dist --pack
+      - name: npm with trusted publishing support
+        run: npm install --global npm@11.21.3
+      - name: publish (platform packages first, then the launcher)
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          tag_flag=()
+          case "$version" in *-*) tag_flag=(--tag next) ;; esac
+          for t in npm-dist/tarballs/ambierhq-skigard-*.tgz npm-dist/tarballs/skigard-*.tgz; do
+            name="$(tar -xOzf "$t" package/package.json | jq -r .name)"
+            if npm view "$name@$version" version >/dev/null 2>&1; then echo "$name@$version already published"; continue; fi
+            npm publish "$t" --provenance --access public "${tag_flag[@]}"
+          done

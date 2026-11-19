@@ -20,5 +20,5 @@
     "@ambierhq/skigard-win32-arm64": "0.0.0-dev",
     "@ambierhq/skigard-win32-x64": "0.0.0-dev"
   },
-  "scripts": {"test": "node --test test/"}
+  "scripts": {"test": "node --test test/*.test.mjs"}
 }

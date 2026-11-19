@@ -4,7 +4,9 @@
 # Needs repo-add (pacman-contrib/pacman) and gpg, so run it in an archlinux container (the workflow does).
 # Packages and the databases get detached .sig files. Symlinks are replaced by copies
 # because Worker static assets do not follow them.
-here="$(cd "$(dirname "$0")" && pwd)"; . "$here/common.sh"
+here="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=packaging/repos/common.sh
+. "$here/common.sh"
 [ $# -eq 2 ] || die "usage: $0 PKGDIR OUTDIR"
 pkgdir="$1"; arch="$2/arch"
 need repo-add; need bsdtar

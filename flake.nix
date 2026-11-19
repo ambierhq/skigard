@@ -16,6 +16,11 @@
           version = "0.0.0-${self.shortRev or self.dirtyShortRev or "dev"}";
           src = self;
           subPackages = [ "cmd/skigard" ];
+          # go.mod requires the newest Go patch release and nixpkgs can lag by a patch: build with the Go nixpkgs has
+          # (the code does not need the newer patch). Drop this once nixpkgs catches up.
+          postPatch = ''
+            sed -i -E 's/^go [0-9]+\.[0-9]+(\.[0-9]+)?$/go ${pkgs.go.version}/' go.mod
+          '';
           # Hash of `go mod vendor`. Refresh with: mise x -- python3 scripts/nix-vendor-hash.py
           # (CI builds with nix and fails if it is stale).
           vendorHash = "sha256-pbA/AlBz3cQYRTMnQ/qBPcinYOKokrBLNhkbRTq54gE=";

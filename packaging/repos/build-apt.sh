@@ -3,7 +3,9 @@
 #   packaging/repos/build-apt.sh PKGDIR OUTDIR     (OUTDIR/apt is created)
 # Needs: dpkg-deb, dpkg-scanpackages (dpkg-dev), gzip, sha256sum or shasum, gpg.
 # Layout: apt/pool/main/s/skigard/*.deb, apt/dists/stable/{Release,Release.gpg,InRelease,main/binary-*/Packages*}, apt/key.gpg
-here="$(cd "$(dirname "$0")" && pwd)"; . "$here/common.sh"
+here="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=packaging/repos/common.sh
+. "$here/common.sh"
 [ $# -eq 2 ] || die "usage: $0 PKGDIR OUTDIR"
 pkgdir="$1"; apt="$2/apt"
 need dpkg-deb; need dpkg-scanpackages; need gzip

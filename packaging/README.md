@@ -6,7 +6,7 @@ binaries, `.deb/.rpm/.pkg.tar.zst`, `install.sh` and `install.ps1` are GitHub re
 
 | Channel | Source | Test locally | Release-time switch (owner sets) |
 |---|---|---|---|
-| npm | `npm/`, `scripts/npm-pack.mjs`, `.github/workflows/npm-publish.yml` | `node --test npm/test/`, `scripts/npm-smoke.sh dist VERSION` | repo variable `NPM_PUBLISH=true`, `@ambierhq` npm org, trusted publisher per package (workflow `npm-publish.yml`, environment `npm`) |
+| npm | `npm/`, `scripts/npm-pack.mjs`, `.github/workflows/release.yml` | `node --test npm/test/`, `scripts/npm-smoke.sh dist VERSION` | repo variable `NPM_PUBLISH=true`, `@ambierhq` npm org, trusted publisher per package (workflow `release.yml`, environment `npm`) |
 | apt / rpm / pacman | `packaging/repos/`, `.github/workflows/repos.yml` | `build-apt.sh` locally; apt, rpm and arch in containers via the workflow | secrets `GPG_PRIVATE_KEY` (+ `GPG_PASSPHRASE`), `CLOUDFLARE_API_TOKEN` (+ `CLOUDFLARE_ACCOUNT_ID`); Worker `ambier-releases` on `releases.ambierhq.com` |
 | Arch / AUR | `packaging/arch`, `packaging/aur`, `.github/workflows/{arch,aur}.yml` | `docker run archlinux ... packaging/arch/test.sh` (CI does) | secret `AUR_SSH_KEY` (the AUR packages must first be created by the owner) |
 | Nix | `flake.nix`, `packaging/nixpkgs/package.nix`, `.github/workflows/nix.yml` | `nix build` (CI does) | none for the flake; nixpkgs PR is the owner's |

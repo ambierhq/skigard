@@ -15,7 +15,7 @@ tar -czf "$work/skigard-$version.tar.gz" -C /tmp/t "skigard-$version"
 sed -e "s|^source=.*|source=(\"\$pkgname-\$pkgver.tar.gz\")|" /src/packaging/arch/PKGBUILD > "$work/PKGBUILD"
 chown -R builder:builder "$work"
 su builder -c "cd $work && makepkg --noconfirm -f"
-pkg="$(ls "$work"/skigard-*.pkg.tar.zst)"
+pkg="$(ls "$work"/skigard-[0-9]*.pkg.tar.zst)"
 
 echo "== namcap"
 namcap "$work/PKGBUILD"

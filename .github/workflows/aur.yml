@@ -2,19 +2,14 @@ name: aur
 # Updates the AUR packages `skigard` and `skigard-bin` after a release. Does nothing without the AUR_SSH_KEY secret.
 # The key is the owner's; the owner also decides when to create the AUR packages for the first time.
 on:
-  workflow_run:
-    workflows: [release]
-    types: [completed]
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      tag: {description: "release tag, e.g. v0.1.0", required: true}
+      tag: {description: "release tag, e.g. v0.1.0", type: string, required: true}
+    secrets:
+      AUR_SSH_KEY: {required: false}
 permissions: {}
 jobs:
   aur:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' &&
-        startsWith(github.event.workflow_run.head_branch, 'v'))
     permissions: {contents: read}
     timeout-minutes: 10
     runs-on: ubuntu-latest
@@ -27,14 +22,13 @@ jobs:
           AUR_SSH_KEY_DATA: ${{ secrets.AUR_SSH_KEY }}
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          INPUT_TAG: ${{ inputs.tag }}
-          RUN_TAG: ${{ github.event.workflow_run.head_branch }}
+          TAG_INPUT: ${{ inputs.tag }}
         run: |
           if [ -z "$AUR_SSH_KEY_DATA" ]; then
             echo "::notice::AUR_SSH_KEY is not set; not updating the AUR"
             exit 0
           fi
-          tag="${INPUT_TAG:-$RUN_TAG}"
+          tag="$TAG_INPUT"
           case "$tag" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo "bad tag: $tag" >&2; exit 1 ;; esac
           case "$tag" in *-*) echo "pre-release $tag is not published to the AUR"; exit 0 ;; esac
           mkdir dist && gh release download "$tag" --dir dist --pattern checksums.txt

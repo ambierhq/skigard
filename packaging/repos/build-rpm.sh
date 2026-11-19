@@ -2,7 +2,9 @@
 # Build a signed rpm repository (one per arch, for $basearch) from the .rpm files in PKGDIR.
 #   packaging/repos/build-rpm.sh PKGDIR OUTDIR     (OUTDIR/rpm/{x86_64,aarch64} are created)
 # Needs: rpm (rpmsign), createrepo_c, gpg. Packages and repomd.xml are both signed.
-here="$(cd "$(dirname "$0")" && pwd)"; . "$here/common.sh"
+here="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=packaging/repos/common.sh
+. "$here/common.sh"
 [ $# -eq 2 ] || die "usage: $0 PKGDIR OUTDIR"
 pkgdir="$1"; rpmdir="$2/rpm"
 need rpmsign; need createrepo_c

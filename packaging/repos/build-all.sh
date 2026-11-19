@@ -3,7 +3,9 @@
 #   packaging/repos/build-all.sh PKGDIR OUTDIR [apt] [rpm] [arch]     (default: all three)
 # PKGDIR holds GoReleaser's .deb/.rpm/.pkg.tar.zst files for the versions to publish (the newest ${KEEP:-3} are kept).
 # The arch step needs repo-add, so in CI it runs in an archlinux container: call this script once per format.
-here="$(cd "$(dirname "$0")" && pwd)"; . "$here/common.sh"
+here="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=packaging/repos/common.sh
+. "$here/common.sh"
 [ $# -ge 2 ] || die "usage: $0 PKGDIR OUTDIR [apt] [rpm] [arch]"
 pkgdir="$1"; out="$2"; shift 2
 [ $# -gt 0 ] || set -- apt rpm arch
