@@ -53,6 +53,8 @@ type ReviewOpts struct {
 	Harness         string
 	Model           string
 	AllowUnverified bool
+	// AllowPolicyOnly accepts isolation by policy when no OS sandbox works. Advisory review only; approval never reads it.
+	AllowPolicyOnly bool
 }
 
 // Review runs a harness as a tool-less reviewer (isolated by policy, not by an OS sandbox) and stores the result.
@@ -88,7 +90,8 @@ func (a *App) Review(ctx context.Context, name string, o ReviewOpts) (*review.Re
 	if r.Environ == nil {
 		r.Environ = os.Environ()
 	}
-	raw, err := r.Run(ctx, t, o.Model, in)
+	r.AllowPolicyOnly = o.AllowPolicyOnly
+	raw, iso, err := r.Run(ctx, t, o.Model, in)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +100,7 @@ func (a *App) Review(ctx context.Context, name string, o ReviewOpts) (*review.Re
 		return nil, err
 	}
 	rec.Reviewer, rec.Model, rec.InputHash, rec.PromptHash = t.ID, o.Model, meta.ContentHash, in.PromptHash
+	rec.Isolation, rec.IsolationNote = iso.Mode, iso.Note
 	rec.At = util.Now()
 	rec.Raw = util.Clean(truncate(raw, 32<<10))
 	meta.Review = rec
