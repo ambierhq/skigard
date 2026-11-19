@@ -1,0 +1,36 @@
+name: Harness request or correction
+description: Add an agent harness, or fix or verify its skill paths
+labels: [harness]
+body:
+  - type: input
+    id: harness
+    attributes:
+      label: Harness name and homepage
+    validations:
+      required: true
+  - type: input
+    id: project
+    attributes:
+      label: Project-scope skills directory
+      placeholder: .agents/skills
+    validations:
+      required: true
+  - type: input
+    id: global
+    attributes:
+      label: Global skills directory
+      placeholder: ~/.agents/skills
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Link to the harness documentation, or describe the machine where you saw it load a skill from that path.
+    validations:
+      required: true
+  - type: input
+    id: detect
+    attributes:
+      label: How to detect it
+      description: Executable name, macOS app bundle, config directory or environment variable.

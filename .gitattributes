@@ -1,0 +1,6 @@
+* text=auto eol=lf
+
+# Byte-exact fixtures and test vectors: never rewrite line endings, so hashes
+# match on Windows checkouts. (No testdata directories exist yet; this covers
+# future ones. The content-hash test vector is inline in internal/hash/hash_test.go.)
+internal/**/testdata/** -text
