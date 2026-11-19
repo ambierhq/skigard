@@ -1,6 +1,9 @@
-// Package review runs an agent harness as a sandboxed, advisory reviewer of a
-// quarantined skill. The reviewer gets the skill text on stdin with all tools
-// disabled, in an empty working directory and a scrubbed environment. Its
+// Package review runs an agent harness as an advisory reviewer of a quarantined
+// skill. The reviewer gets the skill text on stdin with tools, MCP, extensions
+// and sessions disabled by the harness's own flags, in an empty working
+// directory and a scrubbed environment, with a timeout and output caps. That is
+// isolation by policy: there is no OS-level filesystem or network isolation, so
+// a misbehaving harness binary could still read files or reach the network. Its
 // output is untrusted too: it can only raise concern, never lower the scanner's.
 package review
 

@@ -133,7 +133,7 @@ printf '{"verdict":"pass","summary":"cwd_entries=%s secret=[%s] stdin_has_skill=
 		t.Fatal(err)
 	}
 	if !strings.Contains(rec.Summary, "cwd_entries=0") || !strings.Contains(rec.Summary, "secret=[]") || !strings.Contains(rec.Summary, "stdin_has_skill=1") {
-		t.Errorf("sandbox properties violated: %s", rec.Summary)
+		t.Errorf("isolation-by-policy properties violated: %s", rec.Summary)
 	}
 }
 

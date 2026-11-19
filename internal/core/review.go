@@ -55,7 +55,7 @@ type ReviewOpts struct {
 	AllowUnverified bool
 }
 
-// Review runs a harness as a sandboxed reviewer and stores the result.
+// Review runs a harness as a tool-less reviewer (isolated by policy, not by an OS sandbox) and stores the result.
 func (a *App) Review(ctx context.Context, name string, o ReviewOpts) (*review.Record, error) {
 	ctx = ctxOrBackground(ctx)
 	if err := review.Supported(); err != nil {
