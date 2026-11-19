@@ -183,3 +183,6 @@ func BuildPolicy(bin string, t Template, home, work string) Policy {
 	}
 	return Policy{Work: work, Read: read.list, Exec: ex.list, MapExec: mapx.list, LockDirs: locks.list, Write: write.list, Home: home}
 }
+
+// preferLandlock makes the Linux planSandbox use Landlock even when bwrap works (tests).
+var preferLandlock bool

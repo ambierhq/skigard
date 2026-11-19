@@ -54,9 +54,6 @@ const (
 	llNetConnectTCP = 1 << 1 // ABI 4
 )
 
-// preferLandlock makes planSandbox use Landlock even when bwrap works (tests).
-var preferLandlock bool
-
 var (
 	probeOnce  sync.Once
 	probeIso   string

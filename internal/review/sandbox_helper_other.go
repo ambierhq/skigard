@@ -17,5 +17,3 @@ func SandboxHelper([]string) int {
 }
 
 func landlockABIPortable() int { return 0 }
-
-var preferLandlock bool
