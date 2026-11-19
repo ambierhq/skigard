@@ -8,7 +8,7 @@
 | File | Use |
 | --- | --- |
 | `mark.svg` | the mark on dark backgrounds |
-| `mark-on-light.svg` | the mark on light backgrounds (darker amber for contrast) |
+| `mark-on-light.svg` | the mark on light backgrounds (darker blue for contrast) |
 | `mark-mono.svg` | one colour, follows CSS `color` (`currentColor`); stamps, print, dark-on-anything |
 | `logo-full.svg`, `logo-full-on-light.svg` | mark and the wordmark "skigard" (README header, site) |
 | `favicon.svg`, `favicon.ico`, `favicon-32.png`, `apple-touch-icon.png` (180), `icon-512.png` | small sizes; heavier strokes than the mark so it holds at 16 px |
@@ -20,13 +20,15 @@ converted to outlines (the font is SIL OFL, which allows this). The rasters are 
 
 ## Palette
 
+The accent is sky blue (changed from amber, which the Ambier company site keeps). It lives in one place per file; change `#5AA9FF` / `#2B6CB0` in the SVGs and re-render the rasters to move it.
+
 | Role | Hex |
 | --- | --- |
 | Background | `#16130E` |
 | Foreground | `#F4EEE2` |
 | Dim text | `#B7A98C` |
-| Accent (amber, the "byte") | `#EFA226` |
-| Accent on light backgrounds | `#D4880E` |
+| Accent (sky blue, the "byte") | `#5AA9FF` |
+| Accent on light backgrounds | `#2B6CB0` |
 
 ## Fonts
 
@@ -37,13 +39,13 @@ Both are SIL OFL. Self-host them; never load them from Google Fonts.
 
 ## Usage
 
-- **Clear space:** keep at least the height of the amber square (about 1/6 of the mark height) free on every side.
+- **Clear space:** keep at least the height of the accent square (about 1/6 of the mark height) free on every side.
 - **Minimum size:** `mark*.svg` 24 px high, `logo-full*.svg` 24 px high. Below that use `favicon.svg`.
 - Dark backgrounds get `mark.svg`/`logo-full.svg`; light ones get the `-on-light` files. In READMEs use
   `<picture>` with `prefers-color-scheme`.
 
 Do:
-- Keep the amber square the only amber element.
+- Keep the square the only accent-coloured element.
 - Use the files as they are.
 
 Don't:
