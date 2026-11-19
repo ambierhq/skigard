@@ -81,7 +81,7 @@ jobs:
         run: |
           GPG_PRIVATE_KEY="$(cat "$RUNNER_TEMP/key.asc")" docker run --rm -e GPG_PRIVATE_KEY -e GPG_PASSPHRASE \
             -v "$PWD:/w" -w /w archlinux:latest sh -ec '
-              pacman -Sy --noconfirm --needed pacman-contrib gnupg libarchive bash >/dev/null
+              pacman -Syu --noconfirm --needed pacman-contrib gnupg libarchive bash >/dev/null
               packaging/repos/build-all.sh dist repos-dist arch
               chown -R '"$(id -u):$(id -g)"' repos-dist'
       - name: files and sizes

@@ -107,7 +107,7 @@ jobs:
     needs: release
     if: github.event_name == 'push'
     permissions: {contents: read}
-    uses: ./.github/workflows/repos.yml
+    uses: ./.github/workflows/repos.yml  # zizmor: ignore[self-repository] actionlint rejects the $/ form
     with: {tag: "${{ github.ref_name }}"}
     secrets:
       GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -118,7 +118,7 @@ jobs:
     needs: release
     if: github.event_name == 'push'
     permissions: {contents: read}
-    uses: ./.github/workflows/aur.yml
+    uses: ./.github/workflows/aur.yml  # zizmor: ignore[self-repository] actionlint rejects the $/ form
     with: {tag: "${{ github.ref_name }}"}
     secrets:
       AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
@@ -150,7 +150,7 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: node scripts/npm-pack.mjs --dist dist --version "${TAG#v}" --out npm-dist --pack
       - name: npm with trusted publishing support
-        run: npm install --global npm@11.21.3
+        run: npm install --global npm@11.21.3  # zizmor: ignore[adhoc-packages] trusted publishing needs npm >= 11.5.1; exact version pinned
       - name: publish (platform packages first, then the launcher)
         env:
           TAG: ${{ github.ref_name }}
