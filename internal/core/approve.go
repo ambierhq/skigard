@@ -221,6 +221,7 @@ func (a *App) summary(meta *store.Meta, rep *scan.Report, rev *review.Record, st
 	switch {
 	case rev != nil:
 		fmt.Fprintf(&b, "review (%s, advisory): %s, coverage %s\n  %s\n", util.Clean(rev.Reviewer), strings.ToUpper(rev.Verdict), rev.Coverage, util.Clean(rev.Summary))
+		fmt.Fprintf(&b, "  isolation: %s\n", isolationLine(rev))
 		for _, f := range rev.Findings {
 			fmt.Fprintf(&b, "    [%s] %s:%d %s\n", f.Severity, util.Clean(f.File), f.Line, util.Clean(f.Why))
 		}
@@ -267,4 +268,19 @@ func (a *App) Diff(name string) (string, error) {
 		old = a.Home.SkillDir(name)
 	}
 	return diff.Dirs(old, a.Home.QuarantineSkill(name))
+}
+
+// isolationLine describes how the reviewer was confined, for the approval screen.
+func isolationLine(r *review.Record) string {
+	switch r.Isolation {
+	case "":
+		return "not recorded (manual review, or recorded before isolation was tracked)"
+	case review.IsoPolicyOnly:
+		return "policy-only (WEAKER: tools disabled by flag, but no OS sandbox; the reviewer could read your files and reach the network)"
+	}
+	s := util.Clean(r.Isolation) + " (OS sandbox)"
+	if r.IsolationNote != "" {
+		s += "; " + util.Clean(r.IsolationNote)
+	}
+	return s
 }

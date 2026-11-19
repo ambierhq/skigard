@@ -124,7 +124,7 @@ printf '{"verdict":"pass","summary":"cwd_entries=%s secret=[%s] stdin_has_skill=
 	d := skillDir(t, nil)
 	in, _ := BuildInput(d, "demo", nil)
 	tpl, _ := TemplateFor("pi")
-	out, err := Runner{Environ: []string{"PATH=/usr/bin:/bin", "GITHUB_TOKEN=topsecret"}, BinOverride: bin}.Run(context.Background(), tpl, "", in)
+	out, _, err := Runner{Environ: []string{"PATH=/usr/bin:/bin", "GITHUB_TOKEN=topsecret"}, BinOverride: bin, NoOSSandbox: true}.Run(context.Background(), tpl, "", in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,10 +140,10 @@ printf '{"verdict":"pass","summary":"cwd_entries=%s secret=[%s] stdin_has_skill=
 func TestRunnerErrors(t *testing.T) {
 	in, _ := BuildInput(skillDir(t, nil), "demo", nil)
 	tpl, _ := TemplateFor("pi")
-	if _, err := (Runner{BinOverride: "definitely-not-installed-xyz"}).Run(context.Background(), tpl, "", in); err == nil {
+	if _, _, err := (Runner{BinOverride: "definitely-not-installed-xyz", NoOSSandbox: true}).Run(context.Background(), tpl, "", in); err == nil {
 		t.Error("expected not installed error")
 	}
-	if _, err := (Runner{Environ: []string{"PATH=/bin:/usr/bin"}, BinOverride: fakeHarness(t, "exit 3")}).Run(context.Background(), tpl, "", in); err == nil {
+	if _, _, err := (Runner{Environ: []string{"PATH=/bin:/usr/bin"}, BinOverride: fakeHarness(t, "exit 3"), NoOSSandbox: true}).Run(context.Background(), tpl, "", in); err == nil {
 		t.Error("expected failure error")
 	}
 }

@@ -412,7 +412,7 @@ func TestReviewWithFakeHarness(t *testing.T) {
 	addLocal(t, a, src, AddOpts{Skill: "alpha"})
 	bin := filepath.Join(t.TempDir(), "fakepi")
 	os.WriteFile(bin, []byte("#!/bin/sh\ncat >/dev/null\necho '{\"verdict\":\"pass\",\"summary\":\"looks fine\",\"description_matches\":true,\"findings\":[]}'\n"), 0o755)
-	a.Runner = review.Runner{Environ: []string{"PATH=/usr/bin:/bin"}, BinOverride: bin}
+	a.Runner = review.Runner{Environ: []string{"PATH=/usr/bin:/bin"}, BinOverride: bin, NoOSSandbox: true}
 	rec, err := a.Review(context.Background(), "alpha", ReviewOpts{Harness: "pi"})
 	if err != nil {
 		t.Fatal(err)
@@ -641,7 +641,7 @@ func TestReviewFailsClosedOnWindows(t *testing.T) {
 	marker := filepath.Join(t.TempDir(), "ran")
 	bin := filepath.Join(t.TempDir(), "fakepi.cmd")
 	os.WriteFile(bin, []byte("@echo ran> "+marker+"\r\n"), 0o755)
-	a.Runner = review.Runner{Environ: os.Environ(), BinOverride: bin}
+	a.Runner = review.Runner{Environ: os.Environ(), BinOverride: bin, NoOSSandbox: true}
 	_, err := a.Review(context.Background(), "alpha", ReviewOpts{Harness: "pi"})
 	if err == nil || !strings.Contains(err.Error(), "not available on Windows") {
 		t.Fatalf("review must refuse on Windows, got %v", err)

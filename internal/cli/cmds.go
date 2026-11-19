@@ -205,6 +205,7 @@ func cmdReview(c *ctx, args []string) error {
 	model := fs.String("model", "", "model for the reviewer, if it supports --model")
 	manual := fs.Bool("manual", false, "print the review prompt instead of running a harness")
 	unverified := fs.Bool("allow-unverified", false, "allow reviewer templates that have not been verified")
+	policyOnly := fs.Bool("allow-policy-only", false, "if no OS sandbox works here, run a verified reviewer isolated by policy only (advisory review; has no effect on approval)")
 	list := fs.Bool("list", false, "list harnesses that can review, then exit")
 	pos, err := parse(fs, args)
 	if err != nil {
@@ -254,15 +255,19 @@ func cmdReview(c *ctx, args []string) error {
 			return err
 		}
 	}
-	c.printf("reviewing %q with %s (read-only, no tools, advisory). This uses your own %s plan/credits once.\n", name, id, id)
-	rec, err := c.app.Review(c.ctx, name, core.ReviewOpts{Harness: id, Model: *model, AllowUnverified: *unverified})
+	iso, isoErr := review.SandboxStatus()
+	if isoErr != nil {
+		c.printf("note: no OS sandbox is available here (%s)\n", util.OneLine(isoErr.Error(), 200))
+	}
+	c.printf("reviewing %q with %s (tools disabled, isolation: %s, advisory). This uses your own %s plan/credits once.\n", name, id, iso.Mode, id)
+	rec, err := c.app.Review(c.ctx, name, core.ReviewOpts{Harness: id, Model: *model, AllowUnverified: *unverified, AllowPolicyOnly: *policyOnly})
 	if err != nil {
 		return err
 	}
 	if c.json {
 		return c.printJSON(rec)
 	}
-	c.printf("review verdict: %s (coverage %s, advisory)\n  %s\n", strings.ToUpper(rec.Verdict), rec.Coverage, util.Clean(rec.Summary))
+	c.printf("review verdict: %s (coverage %s, advisory, isolation %s)\n  %s\n", strings.ToUpper(rec.Verdict), rec.Coverage, rec.Isolation, util.Clean(rec.Summary))
 	for _, f := range rec.Findings {
 		c.printf("  [%s] %s:%d %s\n", f.Severity, util.Clean(f.File), f.Line, util.Clean(f.Why))
 	}

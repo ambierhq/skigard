@@ -13,6 +13,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -61,6 +62,10 @@ type Record struct {
 	At         string    `json:"at"`
 	Raw        string    `json:"raw,omitempty"`
 	Advisory   bool      `json:"advisory"`
+	// Isolation is how the reviewer process was confined: seatbelt, bwrap,
+	// landlock or policy-only (flags and an empty cwd only). Empty for manual reviews.
+	Isolation     string `json:"isolation,omitempty"`
+	IsolationNote string `json:"isolation_note,omitempty"`
 }
 
 // Rank orders verdicts by concern.
@@ -281,13 +286,25 @@ type Template struct {
 	// SystemInStdin: no system-prompt flag, so prepend the system prompt to stdin.
 	SystemInStdin bool
 	EnvPrefixes   []string
-	Note          string
+	// ConfigPaths are files or directories under HOME that the harness needs
+	// to start and authenticate. The OS sandbox lets the reviewer read them
+	// (and nothing else under HOME).
+	ConfigPaths []string
+	// LockDirs are directories under HOME where the harness creates lock
+	// entries (name.lock) next to its credentials. The sandbox allows creating
+	// and removing only those *.lock entries there; existing files stay read-only.
+	LockDirs []string
+	// WritePaths are files or directories (globs allowed) under HOME the
+	// harness must write to even for a one-shot run, such as a sqlite database
+	// in WAL mode. Each entry widens the sandbox, so keep it minimal.
+	WritePaths []string
+	Note       string
 }
 
 // Templates returns the known reviewer templates.
 func Templates() []Template {
 	return []Template{
-		{ID: "claude-code", Bin: "claude", Verified: true, EnvPrefixes: []string{"ANTHROPIC_", "CLAUDE_", "AWS_", "GOOGLE_", "CLOUD_ML_", "VERTEX_"},
+		{ID: "claude-code", Bin: "claude", Verified: true, ConfigPaths: []string{".claude", ".claude.json", ".config/claude"}, EnvPrefixes: []string{"ANTHROPIC_", "CLAUDE_", "AWS_", "GOOGLE_", "CLOUD_ML_", "VERTEX_"},
 			Args: func(system, model string) []string {
 				a := []string{"-p", "--output-format", "text", "--allowed-tools", "", "--permission-mode", "dontAsk",
 					"--strict-mcp-config", "--setting-sources=", "--disable-slash-commands", "--tools", "",
@@ -297,7 +314,7 @@ func Templates() []Template {
 				}
 				return a
 			}, Note: "flags confirmed against `claude --help`"},
-		{ID: "pi", Bin: "pi", Verified: true, EnvPrefixes: []string{"PI_", "ANTHROPIC_", "OPENAI_", "GEMINI_", "GOOGLE_", "AWS_", "OPENROUTER_"},
+		{ID: "pi", Bin: "pi", Verified: true, ConfigPaths: []string{".pi"}, LockDirs: []string{".pi/agent"}, EnvPrefixes: []string{"PI_", "ANTHROPIC_", "OPENAI_", "GEMINI_", "GOOGLE_", "AWS_", "OPENROUTER_"},
 			Args: func(system, model string) []string {
 				a := []string{"-p", "--no-tools", "--no-extensions", "--no-skills", "--no-mcp", "--no-session",
 					"--no-context-files", "--no-prompt-templates", "--system-prompt", system}
@@ -306,7 +323,7 @@ func Templates() []Template {
 				}
 				return a
 			}, Note: "run end to end on the development machine"},
-		{ID: "omp", Bin: "omp", Verified: true, EnvPrefixes: []string{"OMP_", "PI_", "ANTHROPIC_", "OPENAI_", "GEMINI_", "GOOGLE_", "AWS_", "OPENROUTER_"},
+		{ID: "omp", Bin: "omp", Verified: true, ConfigPaths: []string{".omp", ".config/omp"}, WritePaths: []string{".omp/logs", ".omp/natives", ".omp/run", ".omp/cache", ".omp/agent/*.db", ".omp/agent/*.db-wal", ".omp/agent/*.db-shm"}, LockDirs: []string{".omp/agent"}, EnvPrefixes: []string{"OMP_", "PI_", "ANTHROPIC_", "OPENAI_", "GEMINI_", "GOOGLE_", "AWS_", "OPENROUTER_"},
 			Args: func(system, model string) []string {
 				a := []string{"-p", "--no-tools", "--no-extensions", "--no-skills", "--no-rules", "--no-context-files",
 					"--no-session", "--no-lsp", "--system-prompt", system}
@@ -315,7 +332,7 @@ func Templates() []Template {
 				}
 				return a
 			}, Note: "run end to end on the development machine"},
-		{ID: "gemini-cli", Bin: "gemini", Verified: false, SystemInStdin: true, EnvPrefixes: []string{"GEMINI_", "GOOGLE_"},
+		{ID: "gemini-cli", Bin: "gemini", Verified: false, SystemInStdin: true, ConfigPaths: []string{".gemini", ".config/gemini"}, EnvPrefixes: []string{"GEMINI_", "GOOGLE_"},
 			Args: func(_, model string) []string {
 				a := []string{"-p", "", "--approval-mode", "plan"}
 				if model != "" {
@@ -367,12 +384,37 @@ type Runner struct {
 	Timeout time.Duration
 	// BinOverride replaces the executable path (tests).
 	BinOverride string
+	// AllowPolicyOnly lets a verified template run with isolation by policy
+	// (flags, empty cwd, scrubbed env) when no OS sandbox works here. It never
+	// turns an available OS sandbox off, and it only concerns this advisory
+	// review: approval does not read it.
+	AllowPolicyOnly bool
+	// NoOSSandbox skips the OS sandbox and the --allow-policy-only requirement.
+	// For tests that run stand-in scripts; the CLI never sets it.
+	NoOSSandbox bool
+	// noSandboxForTest makes the OS sandbox look unavailable (tests).
+	noSandboxForTest bool
+}
+
+// SandboxStatus reports how a review would be isolated on this machine.
+func SandboxStatus() (Isolation, error) {
+	mode, err := osSandboxAvailable()
+	if err != nil {
+		return Isolation{Mode: IsoPolicyOnly}, err
+	}
+	_, _, iso, cleanup, perr := planSandbox("/usr/bin/true", nil, Policy{Work: os.TempDir()})
+	if perr != nil {
+		return Isolation{Mode: IsoPolicyOnly}, perr
+	}
+	cleanup()
+	iso.Mode = mode
+	return iso, nil
 }
 
 // Run executes the reviewer and returns its raw stdout.
-func (r Runner) Run(ctx context.Context, t Template, model string, in *Input) (string, error) {
+func (r Runner) Run(ctx context.Context, t Template, model string, in *Input) (string, Isolation, error) {
 	if err := Supported(); err != nil {
-		return "", err
+		return "", Isolation{}, err
 	}
 	if r.Timeout == 0 {
 		r.Timeout = 10 * time.Minute
@@ -385,16 +427,42 @@ func (r Runner) Run(ctx context.Context, t Template, model string, in *Input) (s
 	}
 	path, err := exec.LookPath(bin)
 	if err != nil {
-		return "", util.Errf("%s is not installed (looked for %q)", t.ID, bin)
+		return "", Isolation{}, util.Errf("%s is not installed (looked for %q)", t.ID, bin)
 	}
 	work, err := os.MkdirTemp("", "skigard-review-")
 	if err != nil {
-		return "", err
+		return "", Isolation{}, err
 	}
 	defer os.RemoveAll(work)
-	cmd := exec.CommandContext(ctx, path, t.Args(SystemPrompt, model)...) //nolint:gosec // path comes from LookPath of a fixed template binary; content goes only to stdin
+	if w, err := filepath.EvalSymlinks(work); err == nil {
+		work = w // sandboxes match real paths
+	}
+	env := append(ScrubEnv(r.Environ, t.EnvPrefixes), "TMPDIR="+work)
+	argv := t.Args(SystemPrompt, model)
+	iso := Isolation{Mode: IsoPolicyOnly, Note: "no OS-level filesystem or network isolation"}
+	cmdPath := path
+	if !r.NoOSSandbox {
+		home := envValue(env, "HOME")
+		if home == "" {
+			home, _ = os.UserHomeDir()
+		}
+		p, a, i, cleanup, err := planSandbox(path, argv, BuildPolicy(path, t, home, work))
+		if r.noSandboxForTest {
+			err = errors.New("unavailable in this test")
+		}
+		switch {
+		case err == nil:
+			defer cleanup()
+			cmdPath, argv, iso = p, a, i
+		case !t.Verified:
+			return "", Isolation{}, util.Errf("no OS sandbox is available (%v) and the %s reviewer template is unverified, so it will not run with policy isolation only. Use --manual", err, t.ID)
+		case !r.AllowPolicyOnly:
+			return "", Isolation{}, util.Errf("no OS sandbox is available (%v). The reviewer would run isolated by policy only (tools disabled by flag, empty cwd, scrubbed env; it could still read your files and reach the network). Pass --allow-policy-only to accept that for this advisory review, or use --manual", err)
+		}
+	}
+	cmd := exec.CommandContext(ctx, cmdPath, argv...) //nolint:gosec // path comes from LookPath of a fixed template binary (wrapped by the sandbox launcher); content goes only to stdin
 	cmd.Dir = work
-	cmd.Env = ScrubEnv(r.Environ, t.EnvPrefixes)
+	cmd.Env = env
 	stdin := in.Prompt
 	if t.SystemInStdin {
 		stdin = SystemPrompt + "\n\n" + stdin
@@ -405,11 +473,20 @@ func (r Runner) Run(ctx context.Context, t Template, model string, in *Input) (s
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {
 		if ctx.Err() != nil {
-			return "", util.Errf("%s timed out after %s", t.ID, r.Timeout)
+			return "", Isolation{}, util.Errf("%s timed out after %s", t.ID, r.Timeout)
 		}
-		return "", util.Errf("%s failed: %v: %s (the reviewer may have refused the content; the scanner result still applies, and you can review by hand with --manual)", t.ID, err, util.OneLine(stderr.String()+" "+stdout.String(), 300))
+		return "", Isolation{}, util.Errf("%s failed: %v: %s (the reviewer may have refused the content; the scanner result still applies, and you can review by hand with --manual)", t.ID, err, util.OneLine(stderr.String()+" "+stdout.String(), 300))
 	}
-	return stdout.String(), nil
+	return stdout.String(), iso, nil
+}
+
+func envValue(env []string, key string) string {
+	for _, kv := range env {
+		if k, v, ok := strings.Cut(kv, "="); ok && k == key {
+			return v
+		}
+	}
+	return ""
 }
 
 type limitedBuffer struct {

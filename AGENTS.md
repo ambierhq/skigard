@@ -22,7 +22,7 @@ Run `mise run check` and `mise run e2e` before finishing any change.
 
 - `cmd/skigard` entrypoint. `internal/cli` flags and output only; workflows live in `internal/core`.
 - `internal/source` (parse + fetch), `safefs` (hostile-input copy/extract), `hash` (content hash v1),
-  `scan` (rules), `review` (reviewer runner: tools off, empty cwd, scrubbed env; no OS sandbox yet), `harness` (registry, detection, install),
+  `scan` (rules), `review` (reviewer runner: tools off, empty cwd, scrubbed env; OS sandbox: seatbelt/bwrap/landlock; `--allow-policy-only` affects only review, never approve), `harness` (registry, detection, install),
   `store` (home layout, lock, manifest, quarantine meta), `marketplace`, `diff`, `skill`, `util`.
 - `internal/harness/registry.toml` is the harness table. `docs/harnesses.md` and `docs/rules.md` are generated; never edit by hand.
 

@@ -29,21 +29,35 @@ prompt on stdin.
 
 ## What the reviewer sees and cannot do
 
-Isolation today is **by policy, not by an OS sandbox**. skigard asks the harness to run without capabilities and
-controls what it hands over; it does not confine the harness process.
+The reviewer runs in two layers. Both are recorded with the review as `isolation`, and the approval screen shows it.
 
-What exists:
+**1. Policy (always).** Tools, MCP, extensions, skills and sessions are disabled with the harness's own flags; an empty
+temporary working directory; a scrubbed environment; the skill on stdin only, never in argv; a timeout and output caps.
 
-- tools, MCP, extensions, skills and sessions are disabled with the harness's own flags (table above);
-- an empty temporary working directory;
-- a scrubbed environment (below);
-- the skill goes on stdin only, never in argv;
-- a timeout and output size caps.
+**2. OS sandbox (when one works here).**
 
-What does **not** exist yet: OS-level filesystem isolation (the harness process can still read any file your user
-can, such as `~/.ssh`) and network isolation (it can connect anywhere). The flags are only as good as the harness's
-implementation of them. Because the reviewer is advisory and can only raise concern, a compromised review cannot
-approve or lower a verdict, but it could still read files or send data. Use `--manual` if that matters.
+| `isolation` | Platform | Confinement |
+|---|---|---|
+| `seatbelt` | macOS | `/usr/bin/sandbox-exec` with a generated profile (`deny default`), written to a private temp file. Reads only from system libraries, the harness install tree and the harness's own config dir (read-only); writes only to the temp working dir; process exec only for the harness and its runtime (shell, interpreter); outbound TCP only to port 443 plus name resolution |
+| `bwrap` | Linux | bubblewrap: new user/pid/ipc/uts/cgroup namespaces, read-only system dirs, tmpfs `$HOME` with only the harness's config bound read-only, writable temp dir. **Gap:** it shares the host network, so ports are not restricted, and system tools under `/usr` stay executable |
+| `landlock` | Linux >= 5.13 | `skigard __sandbox-exec` re-executes under Landlock (raw syscalls, `PR_SET_NO_NEW_PRIVS`): filesystem allowlist, exec only for the harness and runtime, and with ABI >= 4 (kernel 6.7) TCP connect only to 443. On older kernels the network is not restricted; the note says so |
+| `policy-only` | any | no OS sandbox worked. A **verified** template only runs if you pass `--allow-policy-only`; unverified templates never run this way |
+
+Windows has no OS sandbox and review stays fail-closed (use `--manual`, or run skigard inside WSL).
+
+`--allow-policy-only` only decides whether the advisory review may run without an OS sandbox. It never turns an
+available sandbox off, and approval does not read it.
+
+Per-harness needs (what the allowlist contains beyond the system):
+
+- `pi`: its install tree, `~/.pi` read-only, and creating/removing `*.lock` entries in `~/.pi/agent`. Run end to end under Seatbelt.
+- `omp`: its install tree, `~/.omp` and `~/.config/omp` read-only, plus **write** access to `~/.omp/logs`, `natives`, `run`, `cache` and its `agent/*.db*` sqlite files (it writes them even for a one-shot run). Run end to end under Seatbelt. Reads of other tools' config (for example `~/.claude`) are denied.
+- `claude-code`: `~/.claude`, `~/.claude.json`, `~/.config/claude` read-only. **Not** run under the sandbox (not logged in on the development machine); it may need more.
+- `gemini-cli`: unverified.
+
+Known gaps: macOS mach services are not restricted; the harness can read its own credentials (it must authenticate)
+and talk to its provider on 443; HTTP proxies on other ports do not work under the sandbox. The sandbox is defence in depth: the
+reviewer is advisory and can only raise concern.
 
 - It receives the skill's files as text on **stdin** inside random delimiters, plus the scanner's findings.
   Skill content never appears in the argument list.

@@ -39,7 +39,7 @@ approved hash.
 ## Automated review is disabled
 
 `skigard review NAME` fails closed on Windows with a clear message. On Unix the reviewer is isolated by policy,
-not by an OS sandbox: the harness CLI runs with tools, MCP, extensions and sessions disabled, in an empty temporary
+not by an OS sandbox (the macOS and Linux sandboxes do not exist on Windows; WSL gets the Linux one): the harness CLI runs with tools, MCP, extensions and sessions disabled, in an empty temporary
 directory, with a scrubbed environment, the skill on stdin only, and bounded output. Those flags have not been
 verified against the Windows builds of the CLIs (npm installs `.cmd` shims that go through `cmd.exe` argument
 parsing), and the standard library offers no OS-level substitute. So skigard does not run an unverified reviewer.
