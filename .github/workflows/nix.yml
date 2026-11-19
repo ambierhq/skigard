@@ -1,0 +1,41 @@
+name: nix
+# Builds and runs the flake, so a stale vendorHash fails here instead of for users.
+on:
+  push: {branches: [main]}
+  pull_request:
+    paths:
+      - flake.nix
+      - flake.lock
+      - go.mod
+      - go.sum
+      - scripts/nix-vendor-hash.py
+      - packaging/nixpkgs/**
+      - .github/workflows/nix.yml
+  workflow_dispatch:
+permissions: {}
+jobs:
+  flake:
+    permissions: {contents: read}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: {os: [ubuntu-latest, macos-latest]}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: cachix/install-nix-action@3dc140bfc76c49fbd4dd958429132e3746bcb086 # v31.11.5
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with: {go-version-file: go.mod, cache: false}
+      - name: the vendorHash matches scripts/nix-vendor-hash.py
+        run: |
+          want="$(python3 scripts/nix-vendor-hash.py)"
+          grep -F "vendorHash = \"$want\"" flake.nix
+          grep -F "vendorHash = \"$want\"" packaging/nixpkgs/package.nix
+      - run: nix flake check --print-build-logs
+      - run: nix build --print-build-logs
+      - name: nix run
+        run: nix run . -- version
+      - name: draft nixpkgs expression evaluates (with the flake's nixpkgs)
+        run: |
+          nix-instantiate --eval -E 'let pkgs = import (builtins.getFlake (toString ./.)).inputs.nixpkgs { }; in (pkgs.callPackage ./packaging/nixpkgs/package.nix { }).pname'

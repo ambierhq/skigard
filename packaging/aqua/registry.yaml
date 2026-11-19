@@ -1,0 +1,31 @@
+# Draft of pkgs/ambierhq/skigard/registry.yaml for https://github.com/aquaproj/aqua-registry
+# (regenerate/verify with `aqua gr ambierhq/skigard` and the registry's own CI once v0.1.0 exists).
+packages:
+  - type: github_release
+    repo_owner: ambierhq
+    repo_name: skigard
+    description: Lockfile and review gate for agent skills
+    asset: skigard_{{trimV .Version}}_{{.OS}}_{{.Arch}}.{{.Format}}
+    format: tar.gz
+    overrides:
+      - goos: windows
+        format: zip
+    supported_envs:
+      - darwin
+      - linux
+      - windows
+    files:
+      - name: skigard
+    checksum:
+      type: github_release
+      asset: checksums.txt
+      algorithm: sha256
+      cosign:
+        bundle:
+          type: github_release
+          asset: checksums.txt.sigstore.json
+        opts:
+          - --certificate-identity-regexp
+          - ^https://github\.com/ambierhq/skigard/\.github/workflows/release\.yml@refs/tags/v.*$
+          - --certificate-oidc-issuer
+          - https://token.actions.githubusercontent.com

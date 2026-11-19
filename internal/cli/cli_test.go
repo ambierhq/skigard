@@ -151,3 +151,34 @@ func TestCompletion(t *testing.T) {
 		t.Fatalf("no shell: %d", code)
 	}
 }
+
+func TestInitCI(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	home := filepath.Join(dir, "h")
+	if code, _, errs := run(t, home, "init-ci", "--version", "latest"); code != util.ExitUsage && code == 0 {
+		t.Fatalf("bad version accepted: %d %s", code, errs)
+	}
+	code, out, errs := run(t, home, "init-ci", "--version", "v1.2.3")
+	if code != 0 || !strings.Contains(out, "REPLACE_WITH_FULL_COMMIT_SHA") {
+		t.Fatalf("init-ci: %d %s %s", code, out, errs)
+	}
+	b, err := os.ReadFile(filepath.Join(dir, ".github", "workflows", "skigard.yml"))
+	if err != nil || !strings.Contains(string(b), "version: 1.2.3") || !strings.Contains(string(b), "skigard-action@REPLACE_WITH_FULL_COMMIT_SHA") {
+		t.Fatalf("workflow: %v %s", err, b)
+	}
+	if code, _, _ := run(t, home, "init-ci", "--version", "1.2.3"); code == 0 {
+		t.Fatal("overwrote an existing workflow without --force")
+	}
+	sha := strings.Repeat("a", 40)
+	if code, _, _ := run(t, home, "init-ci", "--version", "1.2.3", "--force", "--action-sha", sha); code != 0 {
+		t.Fatal("--force with a SHA")
+	}
+	b, _ = os.ReadFile(filepath.Join(dir, ".github", "workflows", "skigard.yml"))
+	if !strings.Contains(string(b), "skigard-action@"+sha) {
+		t.Fatalf("sha not pinned: %s", b)
+	}
+	if code, _, _ := run(t, home, "init-ci", "--version", "1.2.3", "--force", "--action-sha", "main"); code == 0 {
+		t.Fatal("a branch name was accepted as a SHA")
+	}
+}

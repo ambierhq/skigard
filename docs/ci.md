@@ -55,7 +55,21 @@ A skill that talks about secrets or `curl | sh` in its text will be flagged; see
 
 ## The GitHub Action
 
-A reusable `skigard-action` is planned (coming; it will be linked here once it has a tagged release). Until then use the workflow above.
+[`ambierhq/skigard-action`](https://github.com/ambierhq/skigard-action) installs a pinned, SHA-256-verified skigard release and runs
+`skigard verify --strict` (inputs: `version` required, optional `sha256`, `args`, `home` = `.skigard`, `working-directory`, `verify`). It has no
+`latest`: you pin a version. It never approves anything. Its `v1` tag is created after the maintainers review it, so until then pin by commit SHA:
+
+```yaml
+- uses: actions/checkout@<full-commit-sha>
+  with: {persist-credentials: false}
+- uses: ambierhq/skigard-action@<full-commit-sha>
+  with:
+    version: 0.1.0
+    sha256: <archive checksum from the release's checksums.txt>   # optional: pins the exact bytes
+```
+
+`skigard init-ci` writes this workflow to `.github/workflows/skigard.yml` with placeholders for the action SHAs (it refuses to overwrite
+without `--force`). The action does not verify the cosign signature yet; pin `sha256` for the strongest guarantee.
 
 ## Keep the lock honest in review
 

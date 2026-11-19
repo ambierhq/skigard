@@ -1,0 +1,24 @@
+{
+  "name": "skigard",
+  "version": "0.0.0-dev",
+  "description": "Lockfile and review gate for agent skills",
+  "license": "MIT",
+  "author": "Ambier Oy <skigard@ambierhq.com>",
+  "homepage": "https://github.com/ambierhq/skigard",
+  "repository": {"type": "git", "url": "git+https://github.com/ambierhq/skigard.git", "directory": "npm"},
+  "bugs": {"url": "https://github.com/ambierhq/skigard/issues"},
+  "keywords": ["agent", "skills", "security", "lockfile", "supply-chain"],
+  "bin": {"skigard": "bin/skigard.js"},
+  "files": ["bin/skigard.js", "README.md", "LICENSE"],
+  "engines": {"node": ">=18"},
+  "publishConfig": {"access": "public"},
+  "optionalDependencies": {
+    "@ambierhq/skigard-darwin-arm64": "0.0.0-dev",
+    "@ambierhq/skigard-darwin-x64": "0.0.0-dev",
+    "@ambierhq/skigard-linux-arm64": "0.0.0-dev",
+    "@ambierhq/skigard-linux-x64": "0.0.0-dev",
+    "@ambierhq/skigard-win32-arm64": "0.0.0-dev",
+    "@ambierhq/skigard-win32-x64": "0.0.0-dev"
+  },
+  "scripts": {"test": "node --test test/*.test.mjs"}
+}

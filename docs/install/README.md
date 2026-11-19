@@ -29,6 +29,9 @@ release is tagged. Until then, the only working route is Go (or building from so
 | Docker | `docker run ghcr.io/ambierhq/skigard` | Linux | coming with v0.1.0 |
 | mise | `mise use -g skigard` | all | coming with v0.1.0 |
 
+Channel details: [apt](apt.md), [dnf](dnf.md), [pacman and AUR](pacman.md), [npm](npm.md), [Nix](nix.md), [mise](mise.md).
+Maintainer view (secrets, switches, registry PRs): [packaging/README.md](../../packaging/README.md).
+
 ## Verify what you downloaded
 
 Every release carries `checksums.txt` (SHA-256), a keyless [cosign](https://github.com/sigstore/cosign) signature for it, and an SBOM per archive.

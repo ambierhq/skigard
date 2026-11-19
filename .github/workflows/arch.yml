@@ -1,0 +1,23 @@
+name: arch
+# Builds packaging/arch/PKGBUILD in an archlinux container (makepkg incl. check(), namcap), and checks the AUR files.
+# AUR publishing is a separate, gated workflow (aur.yml).
+on:
+  pull_request:
+    paths:
+      - packaging/arch/**
+      - packaging/aur/**
+      - .github/workflows/arch.yml
+  workflow_dispatch:
+permissions: {}
+jobs:
+  makepkg:
+    permissions: {contents: read}
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - name: makepkg, namcap, install
+        run: docker run --rm -v "$PWD:/src:ro" archlinux:latest sh /src/packaging/arch/test.sh
+      - name: shellcheck
+        run: shellcheck -x packaging/aur/*.sh packaging/arch/test.sh

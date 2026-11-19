@@ -1,0 +1,51 @@
+# Maintainer: Ambier Oy <skigard@ambierhq.com>
+# Builds skigard from the tagged source. No network in build(); dependencies are fetched in prepare() and
+# verified against go.sum (the build runs with -mod=readonly).
+pkgname=skigard
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Lockfile and review gate for agent skills'
+arch=('x86_64' 'aarch64')
+url='https://github.com/ambierhq/skigard'
+license=('MIT')
+depends=('glibc')
+makedepends=('go')
+# sha256sums is pinned by packaging/aur/update.sh at release time; 'SKIP' only appears in this in-repo template.
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+options=('!lto')
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  export GOPATH="$srcdir/gopath"
+  go mod download
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  export GOPATH="$srcdir/gopath"
+  export CGO_ENABLED=0
+  export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+  go build -ldflags "-X github.com/ambierhq/skigard/internal/cli.Version=$pkgver" -o skigard ./cmd/skigard
+  ./skigard completion bash > skigard.bash
+  ./skigard completion zsh > _skigard
+  ./skigard completion fish > skigard.fish
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  export GOPATH="$srcdir/gopath"
+  export CGO_ENABLED=0
+  export GOFLAGS="-trimpath -mod=readonly -modcacherw"
+  go test ./...
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  install -Dm755 skigard "$pkgdir/usr/bin/skigard"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 THIRD_PARTY_NOTICES.md "$pkgdir/usr/share/licenses/$pkgname/THIRD_PARTY_NOTICES.md"
+  install -Dm644 skigard.bash "$pkgdir/usr/share/bash-completion/completions/skigard"
+  install -Dm644 _skigard "$pkgdir/usr/share/zsh/site-functions/_skigard"
+  install -Dm644 skigard.fish "$pkgdir/usr/share/fish/vendor_completions.d/skigard.fish"
+}
