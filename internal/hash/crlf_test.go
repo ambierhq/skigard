@@ -47,7 +47,8 @@ func TestLineEndingsAreHashedAsGiven(t *testing.T) {
 	if mk(text) == mk(crlf) {
 		t.Fatal("LF and CRLF content hash the same: line endings were normalised")
 	}
-	if mk(crlf) != mk(crlf) {
+	a, b := mk(crlf), mk(crlf)
+	if a != b {
 		t.Fatal("hash not deterministic")
 	}
 }
