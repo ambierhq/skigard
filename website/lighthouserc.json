@@ -2,7 +2,7 @@
   "ci": {
     "collect": {
       "staticDistDir": "./deploy",
-      "url": ["http://localhost/skigard/", "http://localhost/skigard/docs/install/", "http://localhost/skigard/docs/threat-model/"],
+      "url": ["http://localhost/skigard/", "http://localhost/skigard/docs/install/", "http://localhost/skigard/docs/threat-model/", "http://localhost/skigard/guides/review-agent-skills-before-installing/"],
       "numberOfRuns": 3,
       "settings": { "chromeFlags": "--no-sandbox --headless=new" }
     },
