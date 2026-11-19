@@ -3,8 +3,8 @@
 :root[data-theme="light"],
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --sl-color-accent-low: #3a2a0c;
-  --sl-color-accent: #b9760b;
+  --sl-color-accent-low: #12263d;
+  --sl-color-accent: var(--skigard-accent-on-light);
   --sl-color-accent-high: var(--ambier-accent);
   --sl-color-white: var(--ambier-fg);
   --sl-color-gray-1: #e6dfcf;

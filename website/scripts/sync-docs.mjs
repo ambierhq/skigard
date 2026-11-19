@@ -91,7 +91,7 @@ async function syncBrand() {
   await fs.writeFile(path.join(site, "src/assets/mark.svg"), mark);
   // Social card: the mark on the brand background, as an SVG (rasterised by Task F's brand set when it lands).
   const inner = mark.replace(/^<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
-  const og = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630"><rect width="1200" height="630" fill="#16130E"/><g transform="translate(90 165) scale(1.2)">${inner}</g><text x="460" y="300" font-family="Georgia,serif" font-size="96" fill="#F4EEE2">skigard</text><text x="460" y="375" font-family="Helvetica,Arial,sans-serif" font-size="36" fill="#B7A98C">A lockfile and review gate for agent skills</text><text x="460" y="540" font-family="Helvetica,Arial,sans-serif" font-size="28" fill="#EFA226">ambierhq.com/skigard</text></svg>\n`;
+  const og = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630"><rect width="1200" height="630" fill="#16130E"/><g transform="translate(90 165) scale(1.2)">${inner}</g><text x="460" y="300" font-family="Georgia,serif" font-size="96" fill="#F4EEE2">skigard</text><text x="460" y="375" font-family="Helvetica,Arial,sans-serif" font-size="36" fill="#B7A98C">A lockfile and review gate for agent skills</text><text x="460" y="540" font-family="Helvetica,Arial,sans-serif" font-size="28" fill="#5AA9FF">ambierhq.com/skigard</text></svg>\n`;
   await fs.writeFile(path.join(site, "public/og.svg"), og);
 }
 

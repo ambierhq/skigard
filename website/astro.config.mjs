@@ -19,7 +19,7 @@ export default defineConfig({
       favicon: "/favicon.svg",
       social: [{ icon: "github", label: "GitHub", href: "https://github.com/ambierhq/skigard" }],
       editLink: { baseUrl: "https://github.com/ambierhq/skigard/edit/main/website/" },
-      customCss: ["./src/styles/fonts.css", "./src/styles/ambier-tokens.css", "./src/styles/starlight.css"],
+      customCss: ["./src/styles/fonts.css", "./src/styles/ambier-tokens.css", "./src/styles/skigard.css", "./src/styles/starlight.css"],
       components: {
         Head: "./src/components/Head.astro",
         Footer: "./src/components/Footer.astro",
