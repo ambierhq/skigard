@@ -53,3 +53,9 @@ Thank you to the authors of these projects. Please look at them too.
 - **skillpin** (nbsp1221, MIT): a manifest plus lockfile for skills pinned to exact commits.
   https://github.com/nbsp1221/skillpin
 - The **Agent Skills** format (a directory with a `SKILL.md`), which every supported harness reads.
+
+## Website (`website/`)
+
+- Newsreader (The Newsreader Project Authors) and IBM Plex Sans (IBM Corp.) fonts, SIL Open Font License 1.1,
+  self-hosted from the `@fontsource` packages. The website's other npm dependencies (Astro, Starlight, Lighthouse CI,
+  Wrangler) are build-time only and are pinned in `website/package-lock.json`; none ships in the `skigard` binary.

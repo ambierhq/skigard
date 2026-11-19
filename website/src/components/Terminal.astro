@@ -1,0 +1,35 @@
+---
+// Pure CSS animation: each line fades in after the previous one. Static when motion is reduced.
+const lines = [
+  { t: "$ skigard add github:tt-a1i/archify --skill archify", c: "cmd" },
+  { t: "quarantined archify  14 files  sha256:9c1e…  scan: review (1 medium)", c: "out" },
+  { t: "$ skigard review archify", c: "cmd" },
+  { t: "reviewer: pi (sandboxed: seatbelt)  verdict: pass  advisory only", c: "out" },
+  { t: "$ skigard approve archify", c: "cmd" },
+  { t: "Type the skill name to approve exact bytes sha256:9c1e…: archify", c: "warn" },
+  { t: "approved. locked in skigard.lock", c: "ok" },
+  { t: "$ skigard install archify", c: "cmd" },
+  { t: "installed into claude-code, pi (2 harnesses)", c: "ok" },
+];
+---
+<figure class="term" role="img" aria-label="Terminal session: add, review, approve and install a skill with skigard. Illustrative output.">
+  <div class="bar"><span></span><span></span><span></span></div>
+  <div class="body" aria-hidden="true">
+    {lines.map((l, i) => <div class={`l ${l.c}`} style={`--d:${(i * 0.9).toFixed(1)}s`}>{l.t}</div>)}
+  </div>
+  <figcaption>Illustrative session. Output abbreviated.</figcaption>
+</figure>
+<style>
+  .term { margin: 0; background: #0f0d09; border: 1px solid var(--ambier-line); border-radius: 10px; overflow: hidden; }
+  .bar { display: flex; gap: 6px; padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--ambier-line); }
+  .bar span { width: 10px; height: 10px; border-radius: 50%; background: var(--ambier-fg-dimmer); }
+  .body { padding: 1rem; font-family: var(--ambier-font-mono); font-size: 0.8rem; line-height: 1.7; min-height: 17rem; }
+  .l { opacity: 0; animation: show 0.01s linear forwards; animation-delay: var(--d); white-space: pre-wrap; word-break: break-word; }
+  .cmd { color: var(--ambier-fg); }
+  .out { color: var(--ambier-fg-dim); }
+  .warn { color: var(--ambier-accent); }
+  .ok { color: #9ccf8b; }
+  figcaption { padding: 0 1rem 0.7rem; font-size: 0.75rem; color: var(--ambier-fg-dim); }
+  @keyframes show { to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .l { opacity: 1; animation: none; } }
+</style>

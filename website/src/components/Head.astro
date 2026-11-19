@@ -1,0 +1,15 @@
+---
+import Default from "@astrojs/starlight/components/Head.astro";
+import { breadcrumbs } from "../lib/seo";
+
+const route = Astro.locals.starlightRoute;
+const title = route.entry.data.title;
+const crumbs = breadcrumbs([
+  ["Ambier", "https://ambierhq.com/"],
+  ["Open source", "https://ambierhq.com/open-source/"],
+  ["skigard", "https://ambierhq.com/skigard/"],
+  [title, new URL(Astro.url.pathname, "https://ambierhq.com").href],
+]);
+---
+<Default {...Astro.props}><slot /></Default>
+<script type="application/ld+json" set:html={JSON.stringify(crumbs)} />

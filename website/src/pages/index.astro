@@ -1,0 +1,153 @@
+---
+import "../styles/fonts.css";
+import "../styles/ambier-tokens.css";
+import "../styles/landing.css";
+import InstallTabs from "../components/InstallTabs.astro";
+import Terminal from "../components/Terminal.astro";
+import display from "../fonts/newsreader-latin-wght-normal.woff2?url";
+import ui400 from "../fonts/ibm-plex-sans-latin-400-normal.woff2?url";
+import ui600 from "../fonts/ibm-plex-sans-latin-600-normal.woff2?url";
+import harnesses from "../data/harnesses.json";
+import { software, faq, breadcrumbs } from "../lib/seo";
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const title = "skigard: a lockfile and review gate for agent skills";
+const description = "skigard quarantines, scans and pins agent skills. A human approves the exact bytes before anything reaches Claude Code, Pi, Codex, Cursor and 70+ more.";
+const canonical = "https://ambierhq.com/skigard/";
+const og = "https://ambierhq.com/skigard/og.png";
+const verified = harnesses.filter((h) => h.verified);
+const faqLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faq.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),
+};
+const crumbs = breadcrumbs([
+  ["Ambier", "https://ambierhq.com/"],
+  ["Open source", "https://ambierhq.com/open-source/"],
+  ["skigard", canonical],
+]);
+const cfToken = import.meta.env.CF_WEB_ANALYTICS_TOKEN;
+const steps = [
+  ["Add", "Fetch the skill into a private quarantine. Nothing from it is executed."],
+  ["Scan", "Deterministic rules and capability chains. High and critical findings block."],
+  ["Review", "Optionally ask an agent you already use. It can only add doubt, never remove a finding."],
+  ["Approve", "You type the skill name in a real terminal. An agent cannot answer for you."],
+  ["Lock", "The approval is pinned to a content hash in skigard.lock. Commit it."],
+  ["Install", "Link into every harness skigard finds. Drift is caught by verify."],
+];
+const features = [
+  ["Agents cannot approve", "approve reads the terminal only. No --yes, no stdin, no env bypass."],
+  ["Hash-pinned lockfile", "Source, commit, content hash, scan, review and approver, for every skill."],
+  ["Hostile-input safe", "Archives are extracted through os.Root. Links, devices and bombs are refused."],
+  ["Sandboxed reviewer", "Tools off, empty directory, scrubbed environment, OS sandbox on macOS and Linux."],
+  ["Drift detection", "verify fails when the store, the installs or the marketplace change."],
+  ["One static binary", "macOS, Linux and Windows. No runtime, no telemetry, one dependency."],
+];
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="preload" href={display} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={ui400} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={ui600} as="font" type="font/woff2" crossorigin />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
+    <meta name="theme-color" content="#16130E" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="skigard by Ambier" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={og} />
+    <meta property="og:image:alt" content="skigard: a lockfile and review gate for agent skills" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={og} />
+    <link rel="alternate" type="text/plain" href={`${base}/llms.txt`} title="llms.txt" />
+    <script type="application/ld+json" set:html={JSON.stringify(software)} />
+    <script type="application/ld+json" set:html={JSON.stringify(faqLd)} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    {cfToken && <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon={JSON.stringify({ token: cfToken })}></script>}
+  </head>
+  <body>
+    <header class="site">
+      <div class="wrap row">
+        <a class="brand" href={`${base}/`}><img src={`${base}/logo.svg`} alt="" width="28" height="28" /><span>skigard</span></a>
+        <nav aria-label="Main">
+          <a href={`${base}/docs/install/`}>Docs</a>
+          <a href={`${base}/docs/threat-model/`}>Threat model</a>
+          <a href="https://github.com/ambierhq/skigard">GitHub</a>
+        </nav>
+      </div>
+    </header>
+    <main>
+      <section class="hero wrap">
+        <div>
+          <h1 class="display">A lockfile and review gate for agent skills.</h1>
+          <p class="lede">Nothing reaches your agents until a human has approved those exact bytes.</p>
+          <InstallTabs />
+        </div>
+        <Terminal />
+      </section>
+
+      <section class="wrap block" id="problem">
+        <h2 class="display">Skills are code your agent trusts</h2>
+        <p>A <code>SKILL.md</code> and its bundled scripts steer an agent that can read your files and run commands. Skills are installed from random repositories, change under a moving branch and can hide instructions the agent obeys. Package managers solved the equivalent problem with lockfiles and review. Agent skills still get <code>git clone</code> and hope.</p>
+      </section>
+
+      <section class="wrap block" id="how">
+        <h2 class="display">How it works</h2>
+        <ol class="steps">
+          {steps.map(([h, t]) => <li><h3>{h}</h3><p>{t}</p></li>)}
+        </ol>
+      </section>
+
+      <section class="wrap block" id="features">
+        <h2 class="display">What you get</h2>
+        <ul class="cards">
+          {features.map(([h, t]) => <li><h3>{h}</h3><p>{t}</p></li>)}
+        </ul>
+      </section>
+
+      <section class="wrap block" id="harnesses">
+        <h2 class="display">{harnesses.length} agent harnesses in the registry</h2>
+        <p>{verified.length} are verified against the harness itself (highlighted). The rest are detected and listed but installed to only with <code>--include-unverified</code>. <a href={`${base}/docs/harnesses/`}>Paths and details</a>. Missing yours? <a href="https://github.com/ambierhq/skigard/blob/main/CONTRIBUTING.md">Send a PR</a>.</p>
+        <ul class="grid">
+          {harnesses.map((h) => <li class={h.verified ? "v" : ""}>{h.name}{h.verified && <span class="sr"> (verified)</span>}</li>)}
+        </ul>
+      </section>
+
+      <section class="wrap block" id="limits">
+        <h2 class="display">Honest limits</h2>
+        <ul class="limits">
+          <li>The scanner is heuristic and an agent review can be fooled. <strong>A pass is not a safety certificate.</strong> Read the skill, especially bundled scripts.</li>
+          <li>Someone who can already write to your home as you can do anything. skigard does not defend against that.</li>
+          <li>Automated review is disabled on Windows (it has no sandbox); use <code>review --manual</code>.</li>
+          <li>Most harness entries are unverified. We say so instead of guessing.</li>
+        </ul>
+        <p><a href={`${base}/docs/threat-model/`}>Read the full threat model</a>.</p>
+      </section>
+
+      <section class="wrap block" id="verify">
+        <h2 class="display">Verify our releases</h2>
+        <p>Every release carries SHA-256 checksums, a keyless cosign signature, an SBOM and build provenance from GitHub Actions. <a href={`${base}/docs/install/#verify-your-download`}>How to check them</a>.</p>
+      </section>
+
+      <section class="wrap block" id="faq">
+        <h2 class="display">FAQ</h2>
+        {faq.map((f) => <details><summary>{f.q}</summary><p>{f.a}</p></details>)}
+      </section>
+    </main>
+    <footer class="site-footer">
+      <div class="wrap footer-row">
+        <p>A project by <a href="https://ambierhq.com/">Ambier Oy</a>, Finland. MIT licensed.</p>
+        <p><a href="https://github.com/ambierhq/skigard">GitHub</a> · <a href={`${base}/docs/install/`}>Docs</a> · <a href={`${base}/llms.txt`}>llms.txt</a></p>
+      </div>
+    </footer>
+  </body>
+</html>

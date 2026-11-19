@@ -1,0 +1,4 @@
+# Cloudflare Workers static assets redirects. Binaries live on GitHub Releases (no R2).
+/skigard/install.sh   https://github.com/ambierhq/skigard/releases/latest/download/install.sh   301
+/skigard/install.ps1  https://github.com/ambierhq/skigard/releases/latest/download/install.ps1  301
+/skigard/install      /skigard/docs/install/  301

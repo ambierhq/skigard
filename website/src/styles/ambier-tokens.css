@@ -1,0 +1,16 @@
+/* Ambier brand tokens. This file is the shared theme: copy it unchanged into every Ambier site
+  (a future @ambierhq/brand package). Tool-specific CSS must only consume these variables. */
+:root {
+  --ambier-bg: #16130e;
+  --ambier-bg-raised: #1e1a13;
+  --ambier-line: rgba(244, 238, 226, 0.14);
+  --ambier-fg: #f4eee2;
+  --ambier-fg-dim: #b7a98c;
+  --ambier-fg-dimmer: #7e7460;
+  --ambier-accent: #efa226;
+  --ambier-accent-dim: rgba(239, 162, 38, 0.35);
+  --ambier-font-display: "Newsreader", ui-serif, Georgia, serif;
+  --ambier-font-ui: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --ambier-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --ambier-wide: 1080px;
+}
