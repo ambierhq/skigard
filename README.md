@@ -203,7 +203,7 @@ No telemetry and no update check. It talks to GitHub only when you `add` or `upd
 skigard can be used instead of the skills installer. It covers `add`, `update`, `remove` (`uninstall`) and `list`, and adds the gate: quarantine, a scan, an optional review, **human approval** pinned to a hash, a hash-pinned lock and `verify` for drift in CI.
 
 What you give up today: discovery and search (`skills find`, the skills.sh directory), the `skills init` template, and one-off `skills use`. Many people will find skills on skills.sh and add them through skigard.
-It is not a drop-in: the lock file is different (`skigard.lock`), and an importer for `skills-lock.json` is planned, not built (`skigard migrate` only reads [skm](https://github.com/ambierhq/skm) repositories).
+It is not a drop-in: the lock file is different (`skigard.lock`), and an importer for `skills-lock.json` is planned, not built (`skigard migrate` only reads `skm` repositories).
 Sources are GitHub (public, or private with `GITHUB_TOKEN`) and local directories; other hosts such as GitLab are not supported yet.
 </details>
 
@@ -248,8 +248,8 @@ Releases are signed (cosign, keyless), come with SBOMs, and CI is pinned and har
 
 - `v0.1.0`: first release and every install channel above.
 - `skigard-action`, a reusable GitHub Action for `verify`.
-- `skigard find`: search skills.sh or a catalog (discovery is the main thing skigard lacks today).
-- An importer for `skills-lock.json` from vercel-labs/skills.
+- `skigard find` (#28): search skills.sh or a catalog (discovery is the main thing skigard lacks today).
+- An importer for `skills-lock.json` (#29) from vercel-labs/skills.
 - Verify more harnesses (each one needs a person to confirm its skills directory).
 - Automated review on Windows, once the reviewer CLIs have been verified there.
 - Signed approvals, and Windows code signing.

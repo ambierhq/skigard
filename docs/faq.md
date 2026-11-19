@@ -41,7 +41,7 @@ a hash-pinned lock, and `verify` to detect drift in CI.
 
 What you give up today: discovery and search (`skills find`, the skills.sh directory), the `skills init` template, and one-off `skills use`. Many people will find skills on skills.sh and add them through skigard.
 
-It is not a drop-in. The lock file is different (`skigard.lock`); an importer for `skills-lock.json` is planned but not built (`skigard migrate` only reads [skm](https://github.com/ambierhq/skm) repositories).
+It is not a drop-in. The lock file is different (`skigard.lock`); an importer for `skills-lock.json` is planned but not built (`skigard migrate` only reads `skm` repositories).
 skigard fetches from GitHub (public repositories, or private ones with `GITHUB_TOKEN`) and from local directories; other hosts such as GitLab are not supported yet.
 skigard credits vercel-labs/skills for the harness map and the shared `.agents/skills` directory.
 
