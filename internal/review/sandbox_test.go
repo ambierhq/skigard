@@ -281,3 +281,32 @@ func landlockABIForTest() int {
 	}
 	return landlockABIPortable()
 }
+
+// TestSandboxMode records which OS sandbox the tests really exercised. On
+// GitHub Actions it fails unless one worked (Linux: bwrap or landlock; macOS:
+// seatbelt) and appends the mode to the job summary, so CI shows it without -v.
+func TestSandboxMode(t *testing.T) {
+	mode, err := osSandboxAvailable()
+	if err != nil {
+		if os.Getenv("GITHUB_ACTIONS") != "" || os.Getenv("SKIGARD_REQUIRE_SANDBOX") != "" {
+			t.Fatalf("no OS sandbox exercised on %s: %v", runtime.GOOS, err)
+		}
+		t.Skipf("no OS sandbox available: %v", err)
+	}
+	want := map[string][]string{"linux": {IsoBwrap, IsoLandlock}, "darwin": {IsoSeatbelt}}[runtime.GOOS]
+	ok := false
+	for _, w := range want {
+		ok = ok || w == mode
+	}
+	if !ok {
+		t.Fatalf("unexpected sandbox %q on %s", mode, runtime.GOOS)
+	}
+	line := fmt.Sprintf("reviewer sandbox exercised on %s/%s: %s (landlock ABI %d)", runtime.GOOS, runtime.GOARCH, mode, landlockABIForTest())
+	t.Log(line)
+	if f := os.Getenv("GITHUB_STEP_SUMMARY"); f != "" {
+		if w, err := os.OpenFile(f, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600); err == nil {
+			fmt.Fprintln(w, line)
+			w.Close()
+		}
+	}
+}
