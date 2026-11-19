@@ -43,7 +43,7 @@ func IsCommit(s string) bool { return shaRe.MatchString(s) }
 //	github:owner/repo[/path][@ref]
 //	owner/repo[/path][@ref]
 //	https://github.com/owner/repo[.git][/tree/ref/path]
-//	./dir, /abs/dir, ~/dir
+//	./dir, /abs/dir, ~/dir (and C:\dir, ~\dir on Windows)
 func Parse(s string) (Spec, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -71,7 +71,7 @@ func Parse(s string) (Spec, error) {
 	case strings.Contains(s, "://") || strings.HasPrefix(s, "git@"):
 		return Spec{}, util.Errf("unsupported source %q (only github.com and local paths are supported)", s)
 	}
-	if strings.HasPrefix(s, "~/") {
+	if strings.HasPrefix(s, "~/") || (filepath.Separator == '\\' && strings.HasPrefix(s, `~\`)) {
 		if home, err := os.UserHomeDir(); err == nil {
 			s = filepath.Join(home, s[2:])
 		}

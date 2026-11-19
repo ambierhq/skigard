@@ -3,24 +3,26 @@ package cli
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
 	"github.com/ambierhq/skigard/internal/util"
 )
 
-// ttyConfirm shows the summary on the controlling terminal and requires the
-// human to type want. It deliberately has no flag, environment variable or
-// stdin fallback: if there is no terminal, there is no approval.
-func ttyConfirm(summary, want string) error {
-	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
-	if err != nil {
-		return util.Policyf("approving needs a real terminal (no controlling terminal found)")
-	}
-	defer tty.Close()
-	fmt.Fprintln(tty, "\n"+summary)
-	fmt.Fprintf(tty, "\nType the skill name (%s) to approve, anything else to cancel: ", want)
-	line, err := bufio.NewReader(tty).ReadString('\n')
+// noTerminal is the refusal shown when approval has no real terminal. It is
+// shared by every platform so the message does not drift.
+func noTerminal(detail string) error {
+	return util.Policyf("approving needs a real terminal (%s)", detail)
+}
+
+// promptOn shows the summary on the terminal handles the platform file opened
+// and requires the human to type want. in and out are always the console
+// device (/dev/tty, CONIN$/CONOUT$), never stdin or stdout.
+func promptOn(in io.Reader, out io.Writer, summary, want string) error {
+	fmt.Fprintln(out, "\n"+summary)
+	fmt.Fprintf(out, "\nType the skill name (%s) to approve, anything else to cancel: ", want)
+	line, err := bufio.NewReader(in).ReadString('\n')
 	if err != nil && line == "" {
 		return util.Cancelled("cancelled")
 	}
@@ -28,12 +30,6 @@ func ttyConfirm(summary, want string) error {
 		return util.Cancelled("cancelled: nothing was approved")
 	}
 	return nil
-}
-
-// stdinIsTerminal reports whether prompts can be answered interactively.
-func stdinIsTerminal() bool {
-	fi, err := os.Stdin.Stat()
-	return err == nil && fi.Mode()&os.ModeCharDevice != 0
 }
 
 // ask prompts on stderr and reads one line from stdin.

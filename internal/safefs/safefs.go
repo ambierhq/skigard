@@ -13,7 +13,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
+
+	"github.com/ambierhq/skigard/internal/util"
 )
 
 // Limits bounds the size of anything we ingest.
@@ -83,13 +86,20 @@ func CopyTree(src, dst string, lim Limits) (*Result, error) {
 		if strings.Count(rel, "/") >= lim.MaxDepth {
 			return fmt.Errorf("path too deep: %s", rel)
 		}
+		if runtime.GOOS == "windows" {
+			// Windows names that exist on disk can still be hostile (\\?\ paths, short names).
+			if err := util.CheckPortablePath(rel); err != nil {
+				return fmt.Errorf("unsafe file name %q: %w", rel, err)
+			}
+		}
 		info, err := d.Info()
 		if err != nil {
 			return err
 		}
 		switch {
-		case info.Mode()&fs.ModeSymlink != 0:
-			return fmt.Errorf("symlink not allowed: %s", rel)
+		case info.Mode()&(fs.ModeSymlink|fs.ModeIrregular) != 0:
+			// ModeIrregular is how Go reports Windows junctions (mount points) and other reparse points.
+			return fmt.Errorf("symlink or junction not allowed: %s", rel)
 		case info.IsDir():
 			return root.MkdirAll(rel, 0o755)
 		case !info.Mode().IsRegular():
@@ -212,11 +222,9 @@ func ExtractTarGz(r io.Reader, dst string, lim Limits) (*Result, error) {
 		if strings.Count(rel, "/") >= lim.MaxDepth {
 			return nil, fmt.Errorf("path too deep: %s", rel)
 		}
-		fold := strings.ToLower(rel)
-		if prev, ok := seen[fold]; ok && prev != rel {
-			return nil, fmt.Errorf("case-insensitive path collision: %q and %q", prev, rel)
+		if err := recordFolded(seen, rel); err != nil {
+			return nil, err
 		}
-		seen[fold] = rel
 		switch hdr.Typeflag {
 		case tar.TypeDir:
 			if err := root.MkdirAll(rel, 0o755); err != nil {
@@ -249,6 +257,22 @@ func ExtractTarGz(r io.Reader, dst string, lim Limits) (*Result, error) {
 	return res, nil
 }
 
+// recordFolded notes rel and each of its parent directories in seen (folded ->
+// original spelling) and fails when two entries differ only by case, which
+// would be the same file on Windows and on default macOS volumes.
+func recordFolded(seen map[string]string, rel string) error {
+	parts := strings.Split(rel, "/")
+	for i := range parts {
+		p := strings.Join(parts[:i+1], "/")
+		fold := strings.ToLower(p)
+		if prev, ok := seen[fold]; ok && prev != p {
+			return fmt.Errorf("case-insensitive path collision: %q and %q", prev, p)
+		}
+		seen[fold] = p
+	}
+	return nil
+}
+
 // cleanEntry validates an archive path and splits off the top-level directory.
 func cleanEntry(name string) (rel, top string, err error) {
 	if name == "" || strings.ContainsRune(name, 0) || strings.Contains(name, `\`) {
@@ -260,6 +284,13 @@ func cleanEntry(name string) (rel, top string, err error) {
 	for _, part := range strings.Split(strings.TrimSuffix(name, "/"), "/") {
 		if part == ".." {
 			return "", "", fmt.Errorf("path traversal in archive: %q", name)
+		}
+		// Reject names Windows treats specially, on every platform, so an archive
+		// behaves the same wherever it is extracted (see util.CheckPortableComponent).
+		if part != "" && part != "." {
+			if err := util.CheckPortableComponent(part); err != nil {
+				return "", "", fmt.Errorf("unsafe archive path %q: %w", name, err)
+			}
 		}
 	}
 	clean := path.Clean(name)

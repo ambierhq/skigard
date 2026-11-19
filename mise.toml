@@ -31,6 +31,10 @@ depends = ["lint", "test"]
 description = "End-to-end test of the built binary (approve through a real pty)"
 run = "scripts/e2e.sh"
 
+[tasks.e2e-windows]
+description = "Windows end-to-end test, including approve through a ConPTY (run on Windows)"
+run = "go test -tags e2e -count=1 -v ./e2e/windows"
+
 [tasks.fuzz]
 description = "Short fuzz runs"
 run = [

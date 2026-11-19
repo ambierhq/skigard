@@ -41,3 +41,16 @@ func TestReadAndDiscover(t *testing.T) {
 		t.Fatalf("problems: %v / %v", found[0].Bad, found[1].Bad)
 	}
 }
+
+func TestValidNameRejectsWindowsDeviceNames(t *testing.T) {
+	for _, n := range []string{"con", "nul", "aux", "prn", "com1", "lpt9"} {
+		if ValidName(n) {
+			t.Errorf("%q must not be a valid skill name: it cannot be a directory on Windows", n)
+		}
+	}
+	for _, n := range []string{"console", "com10", "aux-tools", "a"} {
+		if !ValidName(n) {
+			t.Errorf("%q should be valid", n)
+		}
+	}
+}

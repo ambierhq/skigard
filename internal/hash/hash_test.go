@@ -3,6 +3,7 @@ package hash
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -27,7 +28,11 @@ func TestVector(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const want = "sha256:b1a18ee21c6d18ec9d1472a89236ace9501b5c187a48bd24f643988b611e90c9"
+	want := "sha256:b1a18ee21c6d18ec9d1472a89236ace9501b5c187a48bd24f643988b611e90c9"
+	if runtime.GOOS == "windows" {
+		// Windows files carry no execute bit, so run.sh is hashed with mode "-".
+		want = "sha256:8b96a0fa86430a7ce70cde994a67d8d24c43c467a5fb5e5de5bf3b962697701e"
+	}
 	if want != got {
 		t.Fatalf("hash vector changed: got %s want %s", got, want)
 	}
@@ -48,11 +53,14 @@ func TestSensitiveToContentModeAndPath(t *testing.T) {
 		return h
 	}
 	base := mk("a", 0o644, "f")
-	for name, h := range map[string]string{
+	variants := map[string]string{
 		"content": mk("b", 0o644, "f"),
-		"mode":    mk("a", 0o755, "f"),
 		"path":    mk("a", 0o644, "g"),
-	} {
+	}
+	if runtime.GOOS != "windows" { // Windows files have no execute bit
+		variants["mode"] = mk("a", 0o755, "f")
+	}
+	for name, h := range variants {
 		if h == base {
 			t.Errorf("hash did not change with %s", name)
 		}

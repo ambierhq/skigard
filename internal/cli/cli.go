@@ -115,7 +115,7 @@ func usage(w io.Writer) {
 func (c *ctx) flags(name string) *flag.FlagSet {
 	fs := flag.NewFlagSet("skigard "+name, flag.ContinueOnError)
 	fs.SetOutput(c.errw)
-	fs.StringVar(&c.home, "home", "", "skigard home directory (default $SKIGARD_HOME or ~/.config/skigard)")
+	fs.StringVar(&c.home, "home", "", "skigard home directory (default $SKIGARD_HOME, ~/.config/skigard, or %APPDATA%\\skigard on Windows)")
 	fs.BoolVar(&c.json, "json", false, "machine-readable output")
 	return fs
 }

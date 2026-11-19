@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/ambierhq/skigard/internal/util"
 )
 
 var nameRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
@@ -71,7 +73,9 @@ func ParseFrontmatter(text string) (fields map[string]string, body string, ok bo
 }
 
 // ValidName reports whether name is a valid skill name.
-func ValidName(name string) bool { return len(name) <= 64 && nameRe.MatchString(name) }
+func ValidName(name string) bool {
+	return len(name) <= 64 && nameRe.MatchString(name) && !util.IsWindowsReservedName(name)
+}
 
 // Read parses dir/SKILL.md and returns the metadata and any problems found.
 func Read(dir string) (*Meta, []string) {

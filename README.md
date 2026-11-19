@@ -32,7 +32,8 @@ curl -fsSL https://raw.githubusercontent.com/ambierhq/skigard/main/scripts/insta
 go install github.com/ambierhq/skigard/cmd/skigard@latest
 ```
 
-Windows: scanning and verifying work, approving does not (it needs `/dev/tty`).
+Windows: everything works, including `approve`, which reads the console (`CONIN$`) the way Unix reads `/dev/tty`.
+See [docs/windows.md](docs/windows.md) for file locations and what differs (automated review is disabled; use `review --manual`).
 
 ## Quick start
 

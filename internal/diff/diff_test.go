@@ -3,6 +3,7 @@ package diff
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -47,6 +48,9 @@ func TestNewSkillAndIdentical(t *testing.T) {
 }
 
 func TestModeChange(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows files have no execute bit")
+	}
 	a, b := t.TempDir(), t.TempDir()
 	put(t, a, "run.sh", "x", 0o644)
 	put(t, b, "run.sh", "x", 0o755)

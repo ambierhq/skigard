@@ -1,7 +1,8 @@
 # skigard harness registry.
 #
 # One entry per agent harness that reads Agent Skills from a directory.
-#   global   user-scope skills dir; "~" = home, "{config}" = $XDG_CONFIG_HOME or ~/.config
+#   global   user-scope skills dir; "~" = home (%USERPROFILE% on Windows),
+#            "{config}" = $XDG_CONFIG_HOME, else ~/.config (on Windows %APPDATA%)
 #   project  project-scope skills dir, relative to the project root
 #   env_home / env_sub  if env var env_home is set, the global dir is $env_home/env_sub
 #   bins     executables whose presence means "installed"

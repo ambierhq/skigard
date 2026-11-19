@@ -6,7 +6,9 @@ package harness
 import (
 	_ "embed"
 	"os"
+	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -41,11 +43,39 @@ type Env struct {
 	LookPath func(string) (string, error)
 	Exists   func(string) bool
 	Extra    []string // extra directories searched for binaries
+	OS       string   // GOOS; empty means the running platform (tests set it)
+}
+
+func (env Env) goos() string {
+	if env.OS != "" {
+		return env.OS
+	}
+	return runtime.GOOS
 }
 
 // RealEnv is the current machine.
 func RealEnv() Env {
 	home, _ := os.UserHomeDir()
+	if runtime.GOOS == "windows" {
+		appData, local := os.Getenv("APPDATA"), os.Getenv("LOCALAPPDATA")
+		if appData == "" {
+			appData = filepath.Join(home, "AppData", "Roaming")
+		}
+		if local == "" {
+			local = filepath.Join(home, "AppData", "Local")
+		}
+		return Env{
+			Home:     home,
+			Getenv:   os.Getenv,
+			LookPath: lookPath,
+			Exists:   func(p string) bool { _, err := os.Stat(p); return err == nil },
+			Extra: []string{
+				filepath.Join(home, ".local", "bin"), filepath.Join(appData, "npm"), filepath.Join(home, ".bun", "bin"),
+				filepath.Join(home, "go", "bin"), filepath.Join(local, "Microsoft", "WinGet", "Links"),
+				filepath.Join(local, "Programs"),
+			},
+		}
+	}
 	return Env{
 		Home:     home,
 		Getenv:   os.Getenv,
@@ -102,7 +132,9 @@ func Find(reg []Entry, id string) (Entry, bool) {
 	return Entry{}, false
 }
 
-// Expand resolves "~" and "{config}" in p.
+// Expand resolves "~" and "{config}" in p. "~" is the user's home
+// (%USERPROFILE% on Windows). "{config}" is $XDG_CONFIG_HOME when set, else
+// ~/.config, except on Windows where it is %APPDATA%.
 func (env Env) Expand(p string) string {
 	if p == "" {
 		return ""
@@ -110,13 +142,21 @@ func (env Env) Expand(p string) string {
 	cfg := env.Getenv("XDG_CONFIG_HOME")
 	if cfg == "" {
 		cfg = filepath.Join(env.Home, ".config")
+		if env.goos() == "windows" {
+			if cfg = env.Getenv("APPDATA"); cfg == "" {
+				cfg = filepath.Join(env.Home, "AppData", "Roaming")
+			}
+		}
 	}
-	p = strings.ReplaceAll(p, "{config}", cfg)
+	if strings.Contains(p, "{config}") {
+		// the registry writes slashes; make the result a native path
+		return filepath.Clean(filepath.FromSlash(strings.ReplaceAll(p, "{config}", cfg)))
+	}
 	if p == "~" {
 		return env.Home
 	}
-	if strings.HasPrefix(p, "~/") {
-		return filepath.Join(env.Home, p[2:])
+	if strings.HasPrefix(p, "~/") || (env.goos() == "windows" && strings.HasPrefix(p, `~\`)) {
+		return filepath.Join(env.Home, filepath.FromSlash(p[2:]))
 	}
 	return p
 }
@@ -186,7 +226,7 @@ func Detect(reg []Entry, env Env) []Detection {
 		}
 		dirs := e.Dirs
 		if dirs == nil && e.Global != "" {
-			dirs = []string{filepath.Dir(e.Global)}
+			dirs = []string{path.Dir(filepath.ToSlash(e.Global))} // registry paths use slashes
 		}
 		for _, dir := range dirs {
 			if p := env.Expand(dir); p != "" && env.Exists(p) {
@@ -223,12 +263,42 @@ func findBin(env Env, name string) string {
 		return p
 	}
 	for _, dir := range env.Extra {
-		p := filepath.Join(dir, name)
-		if env.Exists(p) {
-			return p
+		for _, c := range binCandidates(name, env.goos(), env.Getenv("PATHEXT")) {
+			if p := filepath.Join(dir, c); env.Exists(p) {
+				return p
+			}
 		}
 	}
 	return ""
+}
+
+// binCandidates lists the file names an executable called name may have. On
+// Windows that is name plus each PATHEXT extension (default .COM;.EXE;.BAT;.CMD,
+// plus .ps1 for npm-style shims); elsewhere just name.
+func binCandidates(name, goos, pathext string) []string {
+	if goos != "windows" {
+		return []string{name}
+	}
+	if pathext == "" {
+		pathext = ".COM;.EXE;.BAT;.CMD"
+	}
+	out := []string{}
+	seen := map[string]bool{}
+	add := func(n string) {
+		if k := strings.ToLower(n); !seen[k] {
+			seen[k] = true
+			out = append(out, n)
+		}
+	}
+	if ext := filepath.Ext(name); ext != "" && strings.Contains(";"+strings.ToLower(pathext)+";.ps1;", ";"+strings.ToLower(ext)+";") {
+		add(name) // already has an executable extension
+	}
+	for _, ext := range strings.Split(pathext+";.ps1", ";") {
+		if ext = strings.TrimSpace(ext); ext != "" {
+			add(name + strings.ToLower(ext))
+		}
+	}
+	return out
 }
 
 // Running returns the harness skigard appears to be running inside, if any.

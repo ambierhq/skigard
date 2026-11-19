@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -68,7 +69,7 @@ func TestExtractStripsTopDirAndSkipsLinks(t *testing.T) {
 		t.Fatal("symlink was extracted")
 	}
 	info, _ := os.Stat(filepath.Join(dst, "run.sh"))
-	if info.Mode()&0o111 == 0 {
+	if runtime.GOOS != "windows" && info.Mode()&0o111 == 0 {
 		t.Fatal("exec bit lost")
 	}
 }
@@ -83,6 +84,23 @@ func TestExtractRejectsHostile(t *testing.T) {
 		"device":     {{name: "r/dev", typ: tar.TypeChar}},
 		"big file":   {{name: "r/big", body: strings.Repeat("a", 2048)}},
 		"parent dir": {{name: "r/a/../../b", body: "x"}},
+		// Windows hostile names, rejected on every platform
+		"device name":        {{name: "r/NUL", body: "x"}},
+		"device with ext":    {{name: "r/scripts/con.txt", body: "x"}},
+		"com port":           {{name: "r/COM1", body: "x"}},
+		"alternate stream":   {{name: "r/SKILL.md:hidden", body: "x"}},
+		"default stream":     {{name: "r/a.txt::$DATA", body: "x"}},
+		"drive relative":     {{name: "r/C:evil", body: "x"}},
+		"drive in top dir":   {{name: "C:/evil", body: "x"}},
+		"unc":                {{name: `//server/share/x`, body: "x"}},
+		"unc backslash":      {{name: `\\server\share\x`, body: "x"}},
+		"trailing dot":       {{name: "r/run.sh.", body: "x"}},
+		"trailing space":     {{name: "r/run.sh ", body: "x"}},
+		"short name":         {{name: "r/SKILL~1.MD", body: "x"}},
+		"wildcard":           {{name: "r/a*b", body: "x"}},
+		"dir case collision": {{name: "r/Dir/a", body: "x"}, {name: "r/dir/b", body: "y"}},
+		"file dir collision": {{name: "r/Sub", body: "x"}, {name: "r/sub/b", body: "y"}},
+		"collision unicode":  {{name: "r/É", body: "x"}, {name: "r/é", body: "y"}},
 	}
 	lim := DefaultLimits()
 	lim.MaxFileBytes = 1024
@@ -133,5 +151,19 @@ func TestCopyTree(t *testing.T) {
 	}
 	if _, err := CopyTree(src, filepath.Join(t.TempDir(), "o2"), DefaultLimits()); err == nil {
 		t.Fatal("symlink should be rejected")
+	}
+}
+
+func TestExtractAcceptsPlainNames(t *testing.T) {
+	data := tarball(t,
+		ent{name: "r/", typ: tar.TypeDir},
+		ent{name: "r/SKILL.md", body: "x"},
+		ent{name: "r/scripts/run.sh", body: "y"},
+		ent{name: "r/.github/ci.yml", body: "z"},
+		ent{name: "r/docs/com10.md", body: "w"},
+		ent{name: "r/a b/c d.md", body: "v"},
+	)
+	if _, err := ExtractTarGz(bytes.NewReader(data), filepath.Join(t.TempDir(), "x"), DefaultLimits()); err != nil {
+		t.Fatal(err)
 	}
 }

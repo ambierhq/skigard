@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -136,7 +137,8 @@ func (a *App) Install(o InstallOpts) ([]Installed, []string, error) {
 		scope = "user"
 	}
 	mode := harness.ModeSymlink
-	if o.Copy || scope == "project" {
+	// Windows installs by copy: creating symlinks there needs a privilege most users do not have.
+	if o.Copy || scope == "project" || runtime.GOOS == "windows" {
 		mode = harness.ModeCopy
 	}
 	st, err := harness.LoadState(a.Home.InstallsPath())
@@ -290,7 +292,8 @@ func (a *App) Verify() ([]Problem, error) {
 			add("warn", "%s was installed from an older approved version; run `skigard sync`", r.Path)
 		}
 	}
-	if fi, err := os.Stat(a.Home.QuarantineDir()); err == nil && fi.Mode().Perm()&0o077 != 0 {
+	// Windows reports synthetic permission bits (0o777 for directories), so only check on Unix.
+	if fi, err := os.Stat(a.Home.QuarantineDir()); err == nil && runtime.GOOS != "windows" && fi.Mode().Perm()&0o077 != 0 {
 		add("warn", "quarantine/ is accessible to other users (mode %o)", fi.Mode().Perm())
 	}
 	if len(man.Plugins) > 0 {
