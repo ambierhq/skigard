@@ -62,6 +62,7 @@ func init() {
 		{"harness", "list|add", "inspect or extend the harness registry", cmdHarness},
 		{"rules", "", "list scanner rules", cmdRules},
 		{"migrate", "--from-skm PATH", "import approved skills from an skm repository", cmdMigrate},
+		{"completion", "bash|zsh|fish|powershell", "print a shell completion script", cmdCompletion},
 		{"version", "", "print the version", cmdVersion},
 	}
 }
