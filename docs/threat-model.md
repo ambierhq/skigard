@@ -51,8 +51,10 @@ in it. Someone who can write to your home as you can already do anything; skigar
   Read the skill, especially bundled scripts. The scanner exists to focus your attention.
 - It does not sandbox the skill when an agent *uses* it later. Use your harness's permission system.
 - It cannot stop an agent that has a real terminal, your keyboard, or screen control from approving. The
-  `/dev/tty` and agent-detection checks stop the ordinary cases, not a determined attacker who is already
-  controlling your machine.
+  `/dev/tty` (Unix) or `CONIN$`/`CONOUT$` (Windows) and agent-detection checks stop the ordinary cases, not a
+  determined attacker who is already controlling your machine. On Windows the same residual risk applies: a
+  process that owns a ConPTY (pseudo console) can type into `CONIN$`, just as a process that owns a pty master can
+  type into `/dev/tty`. If there is no console, `approve` refuses; there is no flag, environment variable or stdin path.
 - It does not authenticate publishers. A familiar organisation name or a star count is not a signal.
 - Signed approvals are not implemented in 0.1. `skigard verify` in CI is the control that notices a lock file
   changed without a matching reviewable diff.
@@ -60,7 +62,6 @@ in it. Someone who can write to your home as you can already do anything; skigar
   cannot fetch from GitHub in 0.1.
 - Non-GitHub sources (GitLab, arbitrary git URLs, private hosts) are not supported. Private GitHub repositories work with
   `GITHUB_TOKEN`, which is sent only to GitHub hosts.
-- Windows: `approve` needs `/dev/tty`, so approving is not supported on Windows in 0.1.
 
 ## Reviewing agents: what leaves your machine
 
