@@ -1,0 +1,25 @@
+/* Maps the Ambier tokens onto Starlight. The site is dark only, like the brand. */
+:root,
+:root[data-theme="light"],
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --sl-color-accent-low: #12263d;
+  --sl-color-accent: var(--skigard-accent-on-light);
+  --sl-color-accent-high: var(--ambier-accent);
+  --sl-color-white: var(--ambier-fg);
+  --sl-color-gray-1: #e6dfcf;
+  --sl-color-gray-2: var(--ambier-fg-dim);
+  --sl-color-gray-3: #9a8d72;
+  --sl-color-gray-4: #6b624f;
+  --sl-color-gray-5: #2c261c;
+  --sl-color-gray-6: var(--ambier-bg-raised);
+  --sl-color-gray-7: #1a160f;
+  --sl-color-black: var(--ambier-bg);
+  --sl-font: var(--ambier-font-ui);
+  --sl-font-mono: var(--ambier-font-mono);
+}
+starlight-theme-select { display: none; }
+h1, h2 { font-family: var(--ambier-font-display); font-weight: 560; }
+.site-title { font-family: var(--ambier-font-display); font-size: 1.25rem; }
+.ambier-footer { margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid var(--ambier-line); color: var(--ambier-fg-dim); font-size: 0.9rem; }
+.ambier-footer a { color: var(--ambier-accent); }

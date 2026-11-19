@@ -1,0 +1,21 @@
+---
+import Default from "@astrojs/starlight/components/Head.astro";
+import display from "../fonts/newsreader-latin-wght-normal.woff2?url";
+import ui400 from "../fonts/ibm-plex-sans-latin-400-normal.woff2?url";
+import ui600 from "../fonts/ibm-plex-sans-latin-600-normal.woff2?url";
+import { breadcrumbs } from "../lib/seo";
+
+const route = Astro.locals.starlightRoute;
+const title = route.entry.data.title;
+const crumbs = breadcrumbs([
+  ["Ambier", "https://ambierhq.com/"],
+  ["Open source", "https://ambierhq.com/open-source/"],
+  ["skigard", "https://ambierhq.com/skigard/"],
+  [title, new URL(Astro.url.pathname, "https://ambierhq.com").href],
+]);
+---
+<link rel="preload" href={display} as="font" type="font/woff2" crossorigin />
+<link rel="preload" href={ui400} as="font" type="font/woff2" crossorigin />
+<link rel="preload" href={ui600} as="font" type="font/woff2" crossorigin />
+<Default {...Astro.props}><slot /></Default>
+<script type="application/ld+json" set:html={JSON.stringify(crumbs)} />

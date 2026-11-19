@@ -1,0 +1,25 @@
+{
+  "name": "skigard-website",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "scripts": {
+    "sync": "node scripts/sync-docs.mjs",
+    "dev": "npm run sync && astro dev",
+    "build": "npm run sync && astro build && mkdir -p deploy && rm -rf deploy/skigard && mv dist deploy/skigard && cp _redirects deploy/_redirects && cp .assetsignore deploy/.assetsignore",
+    "preview": "astro preview",
+    "check:links": "node scripts/check-links.mjs",
+    "lhci": "lhci autorun --config=lighthouserc.json",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "0.43.1",
+    "@fontsource-variable/newsreader": "5.3.0",
+    "@fontsource/ibm-plex-sans": "5.3.0",
+    "astro": "7.4.13"
+  },
+  "devDependencies": {
+    "@lhci/cli": "0.16.1",
+    "wrangler": "4.164.0"
+  }
+}

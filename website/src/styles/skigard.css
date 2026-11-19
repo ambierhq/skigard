@@ -1,0 +1,6 @@
+/* skigard's accent. The Ambier company site keeps amber; this is the one place the tool's accent lives. */
+:root {
+  --ambier-accent: #5aa9ff; /* sky blue on dark */
+  --ambier-accent-dim: rgba(90, 169, 255, 0.35);
+  --skigard-accent-on-light: #2b6cb0;
+}

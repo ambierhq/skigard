@@ -1,0 +1,6 @@
+{
+  "name": "ambier-skigard",
+  "compatibility_date": "2026-11-19",
+  "assets": { "directory": "./deploy", "not_found_handling": "404-page" },
+  "routes": [{ "pattern": "ambierhq.com/skigard/*", "zone_name": "ambierhq.com" }]
+}

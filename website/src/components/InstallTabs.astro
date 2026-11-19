@@ -1,0 +1,60 @@
+---
+// CSS-only tabs (radio inputs); the copy button is the only script on the page.
+const tabs = [
+  { id: "macos", label: "macOS", cmd: "curl -fsSL https://ambierhq.com/skigard/install.sh | sh" },
+  { id: "linux", label: "Linux", cmd: "curl -fsSL https://ambierhq.com/skigard/install.sh | sh" },
+  { id: "windows", label: "Windows", cmd: "irm https://ambierhq.com/skigard/install.ps1 | iex" },
+  { id: "npx", label: "npx", cmd: "npx skigard detect" },
+  { id: "apt", label: "apt", cmd: "sudo apt install ./skigard_<version>_amd64.deb" },
+  { id: "pacman", label: "pacman", cmd: "sudo pacman -U skigard_<version>_linux_amd64.pkg.tar.zst" },
+  { id: "brew", label: "brew", cmd: "brew install ambierhq/tap/skigard" },
+  { id: "nix", label: "go / nix", cmd: "go install github.com/ambierhq/skigard/cmd/skigard@latest" },
+];
+---
+<div class="tabs">
+  {tabs.map((t, i) => (
+    <>
+      <input type="radio" name="install" id={`tab-${t.id}`} checked={i === 0} aria-label={t.label} />
+      <label for={`tab-${t.id}`}>{t.label}</label>
+    </>
+  ))}
+  {tabs.map((t) => (
+    <div class={`panel panel-${t.id}`}>
+      <pre><code>{t.cmd}</code></pre>
+      <button type="button" class="copy" data-cmd={t.cmd} aria-label={`Copy ${t.label} install command`}>Copy</button>
+    </div>
+  ))}
+</div>
+<p class="fine">
+  No release is published yet; until <code>v0.1.0</code> use <code>go install</code>.
+  <a href="/skigard/docs/install/">All install options and verification</a>.
+</p>
+<script>
+  document.querySelectorAll<HTMLButtonElement>(".copy").forEach((b) =>
+    b.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(b.dataset.cmd ?? "");
+        b.textContent = "Copied";
+        setTimeout(() => (b.textContent = "Copy"), 1500);
+      } catch {
+        b.textContent = "Select and copy";
+      }
+    }),
+  );
+</script>
+<style>
+  .tabs { display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center; }
+  .tabs input { position: absolute; opacity: 0; pointer-events: none; }
+  .tabs label { padding: 0.4rem 0.85rem; border-radius: 6px; color: var(--ambier-fg-dim); cursor: pointer; font-size: 0.95rem; border: 1px solid transparent; }
+  .tabs input:checked + label { color: var(--ambier-bg); background: var(--ambier-accent); font-weight: 600; }
+  .tabs input:focus-visible + label { outline: 2px solid var(--ambier-fg); outline-offset: 2px; }
+  .panel { display: none; flex-basis: 100%; position: relative; margin-top: 0.5rem; }
+  pre { margin: 0; padding: 1rem 5.5rem 1rem 1rem; background: var(--ambier-bg-raised); border: 1px solid var(--ambier-line); border-radius: 8px; overflow-x: auto; font-family: var(--ambier-font-mono); font-size: 0.9rem; color: var(--ambier-fg); }
+  .copy { position: absolute; right: 0.5rem; top: 0.5rem; background: transparent; color: var(--ambier-accent); border: 1px solid var(--ambier-accent-dim); border-radius: 6px; padding: 0.3rem 0.7rem; font: inherit; font-size: 0.85rem; cursor: pointer; }
+  .copy:hover { border-color: var(--ambier-accent); }
+  #tab-macos:checked ~ .panel-macos, #tab-linux:checked ~ .panel-linux, #tab-windows:checked ~ .panel-windows,
+  #tab-npx:checked ~ .panel-npx, #tab-apt:checked ~ .panel-apt, #tab-pacman:checked ~ .panel-pacman,
+  #tab-brew:checked ~ .panel-brew, #tab-nix:checked ~ .panel-nix { display: block; }
+  .fine { font-size: 0.85rem; color: var(--ambier-fg-dim); margin: 0.75rem 0 0; }
+  .fine a { color: var(--ambier-accent); }
+</style>
