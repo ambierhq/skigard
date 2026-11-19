@@ -57,6 +57,10 @@ run = [
 description = "Check relative Markdown links and anchors (external URLs: the weekly lychee workflow)"
 run = "python3 scripts/check-links.py"
 
+[tasks.demo]
+description = "Rebuild the demo GIF/MP4/WebM, poster and screenshots into assets/media (needs vhs, ttyd, ffmpeg)"
+run = "scripts/demo.sh"
+
 [tasks.vuln]
 description = "govulncheck (pinned)"
 run = "go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./..."

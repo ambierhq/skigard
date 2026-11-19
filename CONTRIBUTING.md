@@ -5,6 +5,7 @@ mise install
 mise run check     # golangci-lint (gofmt, goimports, gosec, staticcheck, errcheck...), editorconfig, go test ./...
 mise run fmt       # format Go code
 mise run e2e
+mise run demo      # optional: rebuild assets/media (GIF, MP4, WebM, poster, screenshots); needs vhs, ttyd, ffmpeg
 mise run snapshot  # optional: GoReleaser snapshot build into ./dist (archives, deb/rpm/apk/arch packages)
 ```
 
@@ -18,6 +19,13 @@ mise run snapshot  # optional: GoReleaser snapshot build into ./dist (archives, 
   `go test ./internal/scan -run Docs -update`.
 - **Adding a reviewer template:** see `docs/review.md`. It must disable tools, MCP and extensions and take input on stdin.
 - Do not copy code from other projects. Learn from them, reimplement, and credit them in `THIRD_PARTY_NOTICES.md`.
+
+## Demo media
+
+`mise run demo` (or `scripts/demo.sh`) rebuilds everything in `assets/media/` from the real binary: four VHS scenes
+in `assets/demo/`, a GIF for the README, MP4/WebM for the site, a poster and four screenshots. Install the tools with
+`brew install vhs ttyd ffmpeg` (or the Linux equivalents). Details, the Windows clip and the video script are in
+[`assets/demo/README.md`](assets/demo/README.md). The mark used by the poster lives in `assets/brand/`.
 
 ## CI and releases
 
