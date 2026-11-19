@@ -10,7 +10,7 @@ url='https://github.com/ambierhq/skigard'
 license=('MIT')
 depends=('glibc')
 makedepends=('go')
-# sha256sums is pinned by packaging/aur/update.sh at release time; 'SKIP' only appears in this in-repo template.
+# 'SKIP' only appears in this in-repo template; pin sha256sums when building a tagged release by hand.
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 options=('!lto')

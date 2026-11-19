@@ -11,7 +11,6 @@ on:
       - scripts/homebrew-formula.sh
       - .github/workflows/release.yml
       - .github/workflows/repos.yml
-      - .github/workflows/aur.yml
       - npm/**
       - scripts/npm-pack.mjs
   workflow_dispatch:
@@ -114,14 +113,6 @@ jobs:
       GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-  aur:
-    needs: release
-    if: github.event_name == 'push'
-    permissions: {contents: read}
-    uses: ./.github/workflows/aur.yml  # zizmor: ignore[self-repository] actionlint rejects the $/ form
-    with: {tag: "${{ github.ref_name }}"}
-    secrets:
-      AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
   # npm trusted publishing (OIDC, provenance) must be configured on npmjs.com for THIS workflow file (release.yml).
   # Skipped unless the repository variable NPM_PUBLISH is "true".
   npm:
