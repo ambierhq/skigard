@@ -64,7 +64,7 @@ func newSBEnv(t *testing.T) *sbEnv {
 	t.Helper()
 	mode, err := osSandboxAvailable()
 	if err != nil {
-		if os.Getenv("SKIGARD_REQUIRE_SANDBOX") != "" {
+		if os.Getenv("SKIGARD_REQUIRE_SANDBOX") != "" || os.Getenv("GITHUB_ACTIONS") != "" { // CI must exercise the sandbox, not skip it
 			t.Fatalf("an OS sandbox is required here but none works: %v", err)
 		}
 		t.Skipf("no OS sandbox available on this machine (%v); the sandbox tests did NOT run", err)
