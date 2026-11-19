@@ -58,8 +58,7 @@ func Render(h store.Home, dest, defaultOwner string) error {
 			if !ok {
 				return util.Errf("plugin %q lists %q, which is not approved", pname, s)
 			}
-			cur, err := hash.Dir(h.SkillDir(s))
-			if err != nil || cur != ls.ContentHash {
+			if st, err := hash.Check(h.SkillDir(s), ls.Identity()); err != nil || !st.OK() {
 				return util.Errf("skill %q does not match its approved hash; run: skigard verify", s)
 			}
 			if _, err := safefs.CopyTree(h.SkillDir(s), filepath.Join(pdir, "skills", s), safefs.DefaultLimits()); err != nil {
@@ -125,7 +124,9 @@ func Check(h store.Home, defaultOwner string) ([]string, error) {
 	if err := Render(h, tmp, defaultOwner); err != nil {
 		return nil, err
 	}
-	want, err := hash.Dir(tmp)
+	// Version 1 on purpose: this compares two generated trees on the same machine, and
+	// the execute bits of the copied scripts should count as drift too.
+	want, err := hash.DirVersion(tmp, hash.Legacy)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +143,7 @@ func Check(h store.Home, defaultOwner string) ([]string, error) {
 		}
 		return []string{"marketplace/ is missing; run: skigard marketplace build"}, nil
 	}
-	got, err := hash.Dir(h.MarketplaceDir())
+	got, err := hash.DirVersion(h.MarketplaceDir(), hash.Legacy)
 	if err != nil {
 		return []string{"marketplace/ is unreadable: " + err.Error()}, nil
 	}

@@ -97,7 +97,7 @@ func (a *App) Scan(target string) (*scan.Report, string, error) {
 	if ls, ok := lock.Get(target); ok {
 		dir := a.Home.SkillDir(target)
 		var acc []scan.Accepted
-		if cur, err := hash.Dir(dir); err == nil && cur == ls.ContentHash {
+		if st, err := hash.Check(dir, ls.Identity()); err == nil && st.OK() {
 			acc = ls.Approval.Accepted
 		}
 		rep, err := scan.Scan(dir, a.scanOpts(target, acc, nil))

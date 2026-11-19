@@ -10,15 +10,18 @@ import (
 // CRLF, LF and mixed line endings and no executable files (Windows cannot
 // represent the execute bit), so the same value must come out on Linux, macOS
 // and Windows runners. If a checkout rewrote line endings it would change.
-const crlfFixtureHash = "sha256:a3d5808a6d40fad1f23a89e9f1e54c96f820befb32effe179f86b7e2f8b5a005"
+const crlfFixtureHashV1 = "sha256:a3d5808a6d40fad1f23a89e9f1e54c96f820befb32effe179f86b7e2f8b5a005"
+const crlfFixtureHashV2 = "sha256:5d2d81f5066c79fae12fc219999009451ca6bbdf157ab541b71b25e36de49b2b"
 
 func TestCRLFFixtureHashIsPinnedAcrossPlatforms(t *testing.T) {
-	got, err := Dir(filepath.Join("testdata", "crlf-skill"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != crlfFixtureHash {
-		t.Fatalf("fixture hash = %s, want %s (was the fixture's line endings changed by a checkout, or the hash scheme?)", got, crlfFixtureHash)
+	for v, want := range map[int]string{1: crlfFixtureHashV1, 2: crlfFixtureHashV2} {
+		got, err := DirVersion(filepath.Join("testdata", "crlf-skill"), v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != want {
+			t.Fatalf("v%d fixture hash = %s, want %s (was the fixture's line endings changed by a checkout, or the hash scheme?)", v, got, want)
+		}
 	}
 }
 

@@ -75,12 +75,15 @@ func (a *App) Approve(name string, o ApproveOpts) (*Approved, error) {
 		return nil, err
 	}
 	dir := a.Home.QuarantineSkill(name)
-	cur, err := hash.Dir(dir)
+	st, err := hash.Check(dir, meta.Identity())
 	if err != nil {
 		return nil, util.Errf("cannot hash %s: %v", name, err)
 	}
-	if cur != meta.ContentHash {
-		return nil, util.Policyf("%s changed in quarantine after it was fetched (hash %s, expected %s); run `skigard reject %s` and add it again", name, hash.Short(cur, 12), hash.Short(meta.ContentHash, 12), name)
+	if !st.ContentOK {
+		return nil, util.Policyf("%s changed in quarantine after it was fetched (hash %s, expected %s); run `skigard reject %s` and add it again", name, hash.Short(st.Got, 12), hash.Short(meta.ContentHash, 12), name)
+	}
+	if !st.ExecOK {
+		return nil, util.Policyf("%s changed in quarantine after it was fetched (executable files differ from those recorded at fetch time); run `skigard reject %s` and add it again", name, name)
 	}
 	if m, problems := skill.Read(dir); len(problems) > 0 || m.Name != name {
 		return nil, util.Policyf("%s is not a valid skill: %s", name, strings.Join(append(problems, nameMismatch(m, name)...), "; "))
@@ -155,7 +158,7 @@ func (a *App) Approve(name string, o ApproveOpts) (*Approved, error) {
 	if err := os.Chmod(stage, 0o755); err != nil {
 		return nil, err
 	}
-	if got, err := hash.Dir(stage); err != nil || got != meta.ContentHash {
+	if st, err := hash.Check(stage, meta.Identity()); err != nil || !st.OK() {
 		return nil, util.Policyf("staged copy does not match the reviewed hash; nothing was approved")
 	}
 	final := a.Home.SkillDir(name)
@@ -180,10 +183,10 @@ func (a *App) Approve(name string, o ApproveOpts) (*Approved, error) {
 	}
 	ls := store.LockSkill{
 		Name: name, Source: meta.Source, Location: meta.Location, Ref: meta.Ref, Subpath: meta.Subpath, Commit: meta.Commit,
-		ContentHash: meta.ContentHash,
-		Scan:        store.ScanRec{Tool: rep.Tool, Rules: rep.RulesVersion, Verdict: rep.Verdict, Coverage: rep.Coverage, Risk: rep.Risk, Findings: len(rep.Findings)},
-		Approval:    approval,
+		Scan:     store.ScanRec{Tool: rep.Tool, Rules: rep.RulesVersion, Verdict: rep.Verdict, Coverage: rep.Coverage, Risk: rep.Risk, Findings: len(rep.Findings)},
+		Approval: approval,
 	}
+	ls.SetIdentity(meta.Identity())
 	if rev != nil {
 		ls.Review = &store.ReviewRec{Reviewer: rev.Reviewer, Verdict: rev.Verdict, Coverage: rev.Coverage, Record: recPath}
 	}

@@ -163,6 +163,13 @@ func (a *App) MigrateSkm(repo string) (*MigrateResult, error) {
 			res.Skipped[name] = err.Error()
 			continue
 		}
+		// The import is a local directory, so its filesystem modes are the source modes.
+		exec, err := hash.ExecSet(dest)
+		if err != nil {
+			os.RemoveAll(dest)
+			res.Skipped[name] = err.Error()
+			continue
+		}
 		rep, err := scan.Scan(dest, a.scanOpts(name, nil, nil))
 		if err != nil {
 			return res, err
@@ -176,12 +183,13 @@ func (a *App) MigrateSkm(repo string) (*MigrateResult, error) {
 			source += "/" + o.Subpath
 		}
 		reason := "migrated from skm; bytes match the hash skm approved"
-		lock.Put(store.LockSkill{
+		ls := store.LockSkill{
 			Name: name, Source: source, Location: trimGit(o.Location), Ref: o.Ref, Subpath: o.Subpath, Commit: o.Commit,
-			ContentHash: h,
-			Scan:        store.ScanRec{Tool: rep.Tool, Rules: rep.RulesVersion, Verdict: rep.Verdict, Coverage: rep.Coverage, Risk: rep.Risk, Findings: len(rep.Findings)},
-			Approval:    store.ApprovalRec{By: "skm", At: st.Approved.At, Override: st.Approved.Override, Reason: reason, Migrated: "skm"},
-		})
+			Scan:     store.ScanRec{Tool: rep.Tool, Rules: rep.RulesVersion, Verdict: rep.Verdict, Coverage: rep.Coverage, Risk: rep.Risk, Findings: len(rep.Findings)},
+			Approval: store.ApprovalRec{By: "skm", At: st.Approved.At, Override: st.Approved.Override, Reason: reason, Migrated: "skm"},
+		}
+		ls.SetIdentity(hash.Identity{Version: hash.Version, Content: h, Exec: exec, ExecHash: hash.ExecDigest(exec)})
+		lock.Put(ls)
 		res.Migrated = append(res.Migrated, name)
 	}
 	if err := lock.Save(a.Home); err != nil {

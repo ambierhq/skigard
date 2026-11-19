@@ -152,11 +152,11 @@ func (a *App) Install(o InstallOpts) ([]Installed, []string, error) {
 			return out, notes, util.Errf("%q is not approved (see: skigard list)", n)
 		}
 		dir := a.Home.SkillDir(n)
-		if cur, err := hash.Dir(dir); err != nil || cur != ls.ContentHash {
+		if st, err := hash.Check(dir, ls.Identity()); err != nil || !st.OK() {
 			return out, notes, util.Policyf("%q does not match its approved hash; refusing to install (run: skigard verify)", n)
 		}
 		for _, t := range ts {
-			rec, err := harness.InstallSkill(t.Dir, n, dir, mode, ls.ContentHash, o.Force)
+			rec, err := harness.InstallSkill(t.Dir, n, dir, mode, ls.Identity(), o.Force)
 			if err != nil {
 				return out, notes, err
 			}
@@ -240,14 +240,19 @@ func (a *App) Verify() ([]Problem, error) {
 	for i := range lock.Skills {
 		s := &lock.Skills[i]
 		locked[s.Name] = s
-		cur, err := hash.Dir(a.Home.SkillDir(s.Name))
+		st, err := hash.Check(a.Home.SkillDir(s.Name), s.Identity())
 		switch {
 		case os.IsNotExist(err) || (err != nil && !isDir(a.Home.SkillDir(s.Name))):
 			add("error", "%s: approved skill is missing from skills/", s.Name)
 		case err != nil:
 			add("error", "%s: cannot hash: %v", s.Name, err)
-		case cur != s.ContentHash:
-			add("error", "%s: content changed since approval (%s, approved %s)", s.Name, hash.Short(cur, 12), hash.Short(s.ContentHash, 12))
+		case !st.ContentOK:
+			add("error", "%s: content changed since approval (%s, approved %s)", s.Name, hash.Short(st.Got, 12), hash.Short(s.ContentHash, 12))
+		case !st.ExecOK:
+			add("error", "%s: executable files changed since approval (now %s, approved %s)", s.Name, execList(st.ExecGot), execList(s.ExecSet))
+		}
+		if err == nil && st.ExecNA && s.HashVersion >= 2 {
+			add("info", "%s: exec-bit check not applicable on this OS (%d executable file(s) recorded at approval)", s.Name, len(s.ExecSet))
 		}
 		if s.Approval.Override {
 			add("warn", "%s: approved with an override (%s)", s.Name, util.Clean(s.Approval.Reason))
@@ -285,7 +290,7 @@ func (a *App) Verify() ([]Problem, error) {
 			add("error", "installed but no longer approved: %s", r.Path)
 			continue
 		}
-		for _, p := range harness.Check(r, ls.ContentHash) {
+		for _, p := range harness.Check(r, ls.Identity()) {
 			add("error", "%s", util.Clean(p))
 		}
 		if r.Hash != ls.ContentHash {
@@ -327,4 +332,15 @@ func HasErrors(ps []Problem) bool {
 		}
 	}
 	return false
+}
+
+func execList(set []string) string {
+	if len(set) == 0 {
+		return "none"
+	}
+	out := make([]string, len(set))
+	for i, p := range set {
+		out[i] = util.Clean(p)
+	}
+	return strings.Join(out, ", ")
 }

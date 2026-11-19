@@ -42,6 +42,7 @@ run = [
   "go test ./internal/safefs -run XXX -fuzz=FuzzCleanEntry -fuzztime=20s",
   "go test ./internal/skill -run XXX -fuzz=FuzzFrontmatter -fuzztime=20s",
   "go test ./internal/review -run XXX -fuzz=FuzzParse -fuzztime=20s",
+  "go test ./internal/hash -run XXX -fuzz=FuzzDirVersionDeterministic -fuzztime=20s",
 ]
 
 [tasks.docs]

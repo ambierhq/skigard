@@ -136,7 +136,7 @@ func TestRunning(t *testing.T) {
 	}
 }
 
-func mkStore(t *testing.T) (string, string) {
+func mkStore(t *testing.T) (string, hash.Identity) {
 	store := filepath.Join(t.TempDir(), "skills", "demo")
 	os.MkdirAll(store, 0o755)
 	os.WriteFile(filepath.Join(store, "SKILL.md"), []byte("---\nname: demo\ndescription: d\n---\n"), 0o644)
@@ -144,7 +144,7 @@ func mkStore(t *testing.T) (string, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return store, h
+	return store, hash.Identity{Version: hash.Version, Content: h, ExecHash: hash.ExecDigest(nil)}
 }
 
 func TestInstallSymlinkAndCopy(t *testing.T) {

@@ -52,6 +52,7 @@ func init() {
 		{"uninstall", "[NAME...]", "remove skills installed by skigard", cmdUninstall},
 		{"sync", "", "install every approved skill into the default harnesses", cmdSync},
 		{"verify", "", "check lock, store, installs and marketplace (CI-friendly)", cmdVerify},
+		{"lock", "upgrade [NAME...]", "upgrade lock entries to hash version 2 (only if the old hash still matches)", cmdLock},
 		{"list", "", "list approved and quarantined skills", cmdList},
 		{"show", "NAME", "print a skill's SKILL.md and file list", cmdShow},
 		{"status", "", "summary of this home", cmdStatus},

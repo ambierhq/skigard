@@ -46,7 +46,12 @@ type Result struct {
 	Files        int
 	Bytes        int64
 	SkippedLinks []string // symlinks/hardlinks that were not extracted
-	TopDir       string
+	// Exec lists the regular files (slash-separated, relative to the destination) whose
+	// *source* mode had an execute bit: the tar header for archives, the source file for
+	// CopyTree. It is what the lock's exec_set is built from. Unlike the files written to
+	// disk, it survives a Windows destination, which cannot store the bit.
+	Exec   []string
+	TopDir string
 }
 
 var skipNames = map[string]bool{".git": true, ".DS_Store": true}
@@ -106,6 +111,9 @@ func CopyTree(src, dst string, lim Limits) (*Result, error) {
 			return fmt.Errorf("special file not allowed: %s", rel)
 		}
 		res.Files++
+		if info.Mode()&0o111 != 0 {
+			res.Exec = append(res.Exec, rel)
+		}
 		if res.Files > lim.MaxEntries {
 			return fmt.Errorf("too many files (limit %d)", lim.MaxEntries)
 		}
@@ -242,6 +250,9 @@ func ExtractTarGz(r io.Reader, dst string, lim Limits) (*Result, error) {
 				return nil, errors.New("archive compression ratio is suspicious")
 			}
 			res.Files++
+			if hdr.Mode&0o111 != 0 {
+				res.Exec = append(res.Exec, rel)
+			}
 			if err := writeFile(root, rel, tr, hdr.Size, fs.FileMode(uint32(hdr.Mode&0o7777))); err != nil {
 				return nil, err
 			}

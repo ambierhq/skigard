@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -23,7 +24,12 @@ type Fetched struct {
 	temp         string // temp dir to remove on Cleanup ("" for local sources)
 	Commit       string // resolved commit (GitHub) or empty (local)
 	SkippedLinks []string
-	Spec         Spec
+	// Exec is the set of files (relative to Dir) that had an execute bit in the
+	// source archive. Only set for archive sources (GitHub); nil for local ones,
+	// which have no mode information beyond the filesystem.
+	Exec      []string
+	ExecKnown bool
+	Spec      Spec
 }
 
 // Cleanup removes the temp directory.
@@ -206,5 +212,30 @@ func (f *Fetcher) Fetch(ctx context.Context, sp Spec) (*Fetched, error) {
 		return fail(util.Errf("extract %s: %v", sp, err))
 	}
 	out.SkippedLinks = res.SkippedLinks
+	out.Exec, out.ExecKnown = res.Exec, true
 	return out, nil
+}
+
+// ExecSet is a set of execute-bit paths relative to a skill directory.
+type ExecSet struct{ Paths []string }
+
+// ExecFor returns the execute-bit paths of the archive that lie under subpath
+// (a slash-separated path inside the archive; "" is the whole archive), made
+// relative to subpath. It returns nil when the source has no archive modes
+// (local sources), in which case the caller falls back to filesystem modes.
+func (f *Fetched) ExecFor(subpath string) *ExecSet {
+	if f == nil || !f.ExecKnown {
+		return nil
+	}
+	out := &ExecSet{}
+	prefix := ""
+	if subpath != "" {
+		prefix = subpath + "/"
+	}
+	for _, p := range f.Exec {
+		if strings.HasPrefix(p, prefix) {
+			out.Paths = append(out.Paths, strings.TrimPrefix(p, prefix))
+		}
+	}
+	return out
 }

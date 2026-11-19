@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/ambierhq/skigard/internal/hash"
@@ -128,7 +129,7 @@ func (a *App) quarantine(f *source.Fetched, spec source.Spec, o AddOpts) ([]*Qua
 			meta.Location = spec.Path
 			meta.Subpath = fd.Rel
 		}
-		q, err := a.place(srcDir, meta)
+		q, err := a.place(srcDir, meta, f.ExecFor(repoPath))
 		if err != nil {
 			return nil, err
 		}
@@ -138,21 +139,37 @@ func (a *App) quarantine(f *source.Fetched, spec source.Spec, o AddOpts) ([]*Qua
 }
 
 // place copies srcDir into quarantine/<name>, records metadata and scans it.
-func (a *App) place(srcDir string, meta *store.Meta) (*Quarantined, error) {
+// fetched is the execute-bit set recorded by the source archive, when it has one
+// (see source.Fetched.ExecFor); otherwise the source files' own modes are used.
+func (a *App) place(srcDir string, meta *store.Meta, fetched *source.ExecSet) (*Quarantined, error) {
 	dest := a.Home.QuarantineSkill(meta.Name)
 	if err := os.RemoveAll(dest); err != nil {
 		return nil, err
 	}
-	if _, err := safefs.CopyTree(srcDir, dest, a.Fetcher.Limits); err != nil {
+	res, err := safefs.CopyTree(srcDir, dest, a.Fetcher.Limits)
+	if err != nil {
 		os.RemoveAll(dest)
 		return nil, util.Errf("cannot take %s: %v", meta.Name, err)
 	}
+	exec := res.Exec
+	if fetched != nil {
+		// Archive modes are authoritative (they survive a Windows destination). Keep only
+		// files that were actually copied: .git and .DS_Store are skipped.
+		exec = nil
+		for _, p := range fetched.Paths {
+			if fi, err := os.Lstat(filepath.Join(dest, filepath.FromSlash(p))); err == nil && fi.Mode().IsRegular() {
+				exec = append(exec, p)
+			}
+		}
+	}
+	sort.Strings(exec)
 	h, err := hash.Dir(dest)
 	if err != nil {
 		os.RemoveAll(dest)
 		return nil, err
 	}
-	meta.ContentHash, meta.FetchedAt = h, util.Now()
+	meta.SetIdentity(hash.Identity{Version: hash.Version, Content: h, Exec: exec, ExecHash: hash.ExecDigest(exec)})
+	meta.FetchedAt = util.Now()
 	if err := meta.Save(a.Home); err != nil {
 		return nil, err
 	}
@@ -252,12 +269,12 @@ func (a *App) updateOne(ctx context.Context, ls *store.LockSkill) UpdateResult {
 	}
 	meta := &store.Meta{Name: ls.Name, Source: ls.Source, Kind: spec.Kind, Location: ls.Location, Ref: ls.Ref,
 		Subpath: ls.Subpath, Commit: f.Commit}
-	q, err := a.place(dir, meta)
+	q, err := a.place(dir, meta, f.ExecFor(ls.Subpath))
 	if err != nil {
 		return fail("%v", err)
 	}
 	r.NewHash, r.NewSHA = q.Hash, f.Commit
-	if q.Hash == ls.ContentHash {
+	if same, err := sameAsApproved(a.Home.QuarantineSkill(ls.Name), q.Meta, ls); err == nil && same {
 		os.RemoveAll(a.Home.QuarantineSkill(ls.Name))
 		os.Remove(a.Home.MetaPath(ls.Name))
 		return fail("up to date")
@@ -268,4 +285,17 @@ func (a *App) updateOne(ctx context.Context, ls *store.LockSkill) UpdateResult {
 		r.Note += fmt.Sprintf(" (warning: the skill is now named %q)", util.Clean(m.Name))
 	}
 	return r
+}
+
+// sameAsApproved reports whether the freshly fetched skill in dir is identical to
+// the approved one: same bytes under the approved entry's hash version and, for
+// version 2, the same execute-bit set. A version 1 entry is compared with the
+// version 1 hash so an unchanged skill is not reported as changed.
+func sameAsApproved(dir string, fresh *store.Meta, ls *store.LockSkill) (bool, error) {
+	id := ls.Identity()
+	got, err := hash.DirVersion(dir, id.Version)
+	if err != nil || got != id.Content {
+		return false, err
+	}
+	return id.Version < 2 || fresh.ExecHash == id.ExecHash, nil
 }
