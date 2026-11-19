@@ -61,7 +61,7 @@ jobs:
           "$SKIGARD_INSTALL_DIR/skigard" version | grep '^skigard '
       - name: a tampered archive is rejected
         env:
-          SKIGARD_BASE_URL: http://127.0.0.1:18432
+          SKIGARD_BASE_URL: ${{ runner.temp }}\dist-bad
           SKIGARD_INSTALL_DIR: ${{ runner.temp }}/bin-tampered
         run: |
           cp -r dist "$RUNNER_TEMP/dist-bad"
@@ -117,20 +117,10 @@ jobs:
         with: {persist-credentials: false}
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with: {name: installer-dist, path: dist}
-      - name: serve the snapshot
-        run: |
-          $py = (Get-Command python).Source
-          # keep the server alive after this step (the runner kills processes tagged with its tracking id)
-          $env:RUNNER_TRACKING_ID = ''
-          Start-Process -FilePath $py -ArgumentList '-m','http.server','18431','--bind','127.0.0.1' -WorkingDirectory (Join-Path $PWD 'dist') -WindowStyle Hidden -RedirectStandardError "$env:RUNNER_TEMP\http1.log"
-          for ($i = 0; $i -lt 30; $i++) {
-            try { Invoke-WebRequest -UseBasicParsing http://127.0.0.1:18431/checksums.txt | Out-Null; break } catch { Start-Sleep -Seconds 1 }
-          }
-          if ($i -ge 30) { Get-Content "$env:RUNNER_TEMP\http1.log" -ErrorAction SilentlyContinue; throw 'snapshot server did not start' }
       - name: Windows PowerShell 5.1, piped to iex, default directory and user PATH
         shell: powershell
         env:
-          SKIGARD_BASE_URL: http://127.0.0.1:18431
+          SKIGARD_BASE_URL: ${{ github.workspace }}\dist
         run: |
           $ErrorActionPreference = 'Stop'
           Get-Content -Raw scripts/install.ps1 | Invoke-Expression
@@ -146,7 +136,7 @@ jobs:
           & $exe version
       - name: PowerShell 7, custom directory, explicit version
         env:
-          SKIGARD_BASE_URL: http://127.0.0.1:18431
+          SKIGARD_BASE_URL: file:///${{ github.workspace }}/dist
           SKIGARD_INSTALL_DIR: ${{ runner.temp }}\skigard-pwsh
           SKIGARD_NO_MODIFY_PATH: "1"
         run: |
@@ -157,18 +147,11 @@ jobs:
           if ($out -notmatch '^skigard ') { throw "unexpected output: $out" }
       - name: a tampered archive is rejected
         env:
-          SKIGARD_BASE_URL: http://127.0.0.1:18432
+          SKIGARD_BASE_URL: ${{ runner.temp }}\dist-bad
           SKIGARD_INSTALL_DIR: ${{ runner.temp }}\skigard-bad
         run: |
           Copy-Item dist "$env:RUNNER_TEMP\dist-bad" -Recurse
           Get-ChildItem "$env:RUNNER_TEMP\dist-bad\*.zip" | ForEach-Object { Add-Content -LiteralPath $_.FullName -Value 'tamper' }
-          $py = (Get-Command python).Source
-          # keep the server alive after this step (the runner kills processes tagged with its tracking id)
-          $env:RUNNER_TRACKING_ID = ''
-          Start-Process -FilePath $py -ArgumentList '-m','http.server','18432','--bind','127.0.0.1' -WorkingDirectory "$env:RUNNER_TEMP\dist-bad" -WindowStyle Hidden
-          for ($i = 0; $i -lt 30; $i++) {
-            try { Invoke-WebRequest -UseBasicParsing http://127.0.0.1:18432/checksums.txt | Out-Null; break } catch { Start-Sleep -Seconds 1 }
-          }
           $failed = $false
           try { ./scripts/install.ps1 } catch { $failed = $true; Write-Host "rejected as expected: $($_.Exception.Message)" }
           if (-not $failed) { throw 'install.ps1 accepted a tampered archive' }

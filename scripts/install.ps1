@@ -4,7 +4,7 @@
 # Environment variables (all optional):
 #   SKIGARD_VERSION          release to install, with or without a leading "v" (default: latest)
 #   SKIGARD_INSTALL_DIR      install directory (default: %LOCALAPPDATA%\Programs\skigard)
-#   SKIGARD_BASE_URL         override the download location (used by tests)
+#   SKIGARD_BASE_URL         override the download location: an http(s) URL, or a directory / file:// URL (used by tests)
 #   SKIGARD_NO_MODIFY_PATH   set to 1 to leave the user PATH alone
 #   SKIGARD_SKIP_COSIGN      set to 1 to skip the cosign check even if cosign is installed
 #
@@ -44,6 +44,11 @@ function Install-Skigard {
     elseif ($version -eq 'latest') { $base = "https://github.com/$repo/releases/latest/download" }
     else { $base = "https://github.com/$repo/releases/download/$version" }
 
+    # Test seam: SKIGARD_BASE_URL may be a directory or a file:// URL; files are copied, nothing is downloaded.
+    $localDir = $null
+    if ($base -match '^file:') { $localDir = ([Uri]$base).LocalPath }
+    elseif ($base -and $base -notmatch '^https?://' -and (Test-Path -LiteralPath $base -PathType Container)) { $localDir = $base }
+
     $dir = Get-EnvVar 'SKIGARD_INSTALL_DIR'
     if (-not $dir) {
         $local = Get-EnvVar 'LOCALAPPDATA'
@@ -56,7 +61,10 @@ function Install-Skigard {
     try {
         function Get-Asset([string]$Name) {
             $dest = Join-Path $tmp $Name
-            try { Invoke-WebRequest -UseBasicParsing -Uri "$base/$Name" -OutFile $dest }
+            try {
+                if ($localDir) { Copy-Item -LiteralPath (Join-Path $localDir $Name) -Destination $dest }
+                else { Invoke-WebRequest -UseBasicParsing -Uri "$base/$Name" -OutFile $dest }
+            }
             catch { Fail "download failed: $base/$Name ($($_.Exception.Message)); is '$version' a published release with a windows/$arch build?" }
             $dest
         }
