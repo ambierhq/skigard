@@ -21,6 +21,8 @@ skigard review record NAME --verdict pass|concerns|fail --summary "..."   # stor
 | `gemini-cli` | unverified, needs `--allow-unverified` | `gemini -p "" --approval-mode plan` with the system prompt on stdin |
 | `codex` | not supported | its read-only sandbox still lets commands read host files, so a tool-less run cannot be guaranteed |
 
+**Windows:** automated review is disabled and fails closed; use `--manual`. See [windows.md](windows.md).
+
 Other harnesses: use `--manual`, or open a PR adding a template to `internal/review/review.go` with evidence for
 every flag. A template must disable tools, MCP and extensions, must not read the working directory, and must take the
 prompt on stdin.
