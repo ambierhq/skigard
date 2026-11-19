@@ -137,7 +137,8 @@ func (a *App) Install(o InstallOpts) ([]Installed, []string, error) {
 		scope = "user"
 	}
 	mode := harness.ModeSymlink
-	if o.Copy || scope == "project" {
+	// Windows installs by copy: creating symlinks there needs a privilege most users do not have.
+	if o.Copy || scope == "project" || runtime.GOOS == "windows" {
 		mode = harness.ModeCopy
 	}
 	st, err := harness.LoadState(a.Home.InstallsPath())

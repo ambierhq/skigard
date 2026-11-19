@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/ambierhq/skigard/internal/harness"
+	"github.com/ambierhq/skigard/internal/hash"
 	"github.com/ambierhq/skigard/internal/review"
 	"github.com/ambierhq/skigard/internal/safefs"
 	"github.com/ambierhq/skigard/internal/source"
@@ -91,7 +92,9 @@ func TestAddSelectsSkillsAndRejectsSymlinks(t *testing.T) {
 	if len(all) != 2 {
 		t.Fatalf("all = %d", len(all))
 	}
-	os.Symlink("/etc/passwd", filepath.Join(src, "alpha", "link"))
+	if err := os.Symlink("/etc/passwd", filepath.Join(src, "alpha", "link")); err != nil {
+		t.Skipf("cannot create symlinks here: %v", err)
+	}
 	if _, err := a.Add(context.Background(), src, AddOpts{Skill: "alpha"}); err == nil {
 		t.Error("symlinked skill accepted")
 	}
@@ -275,8 +278,8 @@ func TestInstallVerifySyncUninstall(t *testing.T) {
 	if err != nil || len(got) != 1 {
 		t.Fatalf("%+v %v", got, err)
 	}
-	if fi, err := os.Lstat(filepath.Join(dir, "alpha")); err != nil || fi.Mode()&os.ModeSymlink == 0 {
-		t.Fatalf("expected symlink install: %v", err)
+	if fi, err := os.Lstat(filepath.Join(dir, "alpha")); err != nil || (runtime.GOOS != "windows" && fi.Mode()&os.ModeSymlink == 0) || (runtime.GOOS == "windows" && !fi.IsDir()) {
+		t.Fatalf("expected symlink install (copy on Windows): %v", err)
 	}
 	if ps, _ := a.Verify(); HasErrors(ps) {
 		t.Fatalf("%+v", ps)
@@ -581,6 +584,9 @@ func TestListShowTokensDoctor(t *testing.T) {
 }
 
 func TestMigrateSkm(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the pinned skm hash includes the execute bit, which Windows files do not have")
+	}
 	repo := t.TempDir()
 	skill := filepath.Join(repo, "skills", "alpha")
 	os.MkdirAll(skill, 0o755)
@@ -642,5 +648,49 @@ func TestReviewFailsClosedOnWindows(t *testing.T) {
 	}
 	if _, statErr := os.Stat(marker); statErr == nil {
 		t.Fatal("a reviewer binary was executed")
+	}
+}
+
+// A skill with CRLF line endings must be stored, approved and hashed exactly as given.
+func TestCRLFSkillBytesNeverRewritten(t *testing.T) {
+	a, _ := newApp(t)
+	src := t.TempDir()
+	skillMD := "---\r\nname: crlf\r\ndescription: has CRLF endings\r\n---\r\n# crlf\r\nJust prose.\r\n"
+	script := "echo one\r\necho two\n"
+	d := filepath.Join(src, "crlf")
+	os.MkdirAll(filepath.Join(d, "scripts"), 0o755)
+	os.WriteFile(filepath.Join(d, "SKILL.md"), []byte(skillMD), 0o644)
+	os.WriteFile(filepath.Join(d, "scripts", "run.txt"), []byte(script), 0o644)
+	want, err := hash.Dir(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	qs := addLocal(t, a, src, AddOpts{Skill: "crlf"})
+	if len(qs) != 1 {
+		t.Fatalf("%+v", qs)
+	}
+	check := func(where, dir string) {
+		t.Helper()
+		for rel, body := range map[string]string{"SKILL.md": skillMD, "scripts/run.txt": script} {
+			got, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(rel)))
+			if err != nil || string(got) != body {
+				t.Errorf("%s/%s rewritten: %q (%v)", where, rel, got, err)
+			}
+		}
+		if got, err := hash.Dir(dir); err != nil || got != want {
+			t.Errorf("%s hash %s != %s (%v)", where, got, want, err)
+		}
+	}
+	check("quarantine", a.Home.QuarantineSkill("crlf"))
+	if _, err := a.Approve("crlf", ApproveOpts{Confirm: yes}); err != nil {
+		t.Fatal(err)
+	}
+	check("approved store", a.Home.SkillDir("crlf"))
+	ls, err := store.LoadLock(a.Home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := ls.Get("crlf"); got.ContentHash != want {
+		t.Errorf("lock hash %s != %s", got.ContentHash, want)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -68,7 +69,7 @@ func TestExtractStripsTopDirAndSkipsLinks(t *testing.T) {
 		t.Fatal("symlink was extracted")
 	}
 	info, _ := os.Stat(filepath.Join(dst, "run.sh"))
-	if info.Mode()&0o111 == 0 {
+	if runtime.GOOS != "windows" && info.Mode()&0o111 == 0 {
 		t.Fatal("exec bit lost")
 	}
 }

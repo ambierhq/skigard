@@ -33,7 +33,7 @@ go install github.com/ambierhq/skigard/cmd/skigard@latest
 ```
 
 Windows: everything works, including `approve`, which reads the console (`CONIN$`) the way Unix reads `/dev/tty`.
-See [docs/windows.md](docs/windows.md) for where skigard keeps its files and what differs on Windows.
+See [docs/windows.md](docs/windows.md) for file locations and what differs (automated review is disabled; use `review --manual`).
 
 ## Quick start
 
