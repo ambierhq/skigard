@@ -50,11 +50,9 @@ add ──► quarantine ──► scan ──► review (agent, advisory) ─�
  └──────────────────────────── update: re-fetch, diff, review again ◄──────────────────────────┘
 ```
 
-<!-- Demo: the demo PR adds assets/media/demo.gif (and demo.mp4) and uncomments the next block.
 <p align="center">
   <img alt="skigard adding, scanning, approving and installing a skill" src="assets/media/demo.gif" width="800">
 </p>
--->
 
 - **One static binary**, no runtime, no telemetry, one dependency (a TOML parser).
 - **Agents cannot approve.** `approve` reads the terminal device only, has no `--yes`, and refuses inside a detected agent harness.

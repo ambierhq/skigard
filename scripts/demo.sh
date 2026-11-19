@@ -59,7 +59,7 @@ if [ -z "$CHROME" ]; then
 fi
 sed -e "s/@ACCENT@/$BRAND_ACCENT/g" -e "s/@DIM@/$BRAND_DIM/g" -e "s/@FG@/$BRAND_FG/g" -e "s/@BG@/$BRAND_BG/g" \
   "$ROOT/assets/demo/poster.html" > "$WORK/poster.html"
-cp "$ROOT/assets/brand/skigard-mark.svg" "$WORK/"
+cp "$ROOT/assets/brand/mark.svg" "$WORK/"
 if [ -n "$CHROME" ]; then
   "$CHROME" --headless --disable-gpu --hide-scrollbars --window-size=1280,720 \
     --screenshot="$OUT/poster.png" "file://$WORK/poster.html" >/dev/null 2>&1

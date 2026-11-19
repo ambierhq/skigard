@@ -28,7 +28,7 @@ GIF is over 5 MB or a site video over 3 MB. Set `CHROME=/path/to/chrome` if the 
 - Approval is never scripted around the rules. In scene 3 a human-like keystroke sequence is typed into VHS's
   pseudo-terminal (ttyd), which is a real tty. Scene 4's hidden setup uses `scripts/pty_approve.py`. There is no flag,
   stdin path or env var that bypasses the prompt.
-- `poster.html` renders `poster.png` with headless Chrome. The mark is `assets/brand/skigard-mark.svg` (provisional,
+- `poster.html` renders `poster.png` with headless Chrome. The mark is `assets/brand/mark.svg` (provisional,
   option B); change that one file to change the mark.
 - Fonts: the terminal uses Menlo (a system font, so it renders on macOS). Newsreader and IBM Plex Sans are not bundled yet;
   the poster falls back to Georgia and the system sans. Self-host them under `assets/brand/fonts/` when the site does.
