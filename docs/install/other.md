@@ -18,19 +18,6 @@ install scripts and downloads nothing at install time.
 nix run github:ambierhq/skigard -- detect
 ```
 
-## Docker (not yet public)
-
-The release workflow builds and signs `ghcr.io/ambierhq/skigard`, but the package is not public yet, so `docker pull` is denied for now.
-Until then, install the binary another way. The commands below are what will work.
-
-```sh
-docker run --rm ghcr.io/ambierhq/skigard --help
-```
-
-The image is distroless, non-root and contains only the binary. `approve` needs a terminal, so use `docker run -it` and mount a home
-directory if you want to keep state: `-v "$HOME/.config/skigard:/home/nonroot/.config/skigard"`. The image is most useful for
-`skigard verify` in CI.
-
 ## mise
 
 ```sh

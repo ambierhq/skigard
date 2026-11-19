@@ -84,27 +84,6 @@ nfpms:
       - src: completions/skigard.fish
         dst: /usr/share/fish/vendor_completions.d/skigard.fish
 
-dockers_v2:
-  - id: skigard
-    images: [ghcr.io/ambierhq/skigard]
-    tags:
-      - "{{ .Version }}"
-      - "{{ if not .Prerelease }}latest{{ end }}"
-    platforms: [linux/amd64, linux/arm64]
-    dockerfile: Dockerfile
-    labels:
-      org.opencontainers.image.title: skigard
-      org.opencontainers.image.description: Lockfile and review gate for agent skills
-      org.opencontainers.image.source: https://github.com/ambierhq/skigard
-      org.opencontainers.image.licenses: MIT
-      org.opencontainers.image.version: "{{ .Version }}"
-      org.opencontainers.image.revision: "{{ .FullCommit }}"
-
-docker_signs:
-  - cmd: cosign
-    artifacts: manifests
-    args: ["sign", "--yes", "${artifact}@${digest}"]
-
 # Publishers. Each one is skipped unless its token is present in the environment.
 # Homebrew: GoReleaser v2.20 deprecates `brews` and its replacement `homebrew_casks` is macOS-only, so the
 # formula (macOS and Linux) is rendered by scripts/homebrew-formula.sh in the release workflow instead.

@@ -48,4 +48,3 @@ and has been reviewed. Renovate (`renovate.json`) opens PRs labelled `deps` on M
 
 - Tools pinned in workflows by version (`golangci-lint` `v2.15.0`, GoReleaser `v2.20.2`, `editorconfig-checker`,
   `zizmor`) must be kept in step with `mise.toml` by hand. The weekly review should check that they match.
-- The distroless base image in `Dockerfile` is pinned by digest and bumped by Renovate's `dockerfile` manager.

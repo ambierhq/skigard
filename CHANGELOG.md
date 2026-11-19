@@ -19,7 +19,7 @@ publisher step (a templating error in the token settings, fixed in #26), so the 
 - Content hash v2: identical on every OS, with a separate exec set, and `skigard lock upgrade` for older locks.
 - Registry of 78 agent harnesses with detection and installs, plugins and a generated Claude Code / OMP marketplace.
 - Windows support (amd64, arm64), including `approve` through the console.
-- Release pipeline: signed, SBOM-ed archives and Linux packages, container image, shell and PowerShell installers.
+- Release pipeline: signed, SBOM-ed archives and Linux packages, shell and PowerShell installers.
 - Documentation, brand assets and a generated command reference.
 
 ### Known issues
