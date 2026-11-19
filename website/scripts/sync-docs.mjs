@@ -114,6 +114,10 @@ async function syncBrand() {
   await copy("favicon.ico", "public/favicon.ico");
   await copy("apple-touch-icon.png", "public/apple-touch-icon.png");
   await copy("social-preview.png", "public/og.png");
+  await fs.mkdir(path.join(site, "public/media"), { recursive: true });
+  for (const f of ["demo.webm", "demo.mp4", "poster.png"]) {
+    await fs.copyFile(path.join(repo, "assets/media", f), path.join(site, "public/media", f));
+  }
 }
 
 async function llms(docs, harnesses) {

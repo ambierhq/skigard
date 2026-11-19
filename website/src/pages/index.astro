@@ -108,6 +108,16 @@ const features = [
         </ol>
       </section>
 
+      <section class="wrap block" id="demo">
+        <h2 class="display">See it work</h2>
+        <p>An agent is refused when it tries to approve. A human approves in a real terminal. Tampering after approval makes <code>verify</code> fail. About 80 seconds, no sound.</p>
+        <video controls preload="none" playsinline poster={`${base}/media/poster.png`} width="1280" height="720" aria-label="skigard demo: scan blocks a malicious-looking skill, an agent is refused at approve, a human approves, verify fails after tampering">
+          <source src={`${base}/media/demo.webm`} type="video/webm" />
+          <source src={`${base}/media/demo.mp4`} type="video/mp4" />
+          <p>Your browser cannot play the video. The commands are in <a href={`${base}/docs/getting-started/`}>Getting started</a>.</p>
+        </video>
+      </section>
+
       <section class="wrap block" id="features">
         <h2 class="display">What you get</h2>
         <ul class="cards">
