@@ -119,9 +119,12 @@ jobs:
         with: {name: installer-dist, path: dist}
       - name: serve the snapshot
         run: |
-          Start-Process -FilePath python -ArgumentList '-m','http.server','18431','--bind','127.0.0.1' -WorkingDirectory "$PWD\dist" -WindowStyle Hidden
-          Start-Sleep -Seconds 3
-          Invoke-WebRequest -UseBasicParsing http://127.0.0.1:18431/checksums.txt | Out-Null
+          $py = (Get-Command python).Source
+          Start-Process -FilePath $py -ArgumentList '-m','http.server','18431','--bind','127.0.0.1' -WorkingDirectory (Join-Path $PWD 'dist') -WindowStyle Hidden -RedirectStandardError "$env:RUNNER_TEMP\http1.log"
+          for ($i = 0; $i -lt 30; $i++) {
+            try { Invoke-WebRequest -UseBasicParsing http://127.0.0.1:18431/checksums.txt | Out-Null; break } catch { Start-Sleep -Seconds 1 }
+          }
+          if ($i -ge 30) { Get-Content "$env:RUNNER_TEMP\http1.log" -ErrorAction SilentlyContinue; throw 'snapshot server did not start' }
       - name: Windows PowerShell 5.1, piped to iex, default directory and user PATH
         shell: powershell
         env:
@@ -157,8 +160,11 @@ jobs:
         run: |
           Copy-Item dist "$env:RUNNER_TEMP\dist-bad" -Recurse
           Get-ChildItem "$env:RUNNER_TEMP\dist-bad\*.zip" | ForEach-Object { Add-Content -LiteralPath $_.FullName -Value 'tamper' }
-          Start-Process -FilePath python -ArgumentList '-m','http.server','18432','--bind','127.0.0.1' -WorkingDirectory "$env:RUNNER_TEMP\dist-bad" -WindowStyle Hidden
-          Start-Sleep -Seconds 3
+          $py = (Get-Command python).Source
+          Start-Process -FilePath $py -ArgumentList '-m','http.server','18432','--bind','127.0.0.1' -WorkingDirectory "$env:RUNNER_TEMP\dist-bad" -WindowStyle Hidden
+          for ($i = 0; $i -lt 30; $i++) {
+            try { Invoke-WebRequest -UseBasicParsing http://127.0.0.1:18432/checksums.txt | Out-Null; break } catch { Start-Sleep -Seconds 1 }
+          }
           $failed = $false
           try { ./scripts/install.ps1 } catch { $failed = $true; Write-Host "rejected as expected: $($_.Exception.Message)" }
           if (-not $failed) { throw 'install.ps1 accepted a tampered archive' }
@@ -173,7 +179,7 @@ jobs:
         include:
           - {image: "debian:12", glob: "*_linux_amd64.deb", cmd: "apt-get update -qq && apt-get install -y -qq /pkg/*_linux_amd64.deb"}
           - {image: "ubuntu:24.04", glob: "*_linux_amd64.deb", cmd: "apt-get update -qq && apt-get install -y -qq /pkg/*_linux_amd64.deb"}
-          - {image: "fedora:latest", glob: "*_linux_amd64.rpm", cmd: "rpm -i /pkg/*_linux_amd64.rpm"}
+          - {image: "fedora:latest", glob: "*_linux_amd64.rpm", cmd: "rpm -i --nosignature --nodigest /pkg/*_linux_amd64.rpm"}
           - {image: "archlinux:latest", glob: "*_linux_amd64.pkg.tar.zst", cmd: "pacman -U --noconfirm /pkg/*_linux_amd64.pkg.tar.zst"}
           - {image: "alpine:3.22", glob: "*_linux_amd64.apk", cmd: "apk add --allow-untrusted /pkg/*_linux_amd64.apk"}
     runs-on: ubuntu-latest
