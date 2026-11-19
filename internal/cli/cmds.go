@@ -12,6 +12,7 @@ import (
 	"github.com/ambierhq/skigard/internal/core"
 	"github.com/ambierhq/skigard/internal/harness"
 	"github.com/ambierhq/skigard/internal/hash"
+	"github.com/ambierhq/skigard/internal/review"
 	"github.com/ambierhq/skigard/internal/scan"
 	"github.com/ambierhq/skigard/internal/store"
 	"github.com/ambierhq/skigard/internal/util"
@@ -236,6 +237,9 @@ func cmdReview(c *ctx, args []string) error {
 		}
 		c.printf("%s\n\n---\nWhen done, record your verdict (this does not approve anything):\n  skigard review record %s --verdict pass|concerns|fail --summary \"...\"\n", p, name)
 		return nil
+	}
+	if err := review.Supported(); err != nil {
+		return err
 	}
 	id := *harnessID
 	if id == "" {

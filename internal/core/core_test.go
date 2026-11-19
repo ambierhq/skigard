@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -399,6 +400,9 @@ func TestPluginsAndMarketplace(t *testing.T) {
 }
 
 func TestReviewWithFakeHarness(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("automated review is disabled on Windows; see TestReviewFailsClosedOnWindows")
+	}
 	a, _ := newApp(t)
 	src := t.TempDir()
 	writeSkill(t, src, "alpha", nil)
@@ -616,5 +620,27 @@ func TestMigrateSkm(t *testing.T) {
 	}
 	if ps, _ := a.Verify(); HasErrors(ps) {
 		t.Fatalf("%+v", ps)
+	}
+}
+
+// On Windows an automated review must refuse before it looks for or runs any binary.
+func TestReviewFailsClosedOnWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("windows only")
+	}
+	a, _ := newApp(t)
+	src := t.TempDir()
+	writeSkill(t, src, "alpha", nil)
+	addLocal(t, a, src, AddOpts{Skill: "alpha"})
+	marker := filepath.Join(t.TempDir(), "ran")
+	bin := filepath.Join(t.TempDir(), "fakepi.cmd")
+	os.WriteFile(bin, []byte("@echo ran> "+marker+"\r\n"), 0o755)
+	a.Runner = review.Runner{Environ: os.Environ(), BinOverride: bin}
+	_, err := a.Review(context.Background(), "alpha", ReviewOpts{Harness: "pi"})
+	if err == nil || !strings.Contains(err.Error(), "not available on Windows") {
+		t.Fatalf("review must refuse on Windows, got %v", err)
+	}
+	if _, statErr := os.Stat(marker); statErr == nil {
+		t.Fatal("a reviewer binary was executed")
 	}
 }

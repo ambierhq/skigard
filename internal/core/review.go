@@ -40,6 +40,9 @@ func (a *App) Reviewers() ([]Reviewer, error) {
 		if running != nil && running.ID == d.ID {
 			r.Running = true
 		}
+		if err := review.Supported(); err != nil {
+			r.Note = "automated review is disabled on this platform; use --manual"
+		}
 		out = append(out, r)
 	}
 	return out, nil
@@ -55,6 +58,9 @@ type ReviewOpts struct {
 // Review runs a harness as a sandboxed reviewer and stores the result.
 func (a *App) Review(ctx context.Context, name string, o ReviewOpts) (*review.Record, error) {
 	ctx = ctxOrBackground(ctx)
+	if err := review.Supported(); err != nil {
+		return nil, err
+	}
 	if err := util.CheckName(name); err != nil {
 		return nil, err
 	}

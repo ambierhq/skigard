@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -104,6 +105,10 @@ func TestScrubEnv(t *testing.T) {
 }
 
 func fakeHarness(t *testing.T, script string) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("fake harnesses are shell scripts; review is disabled on Windows (see support_windows.go)")
+	}
 	p := filepath.Join(t.TempDir(), "fake")
 	os.WriteFile(p, []byte("#!/bin/sh\n"+script), 0o755)
 	return p

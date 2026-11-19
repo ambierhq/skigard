@@ -368,6 +368,9 @@ type Runner struct {
 
 // Run executes the reviewer and returns its raw stdout.
 func (r Runner) Run(ctx context.Context, t Template, model string, in *Input) (string, error) {
+	if err := Supported(); err != nil {
+		return "", err
+	}
 	if r.Timeout == 0 {
 		r.Timeout = 10 * time.Minute
 	}
