@@ -28,6 +28,9 @@ add ──► quarantine ──► scan ──► review (agent, advisory) ─�
 # macOS / Linux (Homebrew tap and release binaries are published from GitHub Releases)
 curl -fsSL https://raw.githubusercontent.com/ambierhq/skigard/main/scripts/install.sh | sh
 
+# Windows (PowerShell 5.1 or 7, no administrator rights)
+irm https://raw.githubusercontent.com/ambierhq/skigard/main/scripts/install.ps1 | iex
+
 # from source (Go 1.27+)
 go install github.com/ambierhq/skigard/cmd/skigard@latest
 ```
@@ -89,6 +92,7 @@ Installs are symlinks from each harness's skills directory into `skills/`, or co
 | `list`, `show NAME`, `status`, `doctor`, `stats --tokens` | inspect |
 | `plugin create\|add\|remove\|show\|list`, `marketplace build\|check` | group skills; generate a Claude Code / OMP marketplace |
 | `harness list\|add`, `rules` | the harness registry and the scanner rules |
+| `completion bash\|zsh\|fish\|powershell` | print a shell completion script |
 | `migrate --from-skm PATH` | import from the predecessor tool |
 
 Every command takes `--json` and `--home PATH`. Exit codes: `0` ok, `1` policy/drift/findings, `2` usage or error,
