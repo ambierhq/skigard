@@ -6,6 +6,7 @@ package harness
 import (
 	_ "embed"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -225,7 +226,7 @@ func Detect(reg []Entry, env Env) []Detection {
 		}
 		dirs := e.Dirs
 		if dirs == nil && e.Global != "" {
-			dirs = []string{filepath.Dir(e.Global)}
+			dirs = []string{path.Dir(filepath.ToSlash(e.Global))} // registry paths use slashes
 		}
 		for _, dir := range dirs {
 			if p := env.Expand(dir); p != "" && env.Exists(p) {
