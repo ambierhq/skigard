@@ -30,7 +30,7 @@ jobs:
       - run: skigard verify --strict
 ```
 
-A copy lives in [`examples/verify-workflow.yml`](../examples/verify-workflow.yml). Pin the installer to a release with `SKIGARD_VERSION=v0.1.0` once it exists, so
+A copy lives in [`examples/verify-workflow.yml`](../examples/verify-workflow.yml). Pin the installer to a release with `SKIGARD_VERSION=v0.1.1`, so
 a CI run cannot change behaviour under you.
 
 `--strict` also fails on warnings, such as an approval that used `--override` or a review that did not pass. Without it, only errors fail.
