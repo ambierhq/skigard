@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="t">
+  <title id="t">skigard</title>
+  <rect width="256" height="256" rx="56" fill="#16130E"/>
+  <path d="M128 34 L204 64 V120 C204 166 174 194 128 214 C82 194 52 166 52 120 V64 Z" fill="none" stroke="#F4EEE2" stroke-width="28" stroke-linejoin="round"/>
+  <rect x="96" y="88" width="64" height="64" rx="8" fill="#EFA226"/>
+</svg>

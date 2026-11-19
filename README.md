@@ -1,11 +1,48 @@
-# skigard
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="assets/brand/logo-full-on-light.svg">
+    <img alt="skigard" src="assets/brand/logo-full.svg" height="80">
+  </picture>
+</p>
+
+<p align="center">
+  <a href="https://github.com/ambierhq/skigard/releases"><img alt="Release" src="https://img.shields.io/github/v/release/ambierhq/skigard"></a>
+  <a href="https://github.com/ambierhq/skigard/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/ambierhq/skigard/ci.yml?branch=main"></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/ambierhq/skigard"><img alt="OpenSSF Scorecard" src="https://api.scorecard.dev/projects/github.com/ambierhq/skigard/badge"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/ambierhq/skigard"></a>
+  <a href="https://github.com/ambierhq/skigard/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/ambierhq/skigard/total"></a>
+  <a href="docs/install/README.md"><img alt="Platforms: Linux, macOS, Windows" src="https://img.shields.io/badge/platforms-linux%20%7C%20macOS%20%7C%20windows-informational"></a>
+</p>
+
+# skigard: lockfile and security review gate for Claude Code, Codex and Cursor agent skills
 
 **A lockfile and review gate for agent skills.** Nothing reaches your agents until a human has approved those exact bytes.
 
-skigard fetches skills (a folder with a `SKILL.md`) from GitHub or disk into **quarantine**, scans them, optionally has an
-agent you already use review them, makes **you** approve them in a real terminal, pins the approval to a **content hash** (SHA-256, the same on Linux, macOS and Windows)
-in a lockfile, and then installs them into every agent harness it finds on your machine (Claude Code, Pi, Codex, Cursor,
-Gemini CLI, OpenCode, and about 75 more).
+<p>
+  <a href="#install">Install</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="docs/getting-started.md">Docs</a> ·
+  <a href="https://ambierhq.com/skigard">Website</a>
+</p>
+
+## The problem
+
+- Agent skills are instructions and scripts that run with **your agent's permissions**. Copying one from the internet is running someone else's code.
+- Skills are fetched from moving branches: what you read yesterday is not what installs today. There is no pinning.
+- Nobody reviews them, and the agent that installs a skill is the same agent a bad skill can talk into installing more.
+- A prompt-injected agent can add skills on its own, so "the agent approved it" is not a control.
+
+skigard puts a gate in front of that: **fetch to quarantine, scan, optional agent review, human approval, hash-pinned lockfile, install.**
+
+| Without skigard | With skigard |
+|---|---|
+| `git clone` or copy a skill straight into `~/.claude/skills` | Fetched as an archive into a private quarantine, never executed |
+| Whatever is on the branch today | Pinned to a commit and a SHA-256 content hash in `skigard.lock` |
+| You skim it, maybe | A deterministic scan, an optional agent review, and a diff against what you approved before |
+| An agent can install more skills | Only a human at a terminal can approve: no `--yes`, and agents are refused |
+| A skill changes silently on update | Changes go back to quarantine and need a new approval |
+| Each agent has its own skills folder | Installs once into every detected harness (Claude Code, Pi, Codex, Cursor, Gemini CLI, OpenCode and about 70 more) |
+| No way to notice drift | `skigard verify` fails CI if the lock, the store or the installs change |
 
 ```
 add ──► quarantine ──► scan ──► review (agent, advisory) ──► approve (human, /dev/tty) ──► skigard.lock ──► install
@@ -13,156 +50,219 @@ add ──► quarantine ──► scan ──► review (agent, advisory) ─�
  └──────────────────────────── update: re-fetch, diff, review again ◄──────────────────────────┘
 ```
 
+<!-- Demo: the demo PR adds assets/media/demo.gif (and demo.mp4) and uncomments the next block.
+<p align="center">
+  <img alt="skigard adding, scanning, approving and installing a skill" src="assets/media/demo.gif" width="800">
+</p>
+-->
+
 - **One static binary**, no runtime, no telemetry, one dependency (a TOML parser).
-- **Agents cannot approve.** `approve` reads `/dev/tty`, has no `--yes`, and refuses inside a detected agent harness.
+- **Agents cannot approve.** `approve` reads the terminal device only, has no `--yes`, and refuses inside a detected agent harness.
 - **Reproducible.** `skigard.lock` records source, commit, content hash, scan result, review and approver. Commit it.
-- **Drift is caught.** `skigard verify` fails if the approved store, the installs or the generated marketplace change.
-- **Auto-detects harnesses** and installs once per shared directory (`~/.agents/skills`).
+- **Portable.** The content hash is identical on Linux, macOS and Windows.
 
 > The scanner is heuristic and an agent review can be fooled. "Pass" is not a safety certificate. Read the skill,
 > especially bundled scripts. See the [threat model](docs/threat-model.md).
 
 ## Install
 
-```sh
-# macOS / Linux (Homebrew tap and release binaries are published from GitHub Releases)
-curl -fsSL https://raw.githubusercontent.com/ambierhq/skigard/main/scripts/install.sh | sh
+`v0.1.0` is not released yet, so only the Go route works today. The others are built and tested in CI and go live with the release.
 
-# Windows (PowerShell 5.1 or 7, no administrator rights)
-irm https://raw.githubusercontent.com/ambierhq/skigard/main/scripts/install.ps1 | iex
+| Channel | Command | Status |
+|---|---|---|
+| Go | `go install github.com/ambierhq/skigard/cmd/skigard@latest` | live |
+| Shell installer (macOS, Linux) | `curl -fsSL https://raw.githubusercontent.com/ambierhq/skigard/main/scripts/install.sh \| sh` | coming with v0.1.0 |
+| PowerShell (Windows) | `irm https://raw.githubusercontent.com/ambierhq/skigard/main/scripts/install.ps1 \| iex` | coming with v0.1.0 |
+| Homebrew | `brew install ambierhq/tap/skigard` | coming with v0.1.0 |
+| winget | `winget install Ambier.Skigard` | coming with v0.1.0 |
+| Scoop | `scoop bucket add ambierhq https://github.com/ambierhq/scoop-bucket && scoop install skigard` | coming with v0.1.0 |
+| npx / npm | `npx skigard` or `npm i -g skigard` | coming with v0.1.0 |
+| apt (Debian, Ubuntu) | `sudo apt install skigard` | coming with v0.1.0 |
+| dnf (Fedora, RHEL) | `sudo dnf install skigard` | coming with v0.1.0 |
+| pacman (Arch) | `sudo pacman -S skigard` | coming with v0.1.0 |
+| Nix | `nix run github:ambierhq/skigard` | coming with v0.1.0 |
+| Docker | `docker run --rm ghcr.io/ambierhq/skigard` | coming with v0.1.0 |
+| mise | `mise use -g skigard` | coming with v0.1.0 |
 
-# from source (Go 1.27+)
-go install github.com/ambierhq/skigard/cmd/skigard@latest
-```
+Per-system pages: [macOS](docs/install/macos.md) · [Linux](docs/install/linux.md) · [Windows](docs/install/windows.md) ·
+[other channels](docs/install/other.md). Releases are checksummed, SBOM-ed and signed with cosign
+([verify them](docs/install/README.md#verify-what-you-downloaded)). The installers never use `sudo`.
 
-Windows: everything works, including `approve`, which reads the console (`CONIN$`) the way Unix reads `/dev/tty`.
-See [docs/windows.md](docs/windows.md) for file locations and what differs (automated review is disabled; use `review --manual`).
+### Supported platforms
+
+| OS | Architectures | `approve` | Automated `review` | Installs as |
+|---|---|---|---|---|
+| Linux | amd64, arm64 | yes (`/dev/tty`) | yes (bubblewrap or Landlock) | symlinks (or `--copy`) |
+| macOS | amd64, arm64 | yes (`/dev/tty`) | yes (Seatbelt) | symlinks (or `--copy`) |
+| Windows 10/11 | amd64, arm64 | yes (console, `CONIN$`) | no, use `review --manual` or WSL | copies |
 
 ## Quick start
 
 ```sh
-skigard detect                              # which agent harnesses are on this machine?
+skigard detect                                       # which agent harnesses are on this machine?
 skigard add github:tt-a1i/archify --skill archify   # fetch into quarantine and scan
-skigard review archify                      # optional second opinion from pi / claude / omp (asks which)
-skigard approve archify                     # in a real terminal: shows scan, review and diff, you type the name
-skigard install archify                     # symlink into every detected, verified harness
-skigard verify                              # CI-friendly: lock vs store vs installs
+skigard review archify                               # optional second opinion from pi / claude / omp (asks which)
+skigard approve archify                              # in a real terminal: shows scan, review and diff; you type the name
+skigard install archify                              # link into every detected, verified harness
+skigard verify                                       # CI-friendly: lock vs store vs installs
 ```
 
-Update later: `skigard update` re-fetches approved skills; anything that changed goes back to quarantine with a diff,
-and has to be reviewed and approved again.
+`archify` is a good first example: the scanner blocks it because the skill *talks about* the things the scanner looks for, so you get to see how an
+override is read and recorded. A step-by-step version is in [Getting started](docs/getting-started.md).
 
-New machine: clone your home repo to `~/.config/skigard`, then `skigard sync`.
+Update later: `skigard update` re-fetches approved skills; anything that changed goes back to quarantine with a diff.
+New machine: clone your home repository to `~/.config/skigard` and run `skigard sync`.
 
-## What lives where
+## How to use
 
-Everything is under `~/.config/skigard` (override with `$SKIGARD_HOME`; honours `$XDG_CONFIG_HOME`). It is designed to
-be a private git repository: `skigard init --git`.
-
-```
-~/.config/skigard/
-├── skigard.toml        settings, plugins, custom harnesses
-├── skigard.lock        approved skills pinned to hashes   (commit)
-├── skills/<name>/      approved content                    (commit)
-├── reviews/<name>/     evidence for each approval          (commit)
-├── marketplace/        generated Claude Code / OMP marketplace (commit)
-├── quarantine/         UNTRUSTED, mode 0700                (gitignored)
-└── state/              install records, lock file          (gitignored)
-```
-
-Installs are symlinks from each harness's skills directory into `skills/`, or copies with `--copy` (and always for
-`--scope project`, so a repository is self-contained).
-
-## Commands
-
-| Command | |
+| Command | What it does |
 |---|---|
-| `init [--git]` | create the home |
-| `detect [--all]` | list harnesses: `installed` (binary/app), `configured` (config dir only), `absent` |
-| `add SOURCE [--skill N \| --all]` | fetch to quarantine, scan. `SOURCE`: `github:owner/repo[/path][@ref]`, `owner/repo`, a github.com URL, or a local path |
-| `scan NAME\|PATH [--format text\|json\|sarif] [--fail-on LEVEL] [--fail-on-incomplete]` | deterministic scan |
+| `init [--git]`, `detect [--all]` | create the home; list harnesses (`installed`, `configured`, `absent`) |
+| `add SOURCE [--skill N \| --all]` | fetch to quarantine and scan. `SOURCE`: `github:owner/repo[/path][@ref]`, `owner/repo`, a github.com URL, or a local path |
+| `scan NAME\|PATH [--format text\|json\|sarif] [--fail-on LEVEL]` | deterministic scan |
 | `review NAME [--harness ID \| --manual]` | advisory agent review ([how it works](docs/review.md)) |
 | `diff NAME` | quarantined vs approved |
 | `approve NAME [--override --reason R] [--accept R]` | **human only** |
 | `reject NAME` | delete from quarantine |
 | `update [NAME...]` | re-fetch approved skills; changes go to quarantine |
-| `install NAME... [--plugin P] [--to IDS] [--scope user\|project] [--copy] [--include-unverified]` | install approved skills |
-| `lock upgrade [NAME...]` | move older lock entries to hash v2 (only if the old hash still matches) |
-| `uninstall [NAME...]`, `sync` | remove what skigard installed / install everything approved |
+| `install NAME... [--to IDS] [--scope user\|project] [--copy]`, `uninstall`, `sync` | put approved skills into harnesses, remove them, or install everything approved |
 | `verify [--strict]` | lock, store, installs and marketplace agree (exit 1 if not) |
-| `list`, `show NAME`, `status`, `doctor`, `stats --tokens` | inspect |
-| `plugin create\|add\|remove\|show\|list`, `marketplace build\|check` | group skills; generate a Claude Code / OMP marketplace |
+| `list`, `show`, `status`, `doctor`, `stats --tokens` | inspect |
+| `plugin ...`, `marketplace build\|check` | group skills; generate a Claude Code / OMP marketplace |
 | `harness list\|add`, `rules` | the harness registry and the scanner rules |
-| `completion bash\|zsh\|fish\|powershell` | print a shell completion script |
-| `migrate --from-skm PATH` | import from the predecessor tool |
+| `lock upgrade` | move older lock entries to hash v2, only where the old hash still matches |
+| `completion bash\|zsh\|fish\|powershell`, `migrate --from-skm PATH` | shell completions; import from the predecessor tool |
 
-Every command takes `--json` and `--home PATH`. Exit codes: `0` ok, `1` policy/drift/findings, `2` usage or error,
-`3` cancelled, `4` incomplete scan coverage.
+Every command takes `--json` and `--home PATH`. Exit codes: `0` ok, `1` policy/drift/findings, `2` usage or error, `3` cancelled, `4` incomplete coverage.
+Full reference: [docs/commands.md](docs/commands.md) (generated from the CLI).
 
-## How the gate decides
+### How the gate decides
 
-1. **Scan** (`skigard scan`): [34 rules](docs/rules.md) plus capability chains. Any `high`/`critical` finding is
-   a **block**; `medium` or incomplete coverage is a **review**. Binary or oversized files make coverage *partial*.
-2. **Review** (optional): an installed harness reads the files with its tools disabled by flag inside an OS sandbox on macOS and Linux where one works (Seatbelt, bubblewrap or Landlock; recorded and shown at approval; see [docs/review.md](docs/review.md)). It can only add doubt.
-3. **Approve**: you see the scan, the review and the diff against what you approved before, and type the skill name.
-   A block, partial coverage or a failing review needs `--override --reason "..."`, which is recorded and shown by
-   `status` and `verify` forever. `--accept REASON` can accept low/medium findings (never high/critical).
+1. **Scan**: [34 rules](docs/rules.md) plus capability chains. Any `high`/`critical` finding is a **block**; `medium` or incomplete coverage is a **review**.
+2. **Review** (optional): an installed harness reads the files with tools off, inside an OS sandbox where one works. It can only add doubt.
+3. **Approve**: you see the scan, the review and the diff, and type the skill name. A block or failing review needs `--override --reason "..."`, which is recorded forever.
 4. **Install** refuses anything whose hash no longer matches the lock.
 
-## Harness support
+### Where things live
 
-[78 harnesses](docs/harnesses.md) are in the registry. Three are verified so far (Claude Code, Pi, Oh My Pi); the rest are
-detected and listed but installed to only with `--include-unverified`, until someone confirms the path. Missing yours?
-`skigard harness add --id mytool --name MyTool --global '~/.mytool/skills' --bin mytool`, or send a PR.
+`~/.config/skigard` (`%APPDATA%\skigard` on Windows; override with `$SKIGARD_HOME`). It is designed to be a private git repository: `skigard init --git`.
+Layout, formats and the Windows split are in [concepts](docs/concepts.md), [lockfile](docs/lockfile.md) and [Windows notes](docs/windows.md).
 
-## Using it in CI and projects
+## CI usage
 
 ```yaml
-# .github/workflows/skills.yml  (see examples/)
-- run: skigard verify --strict
+- run: curl -fsSL https://raw.githubusercontent.com/ambierhq/skigard/main/scripts/install.sh | sh
+- run: skigard verify --strict        # with SKIGARD_HOME=./.skigard committed to the repository
 ```
 
-`skigard install ... --scope project` copies approved skills into the repository's harness directories. Commit
-`./.skigard/skigard.lock` with `SKIGARD_HOME=./.skigard`.
+See the [CI guide](docs/ci.md) and [`examples/verify-workflow.yml`](examples/verify-workflow.yml). A reusable `skigard-action` is coming.
+
+## Supported harnesses
+
+[78 harnesses](docs/harnesses.md) are in the registry. Three are verified so far (Claude Code, Pi, Oh My Pi); the rest are detected and listed but installed to
+only with `--include-unverified`, until someone confirms the path. Missing yours? `skigard harness add --id mytool --name MyTool --global '~/.mytool/skills' --bin mytool`, or send a PR.
 
 ## FAQ
 
-**Why is my security-review skill (or `archify`) blocked?** The scanner matches text, not intent. A skill that *talks
-about* `~/.ssh`, `curl | sh` or "ignore previous instructions" (a checklist, a deny-list regex) looks like one that does
-it. High and critical findings cannot be accepted away; read the skill, then approve with `--override --reason "..."`.
-The override is recorded and `status`/`verify` keep showing it. This repository's own `skills/review-skill` is such a skill.
+More in [docs/faq.md](docs/faq.md).
 
-**Can an agent run `skigard review`?** Yes, review is advisory and costs your own plan. It cannot approve.
+<details><summary><b>Does "pass" mean a skill is safe?</b></summary>
 
-**Does it work without an agent installed?** Yes. Scan, approve, lock and verify need no agent at all.
+No. The scanner is heuristic and a review can be fooled. "Pass" means the rules found nothing. A human reading the skill is the control.
+</details>
 
-**Which models see my skill?** Only if you run `review`: the harness you choose sends it to its provider. Use `--manual` to avoid that.
+<details><summary><b>Does an agent review replace reading the skill?</b></summary>
 
-## Development
+No. It is a second opinion that can only raise concern. It is optional, and nothing else depends on it.
+</details>
+
+<details><summary><b>Why can't my agent approve skills?</b></summary>
+
+An injected agent installing more skills is the threat. `approve` reads the terminal device only, has no `--yes` or env bypass, and refuses inside agent harnesses.
+</details>
+
+<details><summary><b>Does it phone home?</b></summary>
+
+No telemetry and no update check. It talks to GitHub only when you `add` or `update`. `review` sends the skill to the provider of the harness you choose; use `--manual` to avoid that.
+</details>
+
+<details><summary><b>How is it different from vercel-labs/skills?</b></summary>
+
+[`vercel-labs/skills`](https://github.com/vercel-labs/skills) is the popular installer and discovery CLI (`npx skills`, `skills.sh`, a lock file with a content hash). Its focus is getting skills into
+agents conveniently. skigard's focus is the gate: quarantine, scan, human approval pinned to a hash, and `verify` for CI. They are complementary.
+</details>
+
+<details><summary><b>How is it different from asm (luongnv89/asm)?</b></summary>
+
+[`asm`](https://github.com/luongnv89/asm) is a scriptable skill manager with a large catalog, a TUI, `--json`/`--yes` automation and a pre-install scan, built to be driven by agents.
+skigard is the opposite on one point: installing can never be completed by an agent or script, because approval needs a human at a terminal. Pick asm for catalog and convenience, skigard for an auditable approval trail.
+</details>
+
+<details><summary><b>Does it work on Windows?</b></summary>
+
+Yes, on amd64 and arm64, including `approve`. Installs are copies, and automated review is disabled (use `review --manual` or WSL). See [docs/windows.md](docs/windows.md).
+</details>
+
+<details><summary><b>What happens when a skill updates?</b></summary>
+
+`update` re-fetches; unchanged content is "up to date", changed content returns to quarantine with a diff and needs scan, review and approval again. The installed copy stays at the approved version.
+</details>
+
+<details><summary><b>Why is my security-review skill blocked?</b></summary>
+
+The scanner matches text, not intent, so a skill that *discusses* `~/.ssh` or "ignore previous instructions" looks like one that does it. Read it, then `approve --override --reason "..."`. This repository's own
+`skills/review-skill` is such a skill.
+</details>
+
+<details><summary><b>Does it need an agent installed?</b></summary>
+
+No. Scan, approve, lock and verify need no agent. Review does.
+</details>
+
+<details><summary><b>How do I uninstall, and how do I report a malicious skill?</b></summary>
+
+`skigard uninstall`, then delete the binary (and the home to drop approvals). Report malicious skills to GitHub; if one gets past a rule, open an issue or PR with a defanged fixture. Flaws in skigard itself: see [SECURITY.md](SECURITY.md).
+</details>
+
+## Security
+
+Report vulnerabilities privately; see [SECURITY.md](SECURITY.md). What skigard promises, and what it does not, is in the [threat model](docs/threat-model.md).
+Releases are signed (cosign, keyless), come with SBOMs, and CI is pinned and hardened (CodeQL, govulncheck, dependency review, OpenSSF Scorecard).
+
+## Roadmap
+
+- `v0.1.0`: first release and every install channel above.
+- `skigard-action`, a reusable GitHub Action for `verify`.
+- Verify more harnesses (each one needs a person to confirm its skills directory).
+- Automated review on Windows, once the reviewer CLIs have been verified there.
+- Signed approvals, and Windows code signing.
+
+Ideas and votes: [Discussions](https://github.com/ambierhq/skigard/discussions). Changes so far: [CHANGELOG.md](CHANGELOG.md).
+
+## Contributing
+
+Issues and PRs are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) (adding a harness, a scanner rule or a reviewer template) and the [code of conduct](CODE_OF_CONDUCT.md).
+Questions: [SUPPORT.md](SUPPORT.md).
 
 ```sh
-mise install          # go 1.27
-mise run check        # golangci-lint + editorconfig + tests
-mise run fmt          # format
-mise run e2e          # builds the binary and drives approve through a real pty
-mise run fuzz         # short fuzz runs of the parsers
+mise install && mise run check && mise run e2e
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+## Acknowledgements
 
-## Credits
+skigard stands on the shoulders of others. We learned from these projects and reimplemented the ideas; no code was copied. Please go and look at them:
 
-skigard stands on the shoulders of others. We learned from these projects and reimplemented the ideas; no code was
-copied. Please go and look at them:
-
-- [SkillGuardrail](https://github.com/T-Zevin/SkillGuardrail) by T-Zevin: quarantine-first fetching, hostile-archive
-  handling, hash-bound baselines, atomic staged installs, receipts outside the skill tree, capability chains.
-- [SkillSpector](https://github.com/NVIDIA/SkillSpector) by NVIDIA: rule IDs, SARIF, "coverage incomplete", and the
-  capability-stripped way of using a local agent CLI as a reviewer.
-- [agent-skill-manager (asm)](https://github.com/luongnv89/asm) by luongnv89: `doctor`, `--json` everywhere, context
-  cost reporting, harness definitions as data.
-- [vercel-labs/skills](https://github.com/vercel-labs/skills) by Vercel: the map of the agent-harness landscape, the
-  universal `.agents/skills` directory, and a deterministic content hash for a skill folder.
+- [SkillGuardrail](https://github.com/T-Zevin/SkillGuardrail) by T-Zevin: quarantine-first fetching, hostile-archive handling, hash-bound baselines, atomic staged installs, capability chains.
+- [SkillSpector](https://github.com/NVIDIA/SkillSpector) by NVIDIA: rule IDs, SARIF, "coverage incomplete", and the capability-stripped way of using a local agent CLI as a reviewer.
+- [agent-skill-manager (asm)](https://github.com/luongnv89/asm) by luongnv89: `doctor`, `--json` everywhere, context cost reporting, harness definitions as data.
+- [vercel-labs/skills](https://github.com/vercel-labs/skills) by Vercel: the map of the agent-harness landscape, the universal `.agents/skills` directory, and a deterministic content hash for a skill folder.
 - [skillpin](https://github.com/nbsp1221/skillpin) by nbsp1221: a manifest and lockfile pinned to exact commits.
+- The [Agent Skills specification](https://agentskills.io) for the skill format, and [BurntSushi/toml](https://github.com/BurntSushi/toml) (MIT), the one library inside the binary.
 
-See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). skigard is [MIT licensed](LICENSE).
+Full notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## License
+
+[MIT](LICENSE), Copyright (c) Ambier Oy.
+
+<p align="center">Built by <a href="https://ambierhq.com">Ambier Oy</a></p>
