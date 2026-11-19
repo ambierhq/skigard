@@ -120,6 +120,8 @@ jobs:
       - name: serve the snapshot
         run: |
           $py = (Get-Command python).Source
+          # keep the server alive after this step (the runner kills processes tagged with its tracking id)
+          $env:RUNNER_TRACKING_ID = ''
           Start-Process -FilePath $py -ArgumentList '-m','http.server','18431','--bind','127.0.0.1' -WorkingDirectory (Join-Path $PWD 'dist') -WindowStyle Hidden -RedirectStandardError "$env:RUNNER_TEMP\http1.log"
           for ($i = 0; $i -lt 30; $i++) {
             try { Invoke-WebRequest -UseBasicParsing http://127.0.0.1:18431/checksums.txt | Out-Null; break } catch { Start-Sleep -Seconds 1 }
@@ -161,6 +163,8 @@ jobs:
           Copy-Item dist "$env:RUNNER_TEMP\dist-bad" -Recurse
           Get-ChildItem "$env:RUNNER_TEMP\dist-bad\*.zip" | ForEach-Object { Add-Content -LiteralPath $_.FullName -Value 'tamper' }
           $py = (Get-Command python).Source
+          # keep the server alive after this step (the runner kills processes tagged with its tracking id)
+          $env:RUNNER_TRACKING_ID = ''
           Start-Process -FilePath $py -ArgumentList '-m','http.server','18432','--bind','127.0.0.1' -WorkingDirectory "$env:RUNNER_TEMP\dist-bad" -WindowStyle Hidden
           for ($i = 0; $i -lt 30; $i++) {
             try { Invoke-WebRequest -UseBasicParsing http://127.0.0.1:18432/checksums.txt | Out-Null; break } catch { Start-Sleep -Seconds 1 }
