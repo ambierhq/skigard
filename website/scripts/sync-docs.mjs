@@ -11,43 +11,63 @@ const BASE = "/skigard";
 const GH = "https://github.com/ambierhq/skigard";
 const SITE = "https://ambierhq.com";
 
-// Pages synced from docs/, in sidebar order, with the description used for <meta>.
-const DOCS = [
-  ["threat-model", "Threat model", "What skigard promises, what it does not, and how an attacker could get past it."],
-  ["review", "Agent review", "How skigard asks an agent you already use to review a quarantined skill, with tools off and the OS sandbox on."],
-  ["lockfile", "Lockfile format", "skigard.lock: content hashes, hash versions, the executable set and how to upgrade a lockfile."],
-  ["windows", "Windows notes", "File locations, console approval and what differs on Windows."],
-  ["harnesses", "Supported harnesses", "Every agent harness skigard detects, with paths and verification status."],
-  ["rules", "Scanner rules", "Every scanner rule, its severity and what it looks for."],
-];
-
 const outDocs = path.join(site, "src/content/docs/docs");
+const EXCLUDE = new Set(["ops-log.md"]); // docs/maintenance is a directory and is skipped too
 
-function rewriteLinks(md) {
-  return md
-    .replace(/\]\(([\w-]+)\.md(#[\w-]+)?\)/g, (_, n, h) => `](${BASE}/docs/${n}/${h ?? ""})`)
-    .replace(/\]\((?:\.\.\/)+([^)#\s]+)(#[^)\s]*)?\)/g, (_, p, h) => `](${GH}/blob/main/${p}${h ?? ""})`);
+async function listDocs() {
+  const out = [];
+  const top = await fs.readdir(path.join(repo, "docs"), { withFileTypes: true });
+  for (const e of top) {
+    if (e.isFile() && e.name.endsWith(".md") && !EXCLUDE.has(e.name)) out.push(e.name);
+  }
+  const inst = await fs.readdir(path.join(repo, "docs/install")).catch(() => []);
+  for (const n of inst) if (n.endsWith(".md")) out.push(`install/${n}`);
+  return out.sort();
+}
+
+// "install/README.md" -> slug "install", "install/macos.md" -> "install/macos", "faq.md" -> "faq"
+const slugOf = (rel) => rel.replace(/\.md$/, "").replace(/(^|\/)README$/, "").replace(/\/$/, "");
+
+function rewriteLinks(md, rel) {
+  const dir = path.posix.dirname(rel);
+  return md.replace(/\]\(([^)\s#]+)(#[^)\s]*)?\)/g, (all, target, hash = "") => {
+    if (/^[a-z][a-z0-9+.-]*:/i.test(target)) return all;
+    const resolved = path.posix.normalize(path.posix.join("docs", dir, target)); // relative to the repo root
+    if (resolved.startsWith("docs/") && resolved.endsWith(".md")) {
+      const slug = slugOf(resolved.slice("docs/".length));
+      return `](${BASE}/docs/${slug}${slug ? "/" : ""}${hash})`;
+    }
+    return `](${GH}/blob/main/${resolved}${hash})`;
+  });
 }
 
 const yamlStr = (s) => JSON.stringify(s);
 
+function describe(md, title) {
+  for (const para of md.split(/\n\s*\n/)) {
+    const t = para.trim();
+    if (!t || /^(#|```|\||[-*>]|\d+\.)/.test(t)) continue;
+    const plain = t.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/[`*_]/g, "").replace(/\s+/g, " ");
+    return plain.length <= 155 ? plain : plain.slice(0, 152).replace(/\s+\S*$/, "") + "...";
+  }
+  return title;
+}
+
 async function syncDocs() {
-  await fs.mkdir(outDocs, { recursive: true });
-  for (const [slug] of DOCS) await fs.rm(path.join(outDocs, `${slug}.md`), { force: true });
+  await fs.rm(outDocs, { recursive: true, force: true });
   const full = [];
-  for (const [slug, title, description] of DOCS) {
-    const src = path.join(repo, "docs", `${slug}.md`);
-    let md;
-    try {
-      md = await fs.readFile(src, "utf8");
-    } catch {
-      console.warn(`sync-docs: missing docs/${slug}.md, skipped`);
-      continue;
-    }
+  for (const rel of await listDocs()) {
+    let md = await fs.readFile(path.join(repo, "docs", rel), "utf8");
+    const h1 = md.match(/^#\s+(.*)\n+/);
+    const title = h1 ? h1[1].replace(/[`*]/g, "").trim() : slugOf(rel);
     md = md.replace(/^#\s+.*\n+/, ""); // Starlight renders the title as <h1>
-    const body = rewriteLinks(md);
-    const front = `---\ntitle: ${yamlStr(title)}\ndescription: ${yamlStr(description)}\neditUrl: ${GH}/edit/main/docs/${slug}.md\n---\n\n`;
-    await fs.writeFile(path.join(outDocs, `${slug}.md`), front + body);
+    const description = describe(md, title);
+    const slug = slugOf(rel);
+    const file = rel.endsWith("README.md") ? path.join(path.dirname(rel), "index.md") : rel;
+    const dest = path.join(outDocs, file);
+    await fs.mkdir(path.dirname(dest), { recursive: true });
+    const front = `---\ntitle: ${yamlStr(title)}\ndescription: ${yamlStr(description)}\neditUrl: ${GH}/edit/main/docs/${rel}\n---\n\n`;
+    await fs.writeFile(dest, front + rewriteLinks(md, rel));
     full.push({ slug, title, description, md });
   }
   return full;
@@ -83,16 +103,15 @@ async function syncHarnesses() {
 }
 
 async function syncBrand() {
-  const mark = await fs.readFile(path.join(repo, "assets/brand/provisional-mark-option-b.svg"), "utf8").catch(() => null);
-  if (!mark) throw new Error("sync-docs: assets/brand mark not found");
-  await fs.writeFile(path.join(site, "public/favicon.svg"), mark);
-  await fs.writeFile(path.join(site, "public/logo.svg"), mark);
+  const brand = path.join(repo, "assets/brand");
+  const copy = async (from, to) => fs.copyFile(path.join(brand, from), path.join(site, to));
   await fs.mkdir(path.join(site, "src/assets"), { recursive: true });
-  await fs.writeFile(path.join(site, "src/assets/mark.svg"), mark);
-  // Social card: the mark on the brand background, as an SVG (rasterised by Task F's brand set when it lands).
-  const inner = mark.replace(/^<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
-  const og = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630"><rect width="1200" height="630" fill="#16130E"/><g transform="translate(90 165) scale(1.2)">${inner}</g><text x="460" y="300" font-family="Georgia,serif" font-size="96" fill="#F4EEE2">skigard</text><text x="460" y="375" font-family="Helvetica,Arial,sans-serif" font-size="36" fill="#B7A98C">A lockfile and review gate for agent skills</text><text x="460" y="540" font-family="Helvetica,Arial,sans-serif" font-size="28" fill="#5AA9FF">ambierhq.com/skigard</text></svg>\n`;
-  await fs.writeFile(path.join(site, "public/og.svg"), og);
+  await copy("mark.svg", "src/assets/mark.svg");
+  await copy("mark.svg", "public/logo.svg");
+  await copy("favicon.svg", "public/favicon.svg");
+  await copy("favicon.ico", "public/favicon.ico");
+  await copy("apple-touch-icon.png", "public/apple-touch-icon.png");
+  await copy("social-preview.png", "public/og.png");
 }
 
 async function llms(docs, harnesses) {
@@ -105,11 +124,7 @@ async function llms(docs, harnesses) {
 Agents cannot approve: \`approve\` reads the controlling terminal only and has no --yes flag. The scanner is heuristic and an agent review can be fooled, so a pass is not a safety certificate.
 
 ## Docs
-- [Install](${SITE}${BASE}/docs/install/): shell, PowerShell, npx, apt, pacman, Homebrew, Nix, go install
-- [Getting started](${SITE}${BASE}/docs/getting-started/): detect, add, review, approve, install, verify
-- [Concepts](${SITE}${BASE}/docs/concepts/): quarantine, scan, review, approve, lockfile, harnesses
-- [Using skigard in CI](${SITE}${BASE}/docs/ci/)
-${docs.map((d) => `- [${d.title}](${SITE}${BASE}/docs/${d.slug}/): ${d.description}`).join("\n")}
+${docs.map((d) => `- [${d.title}](${SITE}${BASE}/docs/${d.slug}${d.slug ? "/" : ""}): ${d.description}`).join("\n")}
 
 ## Optional
 - [Full documentation in one file](${SITE}${BASE}/llms-full.txt)
@@ -117,7 +132,7 @@ ${docs.map((d) => `- [${d.title}](${SITE}${BASE}/docs/${d.slug}/): ${d.descripti
 - [Releases](${GH}/releases)
 - Harnesses verified against their own docs or a real machine: ${verified}
 `;
-  const fullDocs = docs.map((d) => `\n\n---\n\n# ${d.title}\n\nSource: ${SITE}${BASE}/docs/${d.slug}/\n\n${d.md}`).join("");
+  const fullDocs = docs.map((d) => `\n\n---\n\n# ${d.title}\n\nSource: ${SITE}${BASE}/docs/${d.slug}${d.slug ? "/" : ""}\n\n${d.md}`).join("");
   await fs.writeFile(path.join(site, "public/llms.txt"), index);
   await fs.writeFile(path.join(site, "public/llms-full.txt"), `${index}\n---\n\n# README\n\n${readme}${fullDocs}\n`);
 }
