@@ -39,6 +39,7 @@ export default defineConfig({
         { label: "Start", items: ["docs/install", "docs/getting-started", "docs/concepts", "docs/faq", "docs/troubleshooting"] },
         { label: "Install per system", items: ["docs/install/macos", "docs/install/linux", "docs/install/windows", "docs/install/other"] },
         { label: "Guides", items: ["docs/ci", "docs/writing-safe-skills", "docs/commands"] },
+        { label: "Articles", items: ["guides/review-agent-skills-before-installing", "guides/agent-skill-supply-chain-risks"] },
         { label: "Reference", items: ["docs/threat-model", "docs/review", "docs/lockfile", "docs/windows", "docs/harnesses", "docs/rules"] },
       ],
       lastUpdated: false,
