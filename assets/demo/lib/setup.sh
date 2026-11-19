@@ -5,7 +5,7 @@
 for v in $(env | cut -d= -f1 | grep -E '^(PI_|CLAUDE|CODEX|GEMINI|OPENCODE|CURSOR|GOOSE|AMP_|ORCA)'); do unset "$v"; done
 export SKIGARD_HOME="$DEMO_TMP/home-$1"
 export PATH="$DEMO_BIN:$PATH"
-export PS1='\[\e[38;2;239;162;38m\]\$\[\e[0m\] '
+export PS1='\[\e[38;2;${BRAND_ACCENT_RGB}m\]\$\[\e[0m\] '
 export HOME="$DEMO_TMP/fakehome"; mkdir -p "$HOME"
 rm -rf "$SKIGARD_HOME"
 rm -rf "$DEMO_TMP/work"; mkdir -p "$DEMO_TMP/work"; cp -R "$DEMO_ROOT/assets/demo/fixtures/skills" "$DEMO_TMP/work/skills"

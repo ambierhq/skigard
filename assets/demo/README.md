@@ -21,7 +21,7 @@ GIF is over 5 MB or a site video over 3 MB. Set `CHROME=/path/to/chrome` if the 
 - Fixtures: `fixtures/skills/commit-helper` (benign) and `fixtures/skills/free-tokens` (malicious-looking: only fake
   strings, and the only hosts are `*.example.invalid`, which cannot resolve). skigard never executes skill content.
 - `lib/theme.tape` is the shared look (brand palette, window bar). `scripts/demo.sh` prepends it to each scene; run a
-  tape standalone with `cat assets/demo/lib/theme.tape assets/demo/scene1-add-scan.tape > /tmp/x.tape` after exporting
+  tape standalone by replacing `@ACCENT@` in the theme with `#5AA9FF`, concatenating it with the tape, and exporting
   `DEMO_ROOT`, `DEMO_BIN`, `DEMO_TMP`.
 - `lib/setup.sh` runs hidden at the start of each scene: it strips every agent environment variable (so the human scenes are
   honest), points `SKIGARD_HOME` at a temp directory and prepares the state. Scene 2 sets `CLAUDECODE=1` on screen.

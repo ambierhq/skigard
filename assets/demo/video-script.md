@@ -1,7 +1,7 @@
 # Captioned screen video (about 80 s, no voice)
 
-Format: 1280x720, dark terminal (palette `#16130E` / `#F4EEE2` / `#EFA226`), captions as a lower-third in IBM Plex Sans
-(or Newsreader for the title card), amber on dark. Hook in the first 5 seconds is an agent being blocked. Setup before
+Format: 1280x720, dark terminal (palette `#16130E` / `#F4EEE2` / `#5AA9FF`), captions as a lower-third in IBM Plex Sans
+(or Newsreader for the title card), sky-blue accent on dark. Hook in the first 5 seconds is an agent being blocked. Setup before
 recording: `export SKIGARD_HOME=$(mktemp -d)`, `cd` to a copy of `assets/demo/fixtures`, `skigard init`, and run
 `skigard add skills --all` off-camera (so the first shot is the refusal). Use a normal terminal for scene C.
 

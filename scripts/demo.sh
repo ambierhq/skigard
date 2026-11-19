@@ -11,6 +11,7 @@ for t in vhs ttyd ffmpeg python3; do
 done
 mise run build >/dev/null 2>&1 || go build -o dist/skigard ./cmd/skigard
 
+set -a; . "$ROOT/assets/brand/tokens.env"; set +a
 export DEMO_ROOT=$ROOT DEMO_BIN=$ROOT/dist DEMO_TMP=${DEMO_TMP:-/tmp/skigard-demo}
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
@@ -20,7 +21,7 @@ rm -rf "$DEMO_TMP"; mkdir -p "$DEMO_TMP" "$ROOT/assets/media"
 scenes=()
 for tape in "$ROOT"/assets/demo/scene*.tape; do
   base=$(basename "$tape" .tape)
-  cat "$ROOT/assets/demo/lib/theme.tape" "$tape" > "$WORK/$base.tape"
+  { sed "s/@ACCENT@/$BRAND_ACCENT/g" "$ROOT/assets/demo/lib/theme.tape"; cat "$tape"; } > "$WORK/$base.tape"
   (cd "$WORK" && vhs "$base.tape" >/dev/null)
   scenes+=("$WORK/$(sed -n 's/^Output "\(.*\)"/\1/p' "$tape")")
 done
@@ -56,9 +57,12 @@ if [ -z "$CHROME" ]; then
     if command -v "$c" >/dev/null 2>&1 || [ -x "$c" ]; then CHROME=$c; break; fi
   done
 fi
+sed -e "s/@ACCENT@/$BRAND_ACCENT/g" -e "s/@DIM@/$BRAND_DIM/g" -e "s/@FG@/$BRAND_FG/g" -e "s/@BG@/$BRAND_BG/g" \
+  "$ROOT/assets/demo/poster.html" > "$WORK/poster.html"
+cp "$ROOT/assets/brand/skigard-mark.svg" "$WORK/"
 if [ -n "$CHROME" ]; then
   "$CHROME" --headless --disable-gpu --hide-scrollbars --window-size=1280,720 \
-    --screenshot="$OUT/poster.png" "file://$ROOT/assets/demo/poster.html" >/dev/null 2>&1
+    --screenshot="$OUT/poster.png" "file://$WORK/poster.html" >/dev/null 2>&1
 else
   echo "demo: no Chrome found, using a video frame as poster (set CHROME=...)" >&2
   ffmpeg -y -loglevel error -ss 6 -i "$OUT/demo.mp4" -frames:v 1 "$OUT/poster.png"
