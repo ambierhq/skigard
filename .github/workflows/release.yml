@@ -9,14 +9,21 @@ on:
       - Dockerfile
       - packaging/**
       - scripts/homebrew-formula.sh
+      - scripts/winget-manifests.sh
       - .github/workflows/release.yml
       - npm/**
       - scripts/npm-pack.mjs
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag (vX.Y.Z): rerun attest, homebrew, winget and verify-release without rebuilding. Empty: snapshot dry run."
+        required: false
+        default: ""
+        type: string
 permissions: {}
 jobs:
   snapshot:
-    if: github.event_name != 'push'
+    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.tag == '') }}
     permissions: {contents: read}
     timeout-minutes: 20
     runs-on: ubuntu-latest
@@ -75,23 +82,63 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Publishers are skipped when their token is not configured (see .goreleaser.yaml).
+          # The Scoop publisher is skipped when its token is not configured (see .goreleaser.yaml).
           SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
-          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+  # Everything below runs after the `release` job, whether or not it succeeded: a failing publisher (as with winget
+  # in v0.1.1) must not prevent provenance, the Homebrew formula or the winget PR. Each job therefore reads the
+  # published GitHub Release (checksums.txt) instead of dist/, and fails early if the release does not exist.
+  # Order: release (GitHub release, docker, scoop) -> attest -> homebrew -> winget -> verify-release.
+  # To redo them for an existing tag without rebuilding: run this workflow manually (workflow_dispatch) from main
+  # with the `tag` input, e.g. `gh workflow run release.yml --ref main -f tag=v0.1.1`.
+  attest:
+    needs: release
+    if: ${{ !cancelled() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')) }}
+    permissions:
+      contents: read
+      id-token: write       # keyless attestation
+      attestations: write   # build provenance
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: download checksums.txt from the GitHub Release
+        run: |
+          case "$TAG" in v[0-9]*) ;; *) echo "invalid tag '$TAG'" >&2; exit 1 ;; esac
+          gh release view "$TAG" >/dev/null || { echo "::error::no GitHub Release for $TAG"; exit 1; }
+          gh release download "$TAG" --dir "$RUNNER_TEMP/rel" --pattern checksums.txt
+          test -s "$RUNNER_TEMP/rel/checksums.txt"
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-checksums: dist/checksums.txt
+          subject-checksums: ${{ runner.temp }}/rel/checksums.txt
+  homebrew:
+    needs: attest
+    if: ${{ !cancelled() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')) }}
+    permissions: {contents: read}
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
       - name: update the Homebrew formula
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          TAG: ${{ github.ref_name }}
         run: |
           if [ -z "$HOMEBREW_TAP_TOKEN" ]; then
             echo "HOMEBREW_TAP_TOKEN is not set; skipping the Homebrew tap update"
             exit 0
           fi
+          case "$TAG" in v[0-9]*) ;; *) echo "invalid tag '$TAG'" >&2; exit 1 ;; esac
+          gh release view "$TAG" >/dev/null || { echo "::error::no GitHub Release for $TAG"; exit 1; }
+          gh release download "$TAG" --dir "$RUNNER_TEMP/rel" --pattern checksums.txt
           version="${TAG#v}"
-          scripts/homebrew-formula.sh "$version" dist/checksums.txt > "$RUNNER_TEMP/skigard.rb"
+          scripts/homebrew-formula.sh "$version" "$RUNNER_TEMP/rel/checksums.txt" > "$RUNNER_TEMP/skigard.rb"
           git clone --depth 1 "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/ambierhq/homebrew-tap.git" "$RUNNER_TEMP/tap"
           mkdir -p "$RUNNER_TEMP/tap/Formula"
           cp "$RUNNER_TEMP/skigard.rb" "$RUNNER_TEMP/tap/Formula/skigard.rb"
@@ -100,12 +147,168 @@ jobs:
           git config user.email "skigard@ambierhq.com"
           git add Formula/skigard.rb
           git diff --cached --quiet || { git commit -m "skigard ${version}" && git push origin HEAD; }
+  # winget: GoReleaser's publisher is off (its Contents API writes time out on the ~1 GB winget-pkgs fork).
+  # Manifests come from scripts/winget-manifests.sh and are pushed with plain git (sparse, partial clone) to
+  # ambierhq/winget-pkgs:skigard-<version>, then a PR to microsoft/winget-pkgs is opened (or the open one is reused).
+  # Skipped when the WINGET_TOKEN secret is not configured. Safe to rerun.
+  winget:
+    needs: homebrew
+    if: ${{ !cancelled() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')) }}
+    permissions: {contents: read}
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - name: submit the manifests
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          RELEASE_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "$WINGET_TOKEN" ]; then
+            echo "WINGET_TOKEN is not set; skipping winget"
+            exit 0
+          fi
+          case "$TAG" in v[0-9]*) ;; *) echo "invalid tag '$TAG'" >&2; exit 1 ;; esac
+          version="${TAG#v}"
+          fork=ambierhq/winget-pkgs
+          upstream=microsoft/winget-pkgs
+          branch="skigard-${version}"
+          pkg=manifests/a/Ambier/Skigard
+
+          # 1. render the manifests from the published release
+          GH_TOKEN="$RELEASE_TOKEN" gh release view "$TAG" >/dev/null || { echo "::error::no GitHub Release for $TAG"; exit 1; }
+          GH_TOKEN="$RELEASE_TOKEN" gh release download "$TAG" --dir "$RUNNER_TEMP/rel" --pattern checksums.txt
+          released="$(GH_TOKEN="$RELEASE_TOKEN" gh release view "$TAG" --json publishedAt -q '.publishedAt[:10]')"
+          scripts/winget-manifests.sh "$version" "$RUNNER_TEMP/rel/checksums.txt" "$RUNNER_TEMP/winget" "$released"
+
+          # 2. bring the fork's master up to date with upstream (a fork's default branch only carries upstream commits)
+          export GH_TOKEN="$WINGET_TOKEN"
+          gh repo sync "$fork" --source "$upstream" --branch master
+
+          # 3. sparse, partial, shallow clone; the credential never lands in .git/config
+          auth="$(printf 'x-access-token:%s' "$WINGET_TOKEN" | base64 | tr -d '\n')"
+          echo "::add-mask::$auth"
+          g() { git -c "http.extraheader=Authorization: Basic $auth" "$@"; }
+          g clone --quiet --filter=blob:none --depth 1 --sparse --branch master "https://github.com/${fork}.git" "$RUNNER_TEMP/winget-pkgs"
+          cd "$RUNNER_TEMP/winget-pkgs"
+          g sparse-checkout set "$pkg"
+          git config user.name "skigard release bot"
+          git config user.email "skigard@ambierhq.com"
+          if [ -d "$pkg" ] && [ -n "$(ls -A "$pkg")" ]; then kind="New version"; else kind="New package"; fi
+          git checkout -q -B "$branch"
+          rm -rf "${pkg:?}/${version:?}"
+          mkdir -p "$pkg"
+          cp -R "$RUNNER_TEMP/winget/$pkg/$version" "$pkg/$version"
+          git add "$pkg/$version"
+          if git diff --cached --quiet; then
+            echo "Ambier.Skigard $version is already on upstream master; nothing to submit"
+            exit 0
+          fi
+          git commit -q -m "${kind}: Ambier.Skigard version ${version}"
+
+          # 4. push the branch unless it already carries identical manifests (reruns)
+          if g fetch --quiet --depth 1 origin "$branch" 2>/dev/null && git diff --quiet FETCH_HEAD HEAD -- "$pkg/$version"; then
+            echo "branch $branch already has these manifests"
+          else
+            g push --force origin "HEAD:refs/heads/$branch"   # throwaway branch on the bot's own fork
+          fi
+
+          # 5. open the PR, or reuse the open one
+          existing="$(gh pr list --repo "$upstream" --head "$branch" --state open --json number,headRepositoryOwner \
+            -q '[.[] | select(.headRepositoryOwner.login == "ambierhq")][0].number // empty')"
+          if [ -n "$existing" ]; then
+            echo "reusing open PR https://github.com/$upstream/pull/$existing"
+            exit 0
+          fi
+          others="$(gh pr list --repo "$upstream" --state open --search "Ambier.Skigard in:title" --json number -q length)"
+          if [ "$others" = 0 ]; then dupes="x"; else dupes=" "; fi
+          cat > "$RUNNER_TEMP/pr-body.md" <<BODY
+          ## Description
+
+          ${kind}: **Ambier.Skigard** ${version}. skigard is a lockfile and review gate for agent skills (single static Go binary, MIT licensed).
+          Source: https://github.com/ambierhq/skigard, release: https://github.com/ambierhq/skigard/releases/tag/${TAG}.
+          Installers are the release's Windows zip archives (x64 and arm64) with a nested portable \`skigard.exe\`; the SHA-256 values come from the release's signed checksums.txt.
+
+          ## Checklist
+
+          - [ ] Signed the [Contributor License Agreement](https://cla.opensource.microsoft.com) (the CLA bot asks the submitter)
+          - [ ] Linked to an issue (not applicable)
+
+          ## Manifest checklist
+
+          - [${dupes}] Checked that there are no other open pull requests for this package (searched by title when this PR was opened)
+          - [x] This PR adds one (1) version of one package
+          - [ ] Validated the manifest locally with \`winget validate\`: not done, this PR is opened by automation; relying on the validation pipeline
+          - [ ] Tested the manifest locally with \`winget install --manifest\`: not done (same reason)
+          - [ ] Manifest conforms to the 1.28 schema: written against the 1.28 schemas, not yet validated by the pipeline
+
+          > Opened by the release workflow of skigard (Ambier Oy). Happy to fix anything the validation pipeline reports.
+          BODY
+          gh pr create --repo "$upstream" --base master --head "ambierhq:$branch" \
+            --title "${kind}: Ambier.Skigard version ${version}" --body-file "$RUNNER_TEMP/pr-body.md"
+  # Final check of what was published: signature, provenance, installer, formula.
+  verify-release:
+    needs: [attest, homebrew, winget]
+    if: ${{ !cancelled() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')) }}
+    permissions: {contents: read}
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+      - name: download the release assets
+        run: |
+          case "$TAG" in v[0-9]*) ;; *) echo "invalid tag '$TAG'" >&2; exit 1 ;; esac
+          version="${TAG#v}"
+          gh release download "$TAG" --dir "$RUNNER_TEMP/rel" \
+            --pattern checksums.txt --pattern checksums.txt.sigstore.json --pattern install.sh \
+            --pattern "skigard_${version}_linux_amd64.tar.gz"
+      - name: cosign verify-blob checksums.txt (exact workflow identity of the tag)
+        run: |
+          cd "$RUNNER_TEMP/rel"
+          cosign verify-blob --bundle checksums.txt.sigstore.json \
+            --certificate-identity "https://github.com/${GH_REPO}/.github/workflows/release.yml@refs/tags/${TAG}" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            checksums.txt
+      - name: archive matches checksums.txt and has build provenance
+        run: |
+          cd "$RUNNER_TEMP/rel"
+          sha256sum --check --ignore-missing checksums.txt
+          gh attestation verify "skigard_${TAG#v}_linux_amd64.tar.gz" --repo "$GH_REPO"
+      - name: install.sh installs this exact version
+        run: |
+          dest="$(mktemp -d)"
+          SKIGARD_VERSION="$TAG" SKIGARD_INSTALL_DIR="$dest" sh "$RUNNER_TEMP/rel/install.sh"
+          "$dest/skigard" version | tee /dev/stderr | grep -F "${TAG#v}"
+      - name: Homebrew formula is valid Ruby and matches the tap
+        env:
+          TAP_CONFIGURED: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+        run: |
+          scripts/homebrew-formula.sh "${TAG#v}" "$RUNNER_TEMP/rel/checksums.txt" > "$RUNNER_TEMP/skigard.rb"
+          ruby -c "$RUNNER_TEMP/skigard.rb"
+          if [ "$TAP_CONFIGURED" = true ]; then
+            gh api repos/ambierhq/homebrew-tap/contents/Formula/skigard.rb -H "Accept: application/vnd.github.raw" > "$RUNNER_TEMP/tap.rb"
+            diff "$RUNNER_TEMP/skigard.rb" "$RUNNER_TEMP/tap.rb"
+          else
+            echo "HOMEBREW_TAP_TOKEN is not set; not comparing with the tap"
+          fi
+
   # Everything below runs only after the release exists, and only does something when its switch is configured.
   # npm trusted publishing (OIDC, provenance) must be configured on npmjs.com for THIS workflow file (release.yml).
   # Skipped unless the repository variable NPM_PUBLISH is "true".
   npm:
-    needs: release
-    if: github.event_name == 'push' && vars.NPM_PUBLISH == 'true'
+    needs: attest
+    if: ${{ !cancelled() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')) && vars.NPM_PUBLISH == 'true' }}
     permissions:
       contents: read
       id-token: write   # npm trusted publishing + provenance
@@ -119,20 +322,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           mkdir dist
           gh release download "$TAG" --dir dist --pattern 'skigard_*.tar.gz' --pattern 'skigard_*.zip' --pattern checksums.txt
           (cd dist && grep -E '\.(tar\.gz|zip)$' checksums.txt | sha256sum --check --strict)
       - name: build the packages (versions equal the tag)
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: node scripts/npm-pack.mjs --dist dist --version "${TAG#v}" --out npm-dist --pack
       - name: npm with trusted publishing support
         run: npm install --global npm@11.21.3  # zizmor: ignore[adhoc-packages] trusted publishing needs npm >= 11.5.1; exact version pinned
       - name: publish (platform packages first, then the launcher)
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           version="${TAG#v}"
           tag_flag=()
