@@ -1,7 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:best-practices", "helpers:pinGitHubActionDigests"],
-  "enabledManagers": ["mise", "github-actions", "gomod", "dockerfile", "custom.regex"],
+  "enabledManagers": ["mise", "github-actions", "gomod", "npm", "dockerfile", "custom.regex"],
   "labels": ["deps"],
   "timezone": "Europe/Helsinki",
   "schedule": ["before 6am on monday"],
@@ -33,6 +33,15 @@
     {
       "matchPackageNames": ["go", "golang", "/^golang\\//"],
       "groupName": "go toolchain",
+      "automerge": false,
+      "addLabels": ["needs-human"]
+    },
+    {
+      "description": "The site's npm tooling is build-time only: exact pins, and a human reviews every bump",
+      "matchManagers": ["npm"],
+      "matchFileNames": ["website/package.json"],
+      "rangeStrategy": "pin",
+      "groupName": "website npm",
       "automerge": false,
       "addLabels": ["needs-human"]
     },
