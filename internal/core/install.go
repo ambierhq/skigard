@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -290,7 +291,8 @@ func (a *App) Verify() ([]Problem, error) {
 			add("warn", "%s was installed from an older approved version; run `skigard sync`", r.Path)
 		}
 	}
-	if fi, err := os.Stat(a.Home.QuarantineDir()); err == nil && fi.Mode().Perm()&0o077 != 0 {
+	// Windows reports synthetic permission bits (0o777 for directories), so only check on Unix.
+	if fi, err := os.Stat(a.Home.QuarantineDir()); err == nil && runtime.GOOS != "windows" && fi.Mode().Perm()&0o077 != 0 {
 		add("warn", "quarantine/ is accessible to other users (mode %o)", fi.Mode().Perm())
 	}
 	if len(man.Plugins) > 0 {

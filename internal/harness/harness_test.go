@@ -1,8 +1,11 @@
 package harness
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/ambierhq/skigard/internal/hash"
@@ -210,5 +213,64 @@ func TestStateRoundTrip(t *testing.T) {
 	got.Drop("/x/a")
 	if len(got.Installs) != 1 {
 		t.Fatal("drop failed")
+	}
+}
+
+func TestExpandWindows(t *testing.T) {
+	env := Env{Home: `C:\Users\u`, OS: "windows", Getenv: func(k string) string {
+		if k == "APPDATA" {
+			return `C:\Users\u\AppData\Roaming`
+		}
+		return ""
+	}}
+	if runtime.GOOS == "windows" {
+		if got := env.Expand("{config}/opencode/skills"); got != `C:\Users\u\AppData\Roaming\opencode\skills` {
+			t.Errorf("config = %s", got)
+		}
+		if got := env.Expand("~/.claude/skills"); got != `C:\Users\u\.claude\skills` {
+			t.Errorf("home = %s", got)
+		}
+	} else if got := env.Expand("{config}/x"); !strings.HasPrefix(got, `C:\Users\u\AppData\Roaming`) {
+		t.Errorf("config = %s", got)
+	}
+	env.Getenv = func(k string) string {
+		if k == "XDG_CONFIG_HOME" {
+			return "/xdg"
+		}
+		return ""
+	}
+	if got := env.Expand("{config}/x"); !strings.Contains(got, "xdg") {
+		t.Errorf("XDG must still win on Windows: %s", got)
+	}
+}
+
+func TestBinCandidates(t *testing.T) {
+	got := binCandidates("claude", "windows", ".COM;.EXE;.BAT;.CMD")
+	want := []string{"claude.com", "claude.exe", "claude.bat", "claude.cmd", "claude.ps1"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("windows = %v", got)
+	}
+	if got := binCandidates("claude", "linux", ""); len(got) != 1 || got[0] != "claude" {
+		t.Errorf("linux = %v", got)
+	}
+	if got := binCandidates("tool.exe", "windows", ""); got[0] != "tool.exe" {
+		t.Errorf("explicit ext = %v", got)
+	}
+	if got := binCandidates("a", "windows", ".EXE"); len(got) != 2 || got[0] != "a.exe" || got[1] != "a.ps1" {
+		t.Errorf("custom PATHEXT = %v", got)
+	}
+}
+
+func TestFindBinExtraUsesPATHEXT(t *testing.T) {
+	env := Env{OS: "windows", Getenv: func(k string) string {
+		if k == "PATHEXT" {
+			return ".EXE;.CMD"
+		}
+		return ""
+	}, LookPath: func(string) (string, error) { return "", errors.New("nope") },
+		Extra:  []string{"/npm"},
+		Exists: func(p string) bool { return filepath.ToSlash(p) == "/npm/claude.cmd" }}
+	if got := findBin(env, "claude"); filepath.ToSlash(got) != "/npm/claude.cmd" {
+		t.Errorf("findBin = %q", got)
 	}
 }

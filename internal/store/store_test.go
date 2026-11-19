@@ -3,6 +3,7 @@ package store
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/ambierhq/skigard/internal/harness"
@@ -31,7 +32,7 @@ func TestResolvePrecedence(t *testing.T) {
 }
 
 func TestInitLayoutAndPerms(t *testing.T) {
-	h := Home{filepath.Join(t.TempDir(), "sk")}
+	h := Home{Root: filepath.Join(t.TempDir(), "sk")}
 	if err := h.Init(); err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +41,7 @@ func TestInitLayoutAndPerms(t *testing.T) {
 	}
 	for _, d := range []string{h.QuarantineDir(), h.StateDir()} {
 		fi, err := os.Stat(d)
-		if err != nil || fi.Mode().Perm() != 0o700 {
+		if err != nil || (runtime.GOOS != "windows" && fi.Mode().Perm() != 0o700) {
 			t.Errorf("%s: %v %v", d, fi, err)
 		}
 	}
@@ -51,7 +52,7 @@ func TestInitLayoutAndPerms(t *testing.T) {
 }
 
 func TestManifestAndLockRoundTrip(t *testing.T) {
-	h := Home{t.TempDir()}
+	h := Home{Root: t.TempDir()}
 	m := &Manifest{Version: 1, Settings: Settings{ReviewHarness: "pi", Owner: "me"},
 		Plugins: map[string]Plugin{"dev": {Description: "d", Skills: []string{"a", "b"}}},
 		Harness: []harness.Entry{{ID: "mine", Name: "Mine", Global: "~/.mine/skills"}}}
@@ -95,7 +96,7 @@ func TestManifestAndLockRoundTrip(t *testing.T) {
 }
 
 func TestMetaRoundTripAndMissing(t *testing.T) {
-	h := Home{t.TempDir()}
+	h := Home{Root: t.TempDir()}
 	h.Init()
 	if _, err := LoadMeta(h, "nope"); err == nil {
 		t.Fatal("expected error")
@@ -114,7 +115,7 @@ func TestMetaRoundTripAndMissing(t *testing.T) {
 }
 
 func TestHomeLockIsExclusive(t *testing.T) {
-	h := Home{t.TempDir()}
+	h := Home{Root: t.TempDir()}
 	unlock, err := h.Lock()
 	if err != nil {
 		t.Fatal(err)
@@ -131,7 +132,7 @@ func TestHomeLockIsExclusive(t *testing.T) {
 }
 
 func TestHostileNamesRejectedOnLoad(t *testing.T) {
-	h := Home{t.TempDir()}
+	h := Home{Root: t.TempDir()}
 	os.WriteFile(h.LockPath(), []byte("version = 1\nhash_version = 1\n[[skill]]\nname = \"../../etc\"\ncontent_hash = \"x\"\n"), 0o644)
 	if _, err := LoadLock(h); err == nil {
 		t.Fatal("path-traversal name accepted in the lock")
@@ -146,5 +147,57 @@ func TestHostileNamesRejectedOnLoad(t *testing.T) {
 	}
 	if _, err := LoadMeta(h, "../x"); err == nil {
 		t.Fatal("bad meta name accepted")
+	}
+}
+
+func TestResolveWindowsSplit(t *testing.T) {
+	none := func(string) string { return "" }
+	home := func() (string, error) { return `C:\Users\u`, nil }
+	env := map[string]string{"APPDATA": `C:\Users\u\AppData\Roaming`, "LOCALAPPDATA": `D:\Local`}
+	get := func(k string) string { return env[k] }
+	h, err := resolve("", "windows", get, home)
+	if err != nil || h.Root != filepath.Join(env["APPDATA"], "skigard") || h.Local != filepath.Join(`D:\Local`, "skigard") {
+		t.Fatalf("split = %+v %v", h, err)
+	}
+	if h.QuarantineDir() != filepath.Join(h.Local, "quarantine") || h.StateDir() != filepath.Join(h.Local, "state") ||
+		h.LockPath() != filepath.Join(h.Root, "skigard.lock") || h.ManifestPath() != filepath.Join(h.Root, "skigard.toml") ||
+		h.SkillDir("a") != filepath.Join(h.Root, "skills", "a") {
+		t.Errorf("layout wrong: %+v", h)
+	}
+	// fall back to the profile when the variables are missing
+	h, _ = resolve("", "windows", none, home)
+	if h.Root != filepath.Join(`C:\Users\u`, "AppData", "Roaming", "skigard") || h.Local != filepath.Join(`C:\Users\u`, "AppData", "Local", "skigard") {
+		t.Errorf("fallback = %+v", h)
+	}
+	// SKIGARD_HOME overrides everything and keeps all of it in one place
+	env["SKIGARD_HOME"] = filepath.Join(t.TempDir(), "one")
+	h, _ = resolve("", "windows", get, home)
+	if h.Local != "" || h.QuarantineDir() != filepath.Join(h.Root, "quarantine") {
+		t.Errorf("SKIGARD_HOME must not split: %+v", h)
+	}
+	// non-Windows never splits
+	delete(env, "SKIGARD_HOME")
+	if h, _ = resolve("", "linux", get, home); h.Local != "" {
+		t.Errorf("linux split: %+v", h)
+	}
+}
+
+func TestSplitHomeInit(t *testing.T) {
+	h := Home{Root: filepath.Join(t.TempDir(), "roaming", "sk"), Local: filepath.Join(t.TempDir(), "local", "sk")}
+	if err := h.Init(); err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range []string{h.SkillsDir(), h.ReviewsDir(), h.QuarantineDir(), h.StateDir()} {
+		if fi, err := os.Stat(d); err != nil || !fi.IsDir() {
+			t.Errorf("%s missing: %v", d, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(h.Root, "quarantine")); err == nil {
+		t.Error("quarantine must not be created in the roaming root")
+	}
+	if unlock, err := h.Lock(); err != nil {
+		t.Fatal(err)
+	} else {
+		unlock()
 	}
 }

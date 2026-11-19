@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 
 	"github.com/BurntSushi/toml"
@@ -17,30 +18,62 @@ import (
 	"github.com/ambierhq/skigard/internal/util"
 )
 
-// Home is a skigard home directory (default ~/.config/skigard).
-type Home struct{ Root string }
+// Home is a skigard home directory (default ~/.config/skigard; on Windows
+// %APPDATA%\skigard plus %LOCALAPPDATA%\skigard).
+//
+// Root holds the config-like, reviewable files: skigard.toml, skigard.lock,
+// approved skills, reviews and the generated marketplace. Local holds the
+// untrusted or machine-local parts: quarantine and state (including the lock
+// file). They are the same directory everywhere except by default on Windows,
+// where Root is in the roaming profile and Local is not. An empty Local means
+// "same as Root".
+type Home struct{ Root, Local string }
 
-// Resolve picks the home: explicit flag, then $SKIGARD_HOME, then
-// $XDG_CONFIG_HOME/skigard, then ~/.config/skigard.
+// localRoot is the directory for quarantine and state.
+func (h Home) localRoot() string {
+	if h.Local != "" {
+		return h.Local
+	}
+	return h.Root
+}
+
+// Resolve picks the home: explicit flag, then $SKIGARD_HOME (both put
+// everything in one directory), then $XDG_CONFIG_HOME/skigard, then the
+// platform default: ~/.config/skigard, or on Windows %APPDATA%\skigard with
+// the quarantine and state in %LOCALAPPDATA%\skigard.
 func Resolve(flag string) (Home, error) {
+	return resolve(flag, runtime.GOOS, os.Getenv, os.UserHomeDir)
+}
+
+func resolve(flag, goos string, getenv func(string) string, userHome func() (string, error)) (Home, error) {
 	switch {
 	case flag != "":
 		return abs(flag)
-	case os.Getenv("SKIGARD_HOME") != "":
-		return abs(os.Getenv("SKIGARD_HOME"))
-	case os.Getenv("XDG_CONFIG_HOME") != "":
-		return abs(filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "skigard"))
+	case getenv("SKIGARD_HOME") != "":
+		return abs(getenv("SKIGARD_HOME"))
+	case getenv("XDG_CONFIG_HOME") != "":
+		return abs(filepath.Join(getenv("XDG_CONFIG_HOME"), "skigard"))
 	}
-	home, err := os.UserHomeDir()
+	home, err := userHome()
 	if err != nil {
 		return Home{}, err
 	}
-	return Home{filepath.Join(home, ".config", "skigard")}, nil
+	if goos == "windows" {
+		roaming, local := getenv("APPDATA"), getenv("LOCALAPPDATA")
+		if roaming == "" {
+			roaming = filepath.Join(home, "AppData", "Roaming")
+		}
+		if local == "" {
+			local = filepath.Join(home, "AppData", "Local")
+		}
+		return Home{Root: filepath.Join(roaming, "skigard"), Local: filepath.Join(local, "skigard")}, nil
+	}
+	return Home{Root: filepath.Join(home, ".config", "skigard")}, nil
 }
 
 func abs(p string) (Home, error) {
 	a, err := filepath.Abs(p)
-	return Home{a}, err
+	return Home{Root: a}, err
 }
 
 // Paths.
@@ -49,12 +82,12 @@ func (h Home) LockPath() string                { return filepath.Join(h.Root, "s
 func (h Home) SkillsDir() string               { return filepath.Join(h.Root, "skills") }
 func (h Home) SkillDir(n string) string        { return filepath.Join(h.Root, "skills", n) }
 func (h Home) ReviewsDir() string              { return filepath.Join(h.Root, "reviews") }
-func (h Home) QuarantineDir() string           { return filepath.Join(h.Root, "quarantine") }
-func (h Home) QuarantineSkill(n string) string { return filepath.Join(h.Root, "quarantine", n) }
+func (h Home) QuarantineDir() string           { return filepath.Join(h.localRoot(), "quarantine") }
+func (h Home) QuarantineSkill(n string) string { return filepath.Join(h.localRoot(), "quarantine", n) }
 func (h Home) MetaPath(n string) string {
-	return filepath.Join(h.Root, "quarantine", ".meta", n+".json")
+	return filepath.Join(h.localRoot(), "quarantine", ".meta", n+".json")
 }
-func (h Home) StateDir() string       { return filepath.Join(h.Root, "state") }
+func (h Home) StateDir() string       { return filepath.Join(h.localRoot(), "state") }
 func (h Home) InstallsPath() string   { return filepath.Join(h.StateDir(), "installs.json") }
 func (h Home) MarketplaceDir() string { return filepath.Join(h.Root, "marketplace") }
 
@@ -62,7 +95,7 @@ const gitignore = "# skigard: untrusted or machine-local\nquarantine/\nstate/\n"
 
 // Init creates the layout. It is safe to call repeatedly.
 func (h Home) Init() error {
-	for _, d := range []string{h.Root, h.SkillsDir(), h.ReviewsDir()} {
+	for _, d := range []string{h.Root, h.localRoot(), h.SkillsDir(), h.ReviewsDir()} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			return err
 		}
