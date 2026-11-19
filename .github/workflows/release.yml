@@ -1,17 +1,100 @@
 name: release
+# Tag-driven: a human pushes vX.Y.Z and this workflow does the rest.
+# Pull requests that touch packaging (and manual runs) get a snapshot dry run instead.
 on:
   push: {tags: ["v*"]}
-permissions:
-  contents: write
-  id-token: write   # for keyless signing
+  pull_request:
+    paths:
+      - .goreleaser.yaml
+      - Dockerfile
+      - packaging/**
+      - scripts/homebrew-formula.sh
+      - .github/workflows/release.yml
+  workflow_dispatch:
+permissions: {}
 jobs:
-  goreleaser:
+  snapshot:
+    if: github.event_name != 'push'
+    permissions: {contents: read}
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with: {fetch-depth: 0}
-      - uses: actions/setup-go@v5
-        with: {go-version-file: go.mod}
-      - uses: goreleaser/goreleaser-action@v6
-        with: {version: "~> v2", args: release --clean}
-        env: {GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with: {go-version-file: go.mod, cache: false}
+      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+        with:
+          distribution: goreleaser
+          version: v2.20.2
+          args: check
+      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+        with:
+          distribution: goreleaser
+          version: v2.20.2
+          args: release --snapshot --clean --skip=sign,sbom,docker,publish
+      - name: render the Homebrew formula from the snapshot checksums
+        run: |
+          version="$(jq -r .version dist/metadata.json)"
+          scripts/homebrew-formula.sh "$version" dist/checksums.txt > dist/skigard.rb
+          cat dist/skigard.rb
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: snapshot-dist
+          path: dist/
+          retention-days: 7
+  release:
+    if: github.event_name == 'push'
+    permissions:
+      contents: write       # create the GitHub Release and upload assets
+      id-token: write       # keyless signing (cosign) and attestations
+      attestations: write   # build provenance
+      packages: write       # push the image to ghcr.io
+    timeout-minutes: 45
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with: {go-version-file: go.mod, cache: false}
+      - run: go test ./...
+      - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+      - uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+        with:
+          distribution: goreleaser
+          version: v2.20.2
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Publishers are skipped when their token is not configured (see .goreleaser.yaml).
+          SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-checksums: dist/checksums.txt
+      - name: update the Homebrew formula
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [ -z "$HOMEBREW_TAP_TOKEN" ]; then
+            echo "HOMEBREW_TAP_TOKEN is not set; skipping the Homebrew tap update"
+            exit 0
+          fi
+          version="${TAG#v}"
+          scripts/homebrew-formula.sh "$version" dist/checksums.txt > "$RUNNER_TEMP/skigard.rb"
+          git clone --depth 1 "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/ambierhq/homebrew-tap.git" "$RUNNER_TEMP/tap"
+          mkdir -p "$RUNNER_TEMP/tap/Formula"
+          cp "$RUNNER_TEMP/skigard.rb" "$RUNNER_TEMP/tap/Formula/skigard.rb"
+          cd "$RUNNER_TEMP/tap"
+          git config user.name "skigard release bot"
+          git config user.email "skigard@ambierhq.com"
+          git add Formula/skigard.rb
+          git diff --cached --quiet || { git commit -m "skigard ${version}" && git push origin HEAD; }

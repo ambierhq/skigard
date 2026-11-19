@@ -2,18 +2,26 @@ name: ci
 on:
   push: {branches: [main]}
   pull_request:
-permissions: {contents: read}
+permissions: {}
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
+  # Required checks on main: test (3 OSes), cross-compile (windows/amd64, windows/arm64), editorconfig, fuzz.
+  # Do not rename these jobs.
   test:
+    permissions: {contents: read}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix: {os: [ubuntu-latest, macos-latest, windows-latest]}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with: {go-version-file: go.mod}
-      - uses: golangci/golangci-lint-action@v8
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         if: runner.os != 'Windows'
         with: {version: v2.15.0}
       - run: go test -race ./...
@@ -32,13 +40,16 @@ jobs:
           go test ./internal/scan -run Docs -update
           git diff --exit-code docs/
   cross-compile:
+    permissions: {contents: read}
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     strategy:
       matrix:
         target: [windows/amd64, windows/arm64]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with: {go-version-file: go.mod}
       - name: build and vet (${{ matrix.target }})
         run: |
@@ -49,19 +60,39 @@ jobs:
         env:
           TARGET: ${{ matrix.target }}
   editorconfig:
+    permissions: {contents: read}
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: editorconfig-checker/action-editorconfig-checker@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: editorconfig-checker/action-editorconfig-checker@51f63319f592f97930c73d9c46184d20bd206393 # v3.0.0
+        with: {version: v4.0.2}
       - run: editorconfig-checker
   fuzz:
+    permissions: {contents: read}
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with: {go-version-file: go.mod}
       - run: |
           go test ./internal/source -run XXX -fuzz=FuzzParse -fuzztime=30s
           go test ./internal/safefs -run XXX -fuzz=FuzzCleanEntry -fuzztime=30s
           go test ./internal/skill -run XXX -fuzz=FuzzFrontmatter -fuzztime=30s
           go test ./internal/review -run XXX -fuzz=FuzzParse -fuzztime=30s
+  # Not a required check. go.mod and go.sum must be tidy and verified.
+  go-mod:
+    permissions: {contents: read}
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with: {go-version-file: go.mod}
+      - run: |
+          go mod verify
+          go mod tidy -diff

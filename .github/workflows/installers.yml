@@ -1,0 +1,199 @@
+name: installers
+# Tests install.sh, install.ps1 and the Linux packages against a local GoReleaser snapshot,
+# using SKIGARD_BASE_URL so nothing is downloaded from GitHub.
+on:
+  push: {branches: [main]}
+  pull_request:
+    paths:
+      - scripts/install.sh
+      - scripts/install.ps1
+      - .goreleaser.yaml
+      - Dockerfile
+      - packaging/**
+      - internal/cli/**
+      - .github/workflows/installers.yml
+  workflow_dispatch:
+permissions: {}
+jobs:
+  dist:
+    permissions: {contents: read}
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with: {go-version-file: go.mod, cache: false}
+      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+        with:
+          distribution: goreleaser
+          version: v2.20.2
+          args: release --snapshot --clean --skip=sign,sbom,docker,publish
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: installer-dist
+          path: dist/
+          retention-days: 3
+  install-sh:
+    needs: dist
+    permissions: {contents: read}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix: {os: [ubuntu-latest, macos-latest]}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with: {name: installer-dist, path: dist}
+      - name: serve the snapshot
+        run: |
+          (cd dist && nohup python3 -m http.server 18431 --bind 127.0.0.1 >/dev/null 2>&1 &)
+          sleep 2
+          curl -fsS http://127.0.0.1:18431/checksums.txt >/dev/null
+      - name: install and run
+        env:
+          SKIGARD_BASE_URL: http://127.0.0.1:18431
+          SKIGARD_INSTALL_DIR: ${{ runner.temp }}/bin
+        run: |
+          sh scripts/install.sh
+          "$SKIGARD_INSTALL_DIR/skigard" version | grep '^skigard '
+      - name: a tampered archive is rejected
+        env:
+          SKIGARD_BASE_URL: http://127.0.0.1:18432
+          SKIGARD_INSTALL_DIR: ${{ runner.temp }}/bin-tampered
+        run: |
+          cp -r dist "$RUNNER_TEMP/dist-bad"
+          for f in "$RUNNER_TEMP"/dist-bad/*.tar.gz; do echo tamper >> "$f"; done
+          (cd "$RUNNER_TEMP/dist-bad" && nohup python3 -m http.server 18432 --bind 127.0.0.1 >/dev/null 2>&1 &)
+          sleep 2
+          if sh scripts/install.sh; then echo "install.sh accepted a tampered archive"; exit 1; fi
+          test ! -e "$SKIGARD_INSTALL_DIR/skigard"
+      - name: a bad version is rejected without network access
+        run: |
+          if SKIGARD_VERSION='1;rm' sh scripts/install.sh; then exit 1; fi
+  install-sh-containers:
+    needs: dist
+    permissions: {contents: read}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {image: "alpine:3.22", setup: "apk add --no-cache ca-certificates tar"}                 # busybox wget, no curl
+          - {image: "ubuntu:24.04", setup: "apt-get update -qq && apt-get install -y -qq curl ca-certificates"}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with: {name: installer-dist, path: dist}
+      - name: serve the snapshot
+        run: |
+          (cd dist && nohup python3 -m http.server 18431 --bind 127.0.0.1 >/dev/null 2>&1 &)
+          sleep 2
+      - name: install.sh in ${{ matrix.image }} as a non-root user
+        env:
+          IMAGE: ${{ matrix.image }}
+          SETUP: ${{ matrix.setup }}
+        run: |
+          docker run --rm --network host -v "$PWD/scripts:/scripts:ro" \
+            "$IMAGE" sh -ec "
+              $SETUP
+              adduser -D tester 2>/dev/null || useradd -m tester
+              su - tester -c 'SKIGARD_BASE_URL=http://127.0.0.1:18431 sh /scripts/install.sh && ~/.local/bin/skigard version'
+              su - tester -c 'SKIGARD_BASE_URL=http://127.0.0.1:18431 sh /scripts/install.sh'
+            "
+  install-ps1:
+    needs: dist
+    permissions: {contents: read}
+    timeout-minutes: 15
+    runs-on: windows-latest
+    defaults:
+      run: {shell: pwsh}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with: {name: installer-dist, path: dist}
+      - name: serve the snapshot
+        run: |
+          Start-Process -FilePath python -ArgumentList '-m','http.server','18431','--bind','127.0.0.1' -WorkingDirectory "$PWD\dist" -WindowStyle Hidden
+          Start-Sleep -Seconds 3
+          Invoke-WebRequest -UseBasicParsing http://127.0.0.1:18431/checksums.txt | Out-Null
+      - name: Windows PowerShell 5.1, piped to iex, default directory and user PATH
+        shell: powershell
+        env:
+          SKIGARD_BASE_URL: http://127.0.0.1:18431
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Get-Content -Raw scripts/install.ps1 | Invoke-Expression
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\skigard\skigard.exe'
+          if (-not (Test-Path $exe)) { throw "missing $exe" }
+          $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+          if (-not ($userPath.Split(';') -contains (Join-Path $env:LOCALAPPDATA 'Programs\skigard'))) { throw 'user PATH was not updated' }
+          # a second run must not duplicate the PATH entry
+          Get-Content -Raw scripts/install.ps1 | Invoke-Expression
+          $after = [Environment]::GetEnvironmentVariable('Path', 'User')
+          $count = ($after.Split(';') | Where-Object { $_ -eq (Join-Path $env:LOCALAPPDATA 'Programs\skigard') }).Count
+          if ($count -ne 1) { throw "PATH entry present $count times" }
+          & $exe version
+      - name: PowerShell 7, custom directory, explicit version
+        env:
+          SKIGARD_BASE_URL: http://127.0.0.1:18431
+          SKIGARD_INSTALL_DIR: ${{ runner.temp }}\skigard-pwsh
+          SKIGARD_NO_MODIFY_PATH: "1"
+        run: |
+          $v = (Get-Content dist\metadata.json | ConvertFrom-Json).version
+          $env:SKIGARD_VERSION = "v$v"
+          ./scripts/install.ps1
+          $out = & "$env:SKIGARD_INSTALL_DIR\skigard.exe" version
+          if ($out -notmatch '^skigard ') { throw "unexpected output: $out" }
+      - name: a tampered archive is rejected
+        env:
+          SKIGARD_BASE_URL: http://127.0.0.1:18432
+          SKIGARD_INSTALL_DIR: ${{ runner.temp }}\skigard-bad
+        run: |
+          Copy-Item dist "$env:RUNNER_TEMP\dist-bad" -Recurse
+          Get-ChildItem "$env:RUNNER_TEMP\dist-bad\*.zip" | ForEach-Object { Add-Content -LiteralPath $_.FullName -Value 'tamper' }
+          Start-Process -FilePath python -ArgumentList '-m','http.server','18432','--bind','127.0.0.1' -WorkingDirectory "$env:RUNNER_TEMP\dist-bad" -WindowStyle Hidden
+          Start-Sleep -Seconds 3
+          $failed = $false
+          try { ./scripts/install.ps1 } catch { $failed = $true; Write-Host "rejected as expected: $($_.Exception.Message)" }
+          if (-not $failed) { throw 'install.ps1 accepted a tampered archive' }
+          if (Test-Path "$env:SKIGARD_INSTALL_DIR\skigard.exe") { throw 'binary was installed' }
+  packages:
+    needs: dist
+    permissions: {contents: read}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {image: "debian:12", glob: "*_linux_amd64.deb", cmd: "apt-get update -qq && apt-get install -y -qq /pkg/*_linux_amd64.deb"}
+          - {image: "ubuntu:24.04", glob: "*_linux_amd64.deb", cmd: "apt-get update -qq && apt-get install -y -qq /pkg/*_linux_amd64.deb"}
+          - {image: "fedora:latest", glob: "*_linux_amd64.rpm", cmd: "rpm -i /pkg/*_linux_amd64.rpm"}
+          - {image: "archlinux:latest", glob: "*_linux_amd64.pkg.tar.zst", cmd: "pacman -U --noconfirm /pkg/*_linux_amd64.pkg.tar.zst"}
+          - {image: "alpine:3.22", glob: "*_linux_amd64.apk", cmd: "apk add --allow-untrusted /pkg/*_linux_amd64.apk"}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with: {name: installer-dist, path: dist}
+      - name: install ${{ matrix.glob }} in ${{ matrix.image }}
+        env:
+          IMAGE: ${{ matrix.image }}
+          INSTALL: ${{ matrix.cmd }}
+          GLOB: ${{ matrix.glob }}
+        run: |
+          mkdir pkg
+          # shellcheck disable=SC2086  # GLOB is a glob pattern on purpose
+          cp dist/$GLOB pkg/
+          docker run --rm -v "$PWD/pkg:/pkg:ro" "$IMAGE" sh -ec "
+            $INSTALL
+            skigard version
+            test -f /usr/share/licenses/skigard/LICENSE
+            test -f /usr/share/bash-completion/completions/skigard
+            test -f /usr/share/zsh/site-functions/_skigard
+            test -f /usr/share/fish/vendor_completions.d/skigard.fish
+          "
