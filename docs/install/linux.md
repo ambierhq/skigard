@@ -3,25 +3,24 @@
 `amd64` and `arm64` are supported. Packages are built for the common distributions; all of them install a single binary at
 `/usr/bin/skigard` plus shell completions.
 
-## Shell installer (coming with v0.1.0)
+## Shell installer
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/ambierhq/skigard/main/scripts/install.sh | sh
+curl -fsSL https://ambierhq.com/skigard/install.sh | sh
 ```
 
 Installs to `~/.local/bin` without `sudo`. Options: `SKIGARD_VERSION`, `SKIGARD_INSTALL_DIR`, `SKIGARD_SKIP_COSIGN=1`. The archive is checked against
 `checksums.txt`, and its signature too when `cosign` is installed.
 
-## Homebrew on Linux (coming with v0.1.0)
+## Homebrew on Linux
 
 ```sh
 brew install ambierhq/tap/skigard
 ```
 
-## Packages from a GitHub Release (coming with v0.1.0)
+## Packages from a GitHub Release
 
-Each GitHub Release has a `.deb`, `.rpm`, `.apk` and `.pkg.tar.zst` attached. There are no apt, dnf or pacman repositories yet
-(planned if there is demand). Download the package from the [release](https://github.com/ambierhq/skigard/releases) and install it with your package manager:
+Each GitHub Release has a `.deb`, `.rpm`, `.apk` and `.pkg.tar.zst` attached. There are no apt, dnf or pacman repositories (not offered). Download the package from the [release](https://github.com/ambierhq/skigard/releases) and install it with your package manager:
 
 ```sh
 sudo apt install ./skigard_*.deb          # Debian, Ubuntu
@@ -31,7 +30,7 @@ sudo pacman -U ./skigard-*.pkg.tar.zst    # Arch
 
 Verify the download against `checksums.txt` first (see [Install](README.md)). Updating means installing the newer file.
 
-## Alpine (coming with v0.1.0)
+## Alpine
 
 An `.apk` is attached to each release.
 

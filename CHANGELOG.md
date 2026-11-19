@@ -5,7 +5,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-First public release (`v0.1.0`) in preparation.
+## [0.1.1] - 2026-11-19
+
+Use this release. `v0.1.0` was tagged a few minutes earlier; its release assets were published, but the release workflow failed in the
+publisher step (a templating error in the token settings, fixed in #26), so the Scoop bucket and the Homebrew tap were not updated.
 
 ### Added
 
@@ -19,4 +22,12 @@ First public release (`v0.1.0`) in preparation.
 - Release pipeline: signed, SBOM-ed archives and Linux packages, container image, shell and PowerShell installers.
 - Documentation, brand assets and a generated command reference.
 
-[Unreleased]: https://github.com/ambierhq/skigard/commits/main
+### Known issues
+
+- The winget manifest was submitted by hand ([winget-pkgs#484409](https://github.com/microsoft/winget-pkgs/pull/484409)) after the workflow's
+  winget step timed out; the Homebrew formula was pushed by hand too. The workflow now does both in separate jobs.
+- No build provenance attestation for `v0.1.1` (that step was skipped when the publisher failed). Checksums are signed with cosign.
+- The npm packages and the Docker image are not public yet.
+
+[Unreleased]: https://github.com/ambierhq/skigard/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/ambierhq/skigard/releases/tag/v0.1.1

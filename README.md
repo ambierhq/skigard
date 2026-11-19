@@ -64,21 +64,22 @@ add ──► quarantine ──► scan ──► review (agent, advisory) ─�
 
 ## Install
 
-`v0.1.0` is not released yet, so only the Go route works today. The others are built and tested in CI and go live with the release.
+`v0.1.1` is the latest release ([GitHub Releases](https://github.com/ambierhq/skigard/releases)). Status of each channel:
 
 | Channel | Command | Status |
 |---|---|---|
-| Go | `go install github.com/ambierhq/skigard/cmd/skigard@latest` | live |
-| Shell installer (macOS, Linux) | `curl -fsSL https://raw.githubusercontent.com/ambierhq/skigard/main/scripts/install.sh \| sh` | coming with v0.1.0 |
-| PowerShell (Windows) | `irm https://raw.githubusercontent.com/ambierhq/skigard/main/scripts/install.ps1 \| iex` | coming with v0.1.0 |
-| Homebrew | `brew install ambierhq/tap/skigard` | coming with v0.1.0 |
-| winget | `winget install Ambier.Skigard` | coming with v0.1.0 |
-| Scoop | `scoop bucket add ambierhq https://github.com/ambierhq/scoop-bucket && scoop install skigard` | coming with v0.1.0 |
-| npx / npm | `npx skigard` or `npm i -g skigard` | coming with v0.1.0 |
-| apt, dnf, pacman repositories | not available; planned if there is demand. Install the `.deb`, `.rpm` or `.pkg.tar.zst` from a GitHub Release (see [Linux](docs/install/linux.md)) | planned if there is demand |
-| Nix | `nix run github:ambierhq/skigard` | coming with v0.1.0 |
-| Docker | `docker run --rm ghcr.io/ambierhq/skigard` | coming with v0.1.0 |
-| mise | `mise use -g skigard` | coming with v0.1.0 |
+| Go | `go install github.com/ambierhq/skigard/cmd/skigard@latest` | live (a `go install` build reports version `dev`) |
+| Shell installer (macOS, Linux) | `curl -fsSL https://ambierhq.com/skigard/install.sh \| sh` | live |
+| PowerShell (Windows) | `irm https://ambierhq.com/skigard/install.ps1 \| iex` | live (tested in CI on `windows-latest`) |
+| GitHub Releases | archives, `.deb`, `.rpm`, `.apk`, `.pkg.tar.zst`, checksums, SBOMs, cosign signatures | live |
+| Homebrew | `brew install ambierhq/tap/skigard` | live |
+| winget | `winget install Ambier.Skigard` | submitted, pending Microsoft review ([winget-pkgs#484409](https://github.com/microsoft/winget-pkgs/pull/484409)) |
+| Scoop | `scoop bucket add ambierhq https://github.com/ambierhq/scoop-bucket && scoop install skigard` | live, not yet tested on Windows |
+| mise | `mise use -g github:ambierhq/skigard` | live (the short name `skigard` needs a registry entry, not submitted) |
+| Nix | `nix run github:ambierhq/skigard` | flake builds in CI; not tested by hand |
+| npx / npm | `npx skigard` or `npm i -g skigard` | not published yet |
+| Docker | `docker run --rm ghcr.io/ambierhq/skigard` | not yet: the image is built by the release but the package is not public |
+| apt, dnf, pacman repositories | not offered. Install the `.deb`, `.rpm` or `.pkg.tar.zst` attached to a GitHub Release (see [Linux](docs/install/linux.md)) | not offered |
 
 Per-system pages: [macOS](docs/install/macos.md) · [Linux](docs/install/linux.md) · [Windows](docs/install/windows.md) ·
 [other channels](docs/install/other.md). Releases are checksummed, SBOM-ed and signed with cosign
@@ -227,7 +228,7 @@ Releases are signed (cosign, keyless), come with SBOMs, and CI is pinned and har
 
 ## Roadmap
 
-- `v0.1.0`: first release and every install channel above.
+- Install channels still to land: npm, the Docker image, winget (in review) and the mise registry.
 - `skigard-action`, a reusable GitHub Action for `verify`.
 - Verify more harnesses (each one needs a person to confirm its skills directory).
 - Automated review on Windows, once the reviewer CLIs have been verified there.

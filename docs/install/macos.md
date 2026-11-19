@@ -2,23 +2,23 @@
 
 Apple silicon (arm64) and Intel (amd64) are both supported.
 
-## Homebrew (coming with v0.1.0)
+## Homebrew
 
 ```sh
 brew install ambierhq/tap/skigard
 ```
 
-## Shell installer (coming with v0.1.0)
+## Shell installer
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/ambierhq/skigard/main/scripts/install.sh | sh
+curl -fsSL https://ambierhq.com/skigard/install.sh | sh
 ```
 
 Downloads the latest release archive for your architecture, checks it against `checksums.txt` (and the cosign signature if `cosign` is
 installed), and puts `skigard` in `~/.local/bin`. Make sure that directory is on your `PATH`. Options: `SKIGARD_VERSION`, `SKIGARD_INSTALL_DIR`,
 `SKIGARD_SKIP_COSIGN=1`.
 
-## From a release archive (coming with v0.1.0)
+## From a release archive
 
 Download `skigard_<version>_darwin_<arch>.tar.gz` from [GitHub Releases](https://github.com/ambierhq/skigard/releases), check it against
 `checksums.txt`, extract it and move `skigard` onto your `PATH`.

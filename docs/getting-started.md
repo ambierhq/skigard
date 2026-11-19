@@ -2,13 +2,14 @@
 
 This takes about a minute and ends with a skill pinned in your lockfile and installed into your agents.
 
-1. **Install skigard.** See [install](install/README.md). The quickest route today:
+1. **Install skigard.** See [install](install/README.md). The quickest route:
 
    ```sh
-   go install github.com/ambierhq/skigard/cmd/skigard@latest      # needs Go 1.27+
+   curl -fsSL https://ambierhq.com/skigard/install.sh | sh        # macOS, Linux
+   brew install ambierhq/tap/skigard                              # or Homebrew
    ```
 
-   Prebuilt binaries and package managers arrive with v0.1.0 (see the [status table](install/README.md#channels-and-status)).
+   Windows, Go and the other channels are in the [status table](install/README.md#channels-and-status).
 
 2. **See which agents skigard found.**
 
