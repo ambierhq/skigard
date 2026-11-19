@@ -45,7 +45,7 @@ func (a *App) List() ([]Entry, error) {
 		if s.Review != nil {
 			e.Review = s.Review.Verdict
 		}
-		if cur, err := hash.Dir(a.Home.SkillDir(s.Name)); err != nil || cur != s.ContentHash {
+		if st, err := hash.Check(a.Home.SkillDir(s.Name), s.Identity()); err != nil || !st.OK() {
 			e.Drift = true
 		}
 		for _, r := range st.Installs {

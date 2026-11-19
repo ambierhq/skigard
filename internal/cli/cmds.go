@@ -983,3 +983,37 @@ func cmdMigrate(c *ctx, args []string) error {
 	c.printf("next: skigard verify && skigard sync\n")
 	return nil
 }
+
+func cmdLock(c *ctx, args []string) error {
+	if len(args) == 0 || args[0] != "upgrade" {
+		return util.Errf("usage: skigard lock upgrade [NAME...]")
+	}
+	fs := c.flags("lock upgrade")
+	pos, err := parse(fs, args[1:])
+	if err != nil {
+		return err
+	}
+	if err := c.open(); err != nil {
+		return err
+	}
+	res, err := c.app.LockUpgrade(pos)
+	if err != nil {
+		return err
+	}
+	if c.json {
+		if res == nil {
+			res = []core.UpgradeResult{}
+		}
+		return c.printJSON(res)
+	}
+	if len(res) == 0 {
+		c.printf("no approved skills\n")
+	}
+	for _, r := range res {
+		c.printf("%s: %s\n", util.Clean(r.Name), r.Note)
+		if r.Upgraded {
+			c.printf("  content_hash %s -> %s\n  exec_set: %d executable file(s)\n", hash.Short(r.OldHash, 12), hash.Short(r.NewHash, 12), len(r.Exec))
+		}
+	}
+	return nil
+}
