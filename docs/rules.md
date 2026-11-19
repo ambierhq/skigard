@@ -2,7 +2,7 @@
 
 <!-- Generated from internal/scan. Run: go test ./internal/scan -run Docs -update -->
 
-Rules version `2026.1`. The scanner is deterministic and heuristic: it flags, a human decides. It never executes anything.
+Rules version `2026.2`. The scanner is deterministic and heuristic: it flags, a human decides. It never executes anything.
 
 Severity maps to a verdict: any `high` or `critical` finding gives **block**; `medium` (or incomplete coverage) gives **review**; otherwise **pass**.
 In the prose of Markdown/text files (outside code fences) command-like mentions matching rules marked `(prose-low)` are downgraded to `low`.
