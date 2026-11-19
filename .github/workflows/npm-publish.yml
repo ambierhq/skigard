@@ -15,7 +15,7 @@ jobs:
     if: >-
       vars.NPM_PUBLISH == 'true' &&
       (github.event_name == 'workflow_dispatch' ||
-       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' &&
+        (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' &&
         startsWith(github.event.workflow_run.head_branch, 'v')))
     permissions:
       contents: read

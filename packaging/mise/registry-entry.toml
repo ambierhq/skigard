@@ -1,0 +1,6 @@
+# Draft entry for https://github.com/jdx/mise `registry/skigard.toml` (the registry moved from one registry.toml to
+# one file per tool; re-read CONTRIBUTING.md at submission time, the schema has changed before).
+# `mise use -g skigard` then resolves aqua first and falls back to the github backend.
+backends = ["aqua:ambierhq/skigard", "github:ambierhq/skigard"]
+description = "Lockfile and review gate for agent skills"
+test = { cmd = "skigard version", expected = "skigard {{version}}" }
