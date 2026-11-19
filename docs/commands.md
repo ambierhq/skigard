@@ -37,6 +37,7 @@ Usage: `skigard COMMAND [ARGS]`. Flags may come before or after positional argum
 - [`sync`](#skigard-sync): install every approved skill into the default harnesses
 - [`verify`](#skigard-verify): check lock, store, installs and marketplace (CI-friendly)
 - [`lock`](#skigard-lock): upgrade lock entries to hash version 2 (only if the old hash still matches)
+- [`init-ci`](#skigard-init-ci): write a GitHub workflow that runs skigard verify
 - [`list`](#skigard-list): list approved and quarantined skills
 - [`show`](#skigard-show): print a skill's SKILL.md and file list
 - [`status`](#skigard-status): summary of this home
@@ -226,6 +227,20 @@ Upgrade lock entries to hash version 2 (only if the old hash still matches).
 ```
 skigard lock upgrade [NAME...]
 ```
+
+## skigard init-ci
+
+Write a GitHub workflow that runs skigard verify.
+
+```
+skigard init-ci [--version X.Y.Z] [--action-sha SHA]
+```
+
+| Flag | Description |
+|---|---|
+| `--action-sha STRING` | full commit SHA of ambierhq/skigard-action to pin (default: a placeholder you must fill in) |
+| `--force` | overwrite an existing .github/workflows/skigard.yml |
+| `--version STRING` | skigard version to pin in the workflow (default: this binary's version) |
 
 ## skigard list
 
