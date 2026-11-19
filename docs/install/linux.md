@@ -18,28 +18,18 @@ Installs to `~/.local/bin` without `sudo`. Options: `SKIGARD_VERSION`, `SKIGARD_
 brew install ambierhq/tap/skigard
 ```
 
-## apt: Debian, Ubuntu (coming with v0.1.0)
+## Packages from a GitHub Release (coming with v0.1.0)
+
+Each GitHub Release has a `.deb`, `.rpm`, `.apk` and `.pkg.tar.zst` attached. There are no apt, dnf or pacman repositories yet
+(planned if there is demand). Download the package from the [release](https://github.com/ambierhq/skigard/releases) and install it with your package manager:
 
 ```sh
-sudo apt install skigard
+sudo apt install ./skigard_*.deb          # Debian, Ubuntu
+sudo dnf install ./skigard_*.rpm          # Fedora, RHEL
+sudo pacman -U ./skigard-*.pkg.tar.zst    # Arch
 ```
 
-This needs the signed apt repository that goes live with the first release. Until then you can install the `.deb` from a release with
-`sudo apt install ./skigard_<version>_linux_<arch>.deb` once one is published.
-
-## dnf: Fedora, RHEL (coming with v0.1.0)
-
-```sh
-sudo dnf install skigard
-```
-
-## pacman: Arch (coming with v0.1.0)
-
-```sh
-sudo pacman -S skigard
-```
-
-The Arch package is first published through the repository on `releases.ambierhq.com`; the goal is the official `extra` repository.
+Verify the download against `checksums.txt` first (see [Install](README.md)). Updating means installing the newer file.
 
 ## Alpine (coming with v0.1.0)
 
