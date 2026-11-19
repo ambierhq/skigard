@@ -15,18 +15,21 @@ func TestResolvePrecedence(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", "")
 	h, _ := Resolve("")
 	home, _ := os.UserHomeDir()
-	if h.Root != filepath.Join(home, ".config", "skigard") {
+	if runtime.GOOS != "windows" && h.Root != filepath.Join(home, ".config", "skigard") { // Windows: see TestResolveWindowsSplit
 		t.Errorf("default = %s", h.Root)
 	}
-	t.Setenv("XDG_CONFIG_HOME", "/x/cfg")
-	if h, _ := Resolve(""); h.Root != "/x/cfg/skigard" {
+	xdg, _ := filepath.Abs(filepath.FromSlash("/x/cfg"))
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	if h, _ := Resolve(""); h.Root != filepath.Join(xdg, "skigard") {
 		t.Errorf("xdg = %s", h.Root)
 	}
-	t.Setenv("SKIGARD_HOME", "/y/home")
-	if h, _ := Resolve(""); h.Root != "/y/home" {
+	yhome, _ := filepath.Abs(filepath.FromSlash("/y/home"))
+	t.Setenv("SKIGARD_HOME", yhome)
+	if h, _ := Resolve(""); h.Root != yhome {
 		t.Errorf("env = %s", h.Root)
 	}
-	if h, _ := Resolve("/z"); h.Root != "/z" {
+	z, _ := filepath.Abs(filepath.FromSlash("/z"))
+	if h, _ := Resolve("/z"); h.Root != z {
 		t.Errorf("flag = %s", h.Root)
 	}
 }

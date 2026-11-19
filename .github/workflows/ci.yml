@@ -6,21 +6,48 @@ permissions: {contents: read}
 jobs:
   test:
     strategy:
-      matrix: {os: [ubuntu-latest, macos-latest]}
+      fail-fast: false
+      matrix: {os: [ubuntu-latest, macos-latest, windows-latest]}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with: {go-version-file: go.mod}
       - uses: golangci/golangci-lint-action@v8
+        if: runner.os != 'Windows'
         with: {version: v2.15.0}
       - run: go test -race ./...
+        if: runner.os != 'Windows'
+      - run: go test ./...
+        if: runner.os == 'Windows'
       - run: scripts/e2e.sh
+        if: runner.os != 'Windows'
+      # Windows: build the binary and drive approve through a ConPTY (e2e/windows)
+      - run: go test -tags e2e -count=1 -v ./e2e/windows
+        if: runner.os == 'Windows'
       - name: docs are generated
+        if: runner.os != 'Windows'
         run: |
           go test ./internal/harness -run Docs -update
           go test ./internal/scan -run Docs -update
           git diff --exit-code docs/
+  cross-compile:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [windows/amd64, windows/arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: {go-version-file: go.mod}
+      - name: build and vet (${{ matrix.target }})
+        run: |
+          export GOOS="${TARGET%/*}" GOARCH="${TARGET#*/}"
+          go build ./...
+          go vet ./...
+          go vet -tags e2e ./e2e/...
+        env:
+          TARGET: ${{ matrix.target }}
   editorconfig:
     runs-on: ubuntu-latest
     steps:

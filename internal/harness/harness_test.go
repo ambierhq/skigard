@@ -3,6 +3,7 @@ package harness
 import (
 	"errors"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 func fakeEnv(home string, bins map[string]string, env map[string]string) Env {
 	return Env{
+		OS:     "linux", // layout-independent of the machine running the tests
 		Home:   home,
 		Getenv: func(k string) string { return env[k] },
 		LookPath: func(n string) (string, error) {
@@ -64,13 +66,13 @@ func TestDetect(t *testing.T) {
 	if got["claude-code"].Status != Configured {
 		t.Errorf("claude-code: %+v", got["claude-code"])
 	}
-	if got["pi"].Status != Installed || got["pi"].Bin != "/usr/bin/pi" {
+	if got["pi"].Status != Installed || filepath.ToSlash(got["pi"].Bin) != "/usr/bin/pi" {
 		t.Errorf("pi: %+v", got["pi"])
 	}
 	if got["goose"].Status != Configured {
 		t.Errorf("goose: %+v", got["goose"])
 	}
-	if got["codex"].Status != Configured || got["codex"].GlobalAbs != "/x/codex/skills" {
+	if got["codex"].Status != Configured || filepath.ToSlash(got["codex"].GlobalAbs) != "/x/codex/skills" {
 		t.Errorf("codex env home: %+v", got["codex"])
 	}
 	if got["cursor"].Status != Absent {
@@ -80,14 +82,14 @@ func TestDetect(t *testing.T) {
 
 func TestExpandXDG(t *testing.T) {
 	env := fakeEnv("/home/u", nil, map[string]string{"XDG_CONFIG_HOME": "/cfg"})
-	if got := env.Expand("{config}/opencode/skills"); got != "/cfg/opencode/skills" {
+	if got := filepath.ToSlash(env.Expand("{config}/opencode/skills")); got != "/cfg/opencode/skills" {
 		t.Error(got)
 	}
 	env = fakeEnv("/home/u", nil, nil)
-	if got := env.Expand("{config}/x"); got != "/home/u/.config/x" {
+	if got := filepath.ToSlash(env.Expand("{config}/x")); got != "/home/u/.config/x" {
 		t.Error(got)
 	}
-	if got := env.Expand("~/a"); got != "/home/u/a" {
+	if got := filepath.ToSlash(env.Expand("~/a")); got != "/home/u/a" {
 		t.Error(got)
 	}
 }
@@ -106,13 +108,13 @@ func TestTargetsDedupe(t *testing.T) {
 		t.Fatalf("targets = %+v", ts)
 	}
 	for _, tg := range ts {
-		if tg.Dir == "/home/u/.agents/skills" && len(tg.Harnesses) != 2 {
+		if filepath.ToSlash(tg.Dir) == "/home/u/.agents/skills" && len(tg.Harnesses) != 2 {
 			t.Errorf("shared dir not merged: %+v", tg)
 		}
 	}
 	ps := Targets(picked, "project", "/proj", env)
 	for _, tg := range ps {
-		if filepath.Dir(filepath.Dir(tg.Dir)) != "/proj" && filepath.Dir(tg.Dir) != "/proj" {
+		if d := filepath.ToSlash(tg.Dir); path.Dir(path.Dir(d)) != "/proj" && path.Dir(d) != "/proj" {
 			t.Errorf("project dir %s", tg.Dir)
 		}
 	}
