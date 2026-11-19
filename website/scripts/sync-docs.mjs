@@ -98,11 +98,13 @@ async function syncHarnesses() {
     project: h.project ?? "",
   }));
   if (list.length < 10) throw new Error(`sync-docs: parsed only ${list.length} harnesses from registry.toml`);
+  await fs.mkdir(path.join(site, "src/data"), { recursive: true });
   await fs.writeFile(path.join(site, "src/data/harnesses.json"), JSON.stringify(list, null, 1) + "\n");
   return list;
 }
 
 async function syncBrand() {
+  await fs.mkdir(path.join(site, "public"), { recursive: true });
   const brand = path.join(repo, "assets/brand");
   const copy = async (from, to) => fs.copyFile(path.join(brand, from), path.join(site, to));
   await fs.mkdir(path.join(site, "src/assets"), { recursive: true });
@@ -115,6 +117,7 @@ async function syncBrand() {
 }
 
 async function llms(docs, harnesses) {
+  await fs.mkdir(path.join(site, "public"), { recursive: true });
   const readme = await fs.readFile(path.join(repo, "README.md"), "utf8");
   const verified = harnesses.filter((h) => h.verified).map((h) => h.name).join(", ");
   const index = `# skigard
