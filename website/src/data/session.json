@@ -1,5 +1,5 @@
 {
-  "version": "dev+c66bc8f",
+  "version": "dev+b9010dc",
   "lines": [
     {
       "t": "$ skigard add ./examples/hello-skill --quarantine-only",
@@ -63,7 +63,7 @@
     },
     {
       "t": "Type hello-skill to confirm, anything else to cancel: hello-skill",
-      "c": "out"
+      "c": "warn"
     },
     {
       "t": "approved \"hello-skill\" (9f4c343fd0b8)",

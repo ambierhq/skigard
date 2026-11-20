@@ -40,7 +40,7 @@ const clean = (s) =>
 
 const lines = [];
 const push = (t, c) => lines.push({ t, c });
-const kind = (l) => (/^(approved|ok:|installed|quarantined)/.test(l) ? "ok" : /^Type the skill name/.test(l) ? "warn" : "out");
+const kind = (l) => (/^(approved|ok:|installed|quarantined)/.test(l) ? "ok" : /^Type \S+ to confirm/.test(l) ? "warn" : "out");
 const add = (text, keep = () => true) => {
   for (const l of clean(text).split("\n")) if (l.trim() && keep(l)) push(l.trimEnd(), kind(l));
 };

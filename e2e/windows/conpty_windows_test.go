@@ -301,7 +301,7 @@ func (r *rig) approveInPTY(name, answer string) (uint32, string) {
 		r.t.Fatal(err)
 	}
 	defer s.close()
-	if !s.waitFor("Type the skill name", 30*time.Second) {
+	if !s.waitFor("to confirm, anything else to cancel", 30*time.Second) {
 		_ = syscall.TerminateProcess(s.proc, 98)
 		r.t.Fatalf("no approval prompt appeared on the pseudo console; output so far: %q", s.output())
 	}
