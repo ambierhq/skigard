@@ -324,7 +324,12 @@ jobs:
           TAG: ${{ inputs.tag || github.ref_name }}
         run: node scripts/npm-pack.mjs --dist dist --version "${TAG#v}" --out npm-dist --pack
       - name: npm with trusted publishing support
-        run: npm install --global npm@11.21.3  # zizmor: ignore[adhoc-packages] trusted publishing needs npm >= 11.5.1; exact version pinned
+        # Trusted publishing needs npm >= 11.5.1. A global install fails on the runner (EACCES in /usr/local), so install into a temp prefix and put it first on PATH.
+        run: |
+          npm install --prefix "$RUNNER_TEMP/npm-cli" --no-save --no-audit --no-fund npm@11.21.3  # zizmor: ignore[adhoc-packages] exact version pinned
+          echo "$RUNNER_TEMP/npm-cli/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: show the npm version
+        run: npm --version
       - name: publish (platform packages first, then the launcher)
         env:
           TAG: ${{ inputs.tag || github.ref_name }}
