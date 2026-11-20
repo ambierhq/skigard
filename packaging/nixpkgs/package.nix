@@ -16,7 +16,7 @@ buildGoModule (finalAttrs: {
     owner = "ambierhq";
     repo = "skigard";
     tag = "v${finalAttrs.version}";
-    hash = lib.fakeHash;
+    hash = "sha256-pfan8utVwoFkuC7JWzyALHbJmfdZaOEV1spixMrEiYk=";
   };
 
   vendorHash = "sha256-pbA/AlBz3cQYRTMnQ/qBPcinYOKokrBLNhkbRTq54gE=";
