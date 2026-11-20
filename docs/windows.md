@@ -106,10 +106,13 @@ There is no Windows machine behind skigard, so Windows is tested in CI, in two w
   `checksums.txt`, `cosign verify-blob`, `gh attestation verify`), the quick start with a real console
   (`e2e/windows`, `TestPublishedSmoke`: wrong answer cancels with exit 3, right answer approves, `verify --strict`,
   `install`, the split `%APPDATA%` / `%LOCALAPPDATA%` layout, and `approve` refused under `CLAUDECODE=1` and under a
-  process named `claude.exe`), `npx skigard@VERSION` (skipped when that version is not on npm yet), and the Linux build
+  process named `claude.exe`; releases before 0.1.2 have no ancestor check, so that step is skipped for them), `npx skigard@VERSION` (skipped when that version is not on npm yet), and the Linux build
   inside WSL.
 
 This workflow is advisory: it is not a required check, and a green run does not mean a person has used skigard
 on Windows. What it cannot cover: the Scoop install runs as the runner's administrator account (Scoop needs
 `-RunAsAdmin` there), SmartScreen and Defender prompts do not appear on runners, and the Windows reviewer sandbox does
 not exist (review is disabled, above).
+
+In WSL, keep skills in the Linux filesystem (`~`), not under `/mnt/c`: the Windows drives report every file as mode 777, so
+the scanner flags `SKILL.md` as an executable file (SKG-FS-004). The WSL job copies the example off `/mnt` for this reason.
