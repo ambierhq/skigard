@@ -47,7 +47,8 @@ out=$(PI_CODING_AGENT=1 "$BIN" approve good 2>&1 || true)
 
 # 2b. the review's one-liner: an agent ancestor whose marker was stripped for the
 #     child (`env -u`) and a pty helper in between. Must be refused before any prompt.
-res=$(PI_CODING_AGENT=1 bash -c "env -u PI_CODING_AGENT python3 scripts/pty_approve.py '$BIN' '$SKIGARD_HOME' good good --keep-ancestry")
+# (the trailing echo keeps bash from exec-ing the last command, which would drop the marker holder)
+res=$(PI_CODING_AGENT=1 bash -c "env -u PI_CODING_AGENT python3 scripts/pty_approve.py '$BIN' '$SKIGARD_HOME' good good --keep-ancestry; echo")
 [ "$(echo "$res" | head -1)" = "1" ] && [[ "$res" == *"agent harness"* && "$res" != *PI_CODING_AGENT* ]] || fail "ancestor marker not refused: $res"
 [[ ! "$("$BIN" list)" =~ good[[:space:]]+approved ]] || fail "good approved despite agent ancestor"
 
