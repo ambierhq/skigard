@@ -57,19 +57,21 @@ A skill that talks about secrets or `curl | sh` in its text will be flagged; see
 
 [`ambierhq/skigard-action`](https://github.com/ambierhq/skigard-action) installs a pinned, SHA-256-verified skigard release and runs
 `skigard verify --strict` (inputs: `version` required, optional `sha256`, `args`, `home` = `.skigard`, `working-directory`, `verify`). It has no
-`latest`: you pin a version. It never approves anything. Its `v1` tag is created after the maintainers review it, so until then pin by commit SHA:
+`latest`: you pin a version. It never approves anything. Pin the action itself by commit SHA like every action in a security-sensitive workflow (`v1.0.0` is `71259a27cb1217ca715054d849f16900d495a041`; the moving `v1` tag also exists):
 
 ```yaml
 - uses: actions/checkout@<full-commit-sha>
   with: {persist-credentials: false}
 - uses: ambierhq/skigard-action@<full-commit-sha>
   with:
-    version: 0.1.0
+    version: 0.1.1
     sha256: <archive checksum from the release's checksums.txt>   # optional: pins the exact bytes
+    verify-signature: true                                        # optional: cosign-verify checksums.txt (needs cosign on the runner, see below)
 ```
 
 `skigard init-ci` writes this workflow to `.github/workflows/skigard.yml` with placeholders for the action SHAs (it refuses to overwrite
-without `--force`). The action does not verify the cosign signature yet; pin `sha256` for the strongest guarantee.
+without `--force`). With `verify-signature: true` the action runs `cosign verify-blob` on `checksums.txt` against the release workflow's identity
+(add `sigstore/cosign-installer` to the job first); pinning `sha256` is the other strong option, and the two combine.
 
 ## Keep the lock honest in review
 
