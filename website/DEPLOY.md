@@ -1,32 +1,41 @@
-# Deploying the site
-
-The site is a Cloudflare Workers static-assets deployment (`wrangler.jsonc`) served at `https://ambierhq.com/skigard/`.
-
-## Manual deploy
-
-```sh
-cd website
-npm ci --ignore-scripts
-npm run build
-WRANGLER_SEND_METRICS=false npx --no-install wrangler@4.164.0 deploy
-```
-
-`wrangler` is pinned in `package.json` (4.164.0); keep the version above in step with it. You need `CLOUDFLARE_API_TOKEN`
-and `CLOUDFLARE_ACCOUNT_ID` in the environment (or `wrangler login`).
-
-## CI deploy
-
-The `deploy` job in `.github/workflows/site.yml` runs on pushes to `main` only and does nothing unless the repository
-secret `CLOUDFLARE_API_TOKEN` exists. Without it, merges to `main` do not update the live site.
-
-Repository secrets:
-
-- `CLOUDFLARE_API_TOKEN`: an API token with these permissions
-  - Account: Workers Scripts: Edit (and Read)
-  - Zone: Workers Routes: Edit, limited to the zone `ambierhq.com`
-- `CLOUDFLARE_ACCOUNT_ID`: the Cloudflare account id.
-
-## Checks before deploying
-
-`npm run check:links` (internal links) and `CHROME_PATH=/path/to/chrome npm run check:overflow` (no horizontal scroll at
-320 to 1280 px) run in CI on every pull request.
+name: site
+on:
+  push:
+    branches: [main]
+    paths: ["website/**", "docs/**", "README.md", "internal/harness/registry.toml", "assets/brand/**", ".github/workflows/site.yml"]
+  pull_request:
+    paths: ["website/**", "docs/**", "README.md", "internal/harness/registry.toml", "assets/brand/**", ".github/workflows/site.yml"]
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: site-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  build:
+    permissions: {contents: read}
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    defaults: {run: {working-directory: website}}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26.13.1"
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - run: npm run check:links
+      - name: No horizontal overflow (320-1280 px)
+        run: CHROME_PATH="$(command -v google-chrome || command -v chromium)" npm run check:overflow
+      - name: Lighthouse CI (all four categories >= 0.95)
+        run: npm run lhci
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: site-deploy
+          path: website/deploy
+          retention-days: 7
+  # No deploy job on purpose: the live site is deployed by Cloudflare Workers Builds (Worker ambier-skigard, connected
+  # to this repository, branch main). This workflow only verifies the site (build, links, overflow, Lighthouse).
+  # See website/DEPLOY.md.
