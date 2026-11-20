@@ -46,7 +46,7 @@ The short name `mise use -g skigard` needs a mise registry entry (not submitted)
 go install github.com/ambierhq/skigard/cmd/skigard@latest
 ```
 
-Needs Go 1.27 or later and builds from source with no cgo. A `go install` build reports the version `dev`; the release binaries report the tag.
+Needs Go 1.27 or later and builds from source with no cgo. A `go install pkg@vX.Y.Z` build reports that module version; a local build reports `dev+<commit>` (`-dirty` if modified).
 
 ## From source
 

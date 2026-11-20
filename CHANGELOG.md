@@ -5,6 +5,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `skigard version` now reports the module version for `go install ...@vX.Y.Z` builds (previously `dev`), and `dev+<commit>` (`-dirty` if modified) for local VCS builds. GoReleaser ldflags still win.
+
 ## [0.1.1] - 2026-11-19
 
 Use this release. `v0.1.0` was tagged a few minutes earlier; its release assets were published, but the release workflow failed in the
