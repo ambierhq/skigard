@@ -336,7 +336,7 @@ func TestWindowsE2E(t *testing.T) {
 	t.Run("inside an agent: approve refuses", func(t *testing.T) {
 		env := append(append([]string{}, r.env...), "PI_CODING_AGENT=1")
 		code, out := r.run(env, "approve", "good")
-		if code == 0 || !strings.Contains(out, "inside an agent") {
+		if code == 0 || !strings.Contains(out, "agent harness") {
 			t.Fatalf("approve in agent env did not refuse (exit %d): %s", code, out)
 		}
 	})
