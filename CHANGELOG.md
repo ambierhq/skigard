@@ -27,7 +27,7 @@ publisher step (a templating error in the token settings, fixed in #26), so the 
 - The winget manifest was submitted by hand ([winget-pkgs#484409](https://github.com/microsoft/winget-pkgs/pull/484409)) after the workflow's
   winget step timed out; the Homebrew formula was pushed by hand too. The workflow now does both in separate jobs.
 - No build provenance attestation for `v0.1.1` (that step was skipped when the publisher failed). Checksums are signed with cosign.
-- The npm packages and the Docker image are not public yet.
+- The npm packages are not public yet.
 
 [Unreleased]: https://github.com/ambierhq/skigard/compare/v0.1.1...HEAD
 [0.1.1]: https://github.com/ambierhq/skigard/releases/tag/v0.1.1

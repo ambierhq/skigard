@@ -234,7 +234,7 @@ Releases are signed (cosign, keyless), come with SBOMs, and CI is pinned and har
 
 ## Roadmap
 
-- Install channels still to land: npm, the Docker image, winget (in review) and the mise registry.
+- Install channels still to land: npm, winget (in review) and the mise registry.
 - `skigard-action`, a reusable GitHub Action for `verify`.
 - `skigard find` (#28): search skills.sh or a catalog (discovery is the main thing skigard lacks today).
 - An importer for `skills-lock.json` (#29) from vercel-labs/skills.

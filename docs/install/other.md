@@ -1,6 +1,6 @@
 # Other install channels
 
-Status of each channel is in the [status table](README.md#channels-and-status): mise, Go and Nix are available now; npm and Docker are not yet.
+Status of each channel is in the [status table](README.md#channels-and-status): mise, Go and Nix are available now; npm is not yet.
 
 ## npx and npm (not published yet)
 
