@@ -1,23 +1,20 @@
 ---
 // Pure CSS animation: each line fades in after the previous one. Static when motion is reduced.
-const lines = [
-  { t: "$ skigard add github:tt-a1i/archify --skill archify", c: "cmd" },
-  { t: "quarantined archify  14 files  sha256:9c1e…  scan: review (1 medium)", c: "out" },
-  { t: "$ skigard review archify", c: "cmd" },
-  { t: "reviewer: pi (sandboxed: seatbelt)  verdict: pass  advisory only", c: "out" },
-  { t: "$ skigard approve archify", c: "cmd" },
-  { t: "Type the skill name to approve exact bytes sha256:9c1e…: archify", c: "warn" },
-  { t: "approved. locked in skigard.lock", c: "ok" },
-  { t: "$ skigard install archify", c: "cmd" },
-  { t: "installed into claude-code, pi (2 harnesses)", c: "ok" },
-];
+import session from "../data/session.json";
+import { latestVersion } from "../lib/version";
+
+// Real output, recorded by scripts/capture-session.mjs from the current binary and committed as data.
+const lines = session.lines;
+const sha = session.version.match(/^dev\+([0-9a-f]+)/)?.[1];
+const label = sha ? `v${latestVersion()}+${sha} (main)` : session.version.startsWith("v") ? session.version : `v${session.version}`;
+const delay = Math.min(0.35, 7 / lines.length);
 ---
-<figure class="term" role="img" aria-label="Terminal session: add, review, approve and install a skill with skigard. Illustrative output.">
+<figure class="term" role="img" aria-label="Terminal session: add, review, approve and install a skill with skigard. Real output, trimmed.">
   <div class="bar"><span></span><span></span><span></span></div>
   <div class="body" aria-hidden="true">
-    {lines.map((l, i) => <div class={`l ${l.c}`} style={`--d:${(i * 0.9).toFixed(1)}s`}>{l.t}</div>)}
+    {lines.map((l, i) => <div class={`l ${l.c}`} style={`--d:${(i * delay).toFixed(1)}s`}>{l.t}</div>)}
   </div>
-  <figcaption>Illustrative session. Output abbreviated.</figcaption>
+  <figcaption>Real output from skigard {label}, trimmed</figcaption>
 </figure>
 <style>
   .term { margin: 0; background: #0f0d09; border: 1px solid var(--ambier-line); border-radius: 10px; overflow: hidden; }

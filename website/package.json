@@ -5,6 +5,7 @@
   "version": "0.0.0",
   "scripts": {
     "sync": "node scripts/sync-docs.mjs",
+    "capture": "node scripts/capture-session.mjs",
     "dev": "npm run sync && astro dev",
     "build": "npm run sync && astro build && mkdir -p deploy && rm -rf deploy/skigard && mv dist deploy/skigard && cp _redirects deploy/_redirects && cp .assetsignore deploy/.assetsignore",
     "preview": "astro preview",
