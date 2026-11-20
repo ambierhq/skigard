@@ -100,7 +100,7 @@ This approves a quarantined `NAME` with no person and no keyboard involved. A te
 
 **What defends against it today, best effort.**
 
-- Agent detection: `approve` refuses when it sees environment variables set by the agent harnesses it knows. The list is short, and a wrapper that unsets the variable before running `script` is not caught.
+- Agent detection: `approve` refuses on known agent environment variables and on known agent binaries or markers among its ancestors. A process that re-parents itself (double fork, daemonize) or never runs under a known harness is not caught; unknown harnesses are not covered.
 - A check of the parent process chain for known agent binaries is being added in a separate change. It raises the cost, and it can still be evaded by re-parenting. Treat it as best effort.
 
 **What does not defend.** A determined agent or script running as you, a harness skigard does not know about, and anything that can run `script`, Python's `pty` module or `expect`.
