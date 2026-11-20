@@ -5,6 +5,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Wording: approval is described as needing a human at a terminal, with the pseudo-terminal limitation documented (threat model, README, FAQ, SECURITY.md). The one-line pitch no longer claims that nothing can reach an agent without approval. Quick start uses a small passing sample (`examples/hello-skill`).
+
 ### Fixed
 
 - `skigard version` now reports the module version for `go install ...@vX.Y.Z` builds (previously `dev`), and `dev+<commit>` (`-dirty` if modified) for local VCS builds. GoReleaser ldflags still win.
@@ -30,7 +34,7 @@ publisher step (a templating error in the token settings, fixed in #26), so the 
 
 - The winget manifest was submitted by hand ([winget-pkgs#484409](https://github.com/microsoft/winget-pkgs/pull/484409)) after the workflow's
   winget step timed out; the Homebrew formula was pushed by hand too. The workflow now does both in separate jobs.
-- No build provenance attestation for `v0.1.1` (that step was skipped when the publisher failed). Checksums are signed with cosign.
+- The `v0.1.1` build provenance attestations were added after the release (`gh attestation verify ... --repo ambierhq/skigard` works). Checksums are signed with cosign.
 - The npm packages are not public yet.
 
 [Unreleased]: https://github.com/ambierhq/skigard/compare/v0.1.1...HEAD

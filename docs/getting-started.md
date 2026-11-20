@@ -20,34 +20,41 @@ This takes about a minute and ends with a skill pinned in your lockfile and inst
    `installed` means the binary or app exists, `configured` means only its config directory exists. Add `--all` to list every one of the
    [78 known harnesses](harnesses.md).
 
-3. **Fetch a skill into quarantine.** Nothing is installed yet; the files sit in a private directory and are scanned.
+3. **Fetch a skill into quarantine.** Nothing is installed yet; the files sit in a private directory and are scanned. This sample is one
+   small file that passes the scanner (`PASS`, risk 0/100):
 
    ```sh
-   skigard add github:tt-a1i/archify --skill archify
+   skigard add github:ambierhq/skigard/examples/hello-skill
    ```
 
 4. **Optional: get a second opinion.** An agent you already use reads the skill with its tools off. It is advisory and can only add doubt.
-   See [review](review.md). On Windows use `skigard review archify --manual`.
+   See [review](review.md). On Windows use `skigard review hello-skill --manual`.
 
    ```sh
-   skigard review archify
+   skigard review hello-skill
    ```
 
 5. **Approve it, as a human, in a real terminal.** You see the scan, the review and the diff against anything approved before, then type
-   the skill's name. No flag, pipe or environment variable can answer for you. An agent running this command is refused.
+   the skill's name. There is no `--yes`, no stdin path and no environment variable, and skigard refuses inside the agent harnesses it can detect. A process that creates its own pseudo-terminal can still type the answer, so the gate stops accidents and ordinary prompt injection, not a determined agent. Signed approvals (a key in your OS keychain or a passkey) are planned.
 
    ```sh
-   skigard approve archify
+   skigard approve hello-skill
    ```
 
-   A scanner block, incomplete coverage or a failing review needs `--override --reason "..."`; the override is recorded forever.
-   (`archify` is a legitimate skill that the scanner blocks, because it talks about the things the scanner looks for. That makes it a good first
-   example of reading a finding and deciding.)
+   A scanner block, incomplete coverage or a failing review needs `--override --reason "..."`; the override is recorded forever. To see a block,
+   add this repository's own `skills/review-skill` (it talks about credentials and `curl | sh`, so the scanner stops it):
+
+   ```sh
+   skigard add github:ambierhq/skigard/skills/review-skill
+   skigard approve review-skill --override --reason "reviewed by hand: it only describes risks"
+   ```
+
+   Big skills can have hundreds of findings. Read the verdict and the counts first, then open the files they point at.
 
 6. **Install into every detected agent.**
 
    ```sh
-   skigard install archify
+   skigard install hello-skill
    skigard verify
    ```
 

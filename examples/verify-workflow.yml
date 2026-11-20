@@ -9,5 +9,5 @@ jobs:
       SKIGARD_HOME: ${{ github.workspace }}/.skigard
     steps:
       - uses: actions/checkout@v4
-      - run: curl -fsSL https://raw.githubusercontent.com/ambierhq/skigard/main/scripts/install.sh | sh
+      - run: curl -fsSL https://github.com/ambierhq/skigard/releases/download/v0.1.1/install.sh | SKIGARD_VERSION=v0.1.1 sh
       - run: skigard verify --strict

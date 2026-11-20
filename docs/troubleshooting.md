@@ -6,7 +6,7 @@ Start with `skigard doctor` (checks the environment) and `skigard status` (summa
 
 `approve` reads the terminal device only: `/dev/tty` on Linux and macOS, the console (`CONIN$`) on Windows. It fails in CI, cron, containers without
 `-it`, and when stdin is a pipe with no controlling terminal. Run it from an interactive terminal. It also refuses when it detects that it is
-running inside an agent harness (for example Claude Code); open your own terminal window. This cannot be disabled.
+running inside an agent harness it can detect (for example Claude Code); open your own terminal window. This cannot be disabled. (Detection is best effort; see [the pseudo-terminal case](threat-model.md#the-pseudo-terminal-case).)
 
 ## A skill I trust is blocked
 
