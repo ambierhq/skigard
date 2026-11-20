@@ -101,8 +101,9 @@ func TestPublishedSmoke(t *testing.T) {
 		defer s.close()
 		_, _ = s.in.Write([]byte("hello-skill\r"))
 		c, err := s.wait(30 * time.Second)
-		if err != nil || c == 0 || !strings.Contains(s.output(), "agent") {
-			t.Fatalf("pty: exit %d err %v output %q", c, err, s.output())
+		// Exit 1 is the policy refusal. The message goes to stderr, which is not the pseudo console, so it is not in s.output().
+		if err != nil || c != 1 {
+			t.Fatalf("pty: exit %d (want 1) err %v output %q", c, err, s.output())
 		}
 		assertNotApproved(t, r)
 	})
@@ -119,8 +120,8 @@ func TestPublishedSmoke(t *testing.T) {
 		defer s.close()
 		_, _ = s.in.Write([]byte("hello-skill\r"))
 		c, err := s.wait(30 * time.Second)
-		if err != nil || c == 0 || !strings.Contains(s.output(), "agent") {
-			t.Fatalf("exit %d err %v output %q", c, err, s.output())
+		if err != nil || c != 1 {
+			t.Fatalf("exit %d (want 1, policy refusal) err %v output %q", c, err, s.output())
 		}
 		assertNotApproved(t, r)
 	})

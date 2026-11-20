@@ -295,4 +295,6 @@ if ($env:GITHUB_STEP_SUMMARY) {
 }
 Write-Host ''
 Write-Host "$($script:results.Count) checks, $($failed.Count) failed"
+# Explicit exit: the GitHub Actions pwsh wrapper would otherwise fail on a stale $LASTEXITCODE from the last native command.
 if ($failed.Count -gt 0) { exit 1 }
+exit 0

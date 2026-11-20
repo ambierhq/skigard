@@ -179,6 +179,7 @@ jobs:
           VERSION: ${{ needs.resolve.outputs.version }}
           LATEST: ${{ needs.resolve.outputs.latest }}
           PINNED: ${{ needs.resolve.outputs.pinned }}
+          WSLENV: VERSION:LATEST:PINNED
         run: |
           expected=$LATEST; [ "$PINNED" = true ] && expected=$VERSION
           sh scripts/wsl-smoke.sh "$VERSION" "$PINNED" "$expected"
