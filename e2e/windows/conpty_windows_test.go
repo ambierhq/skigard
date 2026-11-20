@@ -320,7 +320,7 @@ func (r *rig) approveInPTY(name, answer string) (uint32, string) {
 func TestWindowsE2E(t *testing.T) {
 	r := newRig(t)
 	r.mustRun("init")
-	r.mustRun("add", filepath.Join(r.work, "src"), "--all")
+	r.mustRun("add", filepath.Join(r.work, "src"), "--all", "--quarantine-only")
 	if code, _ := r.run(r.env, "scan", "evil", "--fail-on", "high"); code == 0 {
 		t.Fatal("evil should exit non-zero")
 	}
