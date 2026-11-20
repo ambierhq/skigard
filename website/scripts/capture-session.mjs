@@ -17,6 +17,7 @@ const home = path.join(tmp, "home");
 const bin = path.join(tmp, process.platform === "win32" ? "skigard.exe" : "skigard");
 await fs.mkdir(path.join(home, ".claude"), { recursive: true });
 await fs.mkdir(path.join(home, ".pi"), { recursive: true });
+await fs.mkdir(path.join(home, ".omp"), { recursive: true }); // detection also looks at PATH, so name every harness we expect
 
 // Agent markers must not leak in: approve (correctly) refuses inside an agent harness.
 // A fixed PATH so harness detection (which looks for binaries such as pi and omp) does not depend on this machine.
