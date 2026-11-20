@@ -70,7 +70,7 @@ skigard puts a gate in front of that: **fetch to quarantine, scan, optional agen
 
 | Channel | Command | Status |
 |---|---|---|
-| Go | `go install github.com/ambierhq/skigard/cmd/skigard@latest` | live (a `go install` build reports version `dev`) |
+| Go | `go install github.com/ambierhq/skigard/cmd/skigard@latest` | live |
 | Shell installer (macOS, Linux) | `curl -fsSL https://ambierhq.com/skigard/install.sh \| sh` | live |
 | PowerShell (Windows) | `irm https://ambierhq.com/skigard/install.ps1 \| iex` | live (tested in CI on `windows-latest`) |
 | GitHub Releases | archives, `.deb`, `.rpm`, `.apk`, `.pkg.tar.zst`, checksums, SBOMs, cosign signatures | live |

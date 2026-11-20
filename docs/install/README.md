@@ -13,7 +13,7 @@ skigard is one static binary (no runtime, no telemetry). Pick your system:
 
 | Channel | Command | Platforms | Status |
 |---|---|---|---|
-| Go | `go install github.com/ambierhq/skigard/cmd/skigard@latest` | all (Go 1.27+) | live (a `go install` build reports version `dev`) |
+| Go | `go install github.com/ambierhq/skigard/cmd/skigard@latest` | all (Go 1.27+) | live |
 | Shell installer | `curl -fsSL https://ambierhq.com/skigard/install.sh \| sh` | macOS, Linux | live |
 | PowerShell installer | `irm https://ambierhq.com/skigard/install.ps1 \| iex` | Windows | live (tested in CI on `windows-latest`) |
 | GitHub Releases | archives, `.deb`, `.rpm`, `.apk`, Arch packages, checksums, SBOMs, cosign signatures | all | live |
