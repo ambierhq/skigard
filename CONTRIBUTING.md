@@ -36,6 +36,6 @@ in `assets/demo/`, a GIF for the README, MP4/WebM for the site, a poster and fou
   `editorconfig`, `fuzz`. Do not rename these jobs. Other workflows (`govulncheck`, `codeql`, `scorecard`,
   `dependency-review`, `workflow-lint`, `installers`, `links`, `fuzz-nightly`) are advisory.
 - Releases are tag-driven: a maintainer pushes `vX.Y.Z` and `.github/workflows/release.yml` runs GoReleaser (archives,
-  packages, SBOMs, cosign signatures, provenance attestation, container image). PRs that touch packaging get a snapshot
+  packages, SBOMs, cosign signatures, provenance attestation). PRs that touch packaging get a snapshot
   dry run. `scripts/install.sh` and `scripts/install.ps1` are tested against a snapshot in the `installers` workflow.
 - Do not change the archive name pattern `skigard_<version>_<os>_<arch>`; mise (`ubi:`, `github:`) and eget depend on it.

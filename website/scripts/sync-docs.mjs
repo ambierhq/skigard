@@ -30,6 +30,7 @@ const slugOf = (rel) => rel.replace(/\.md$/, "").replace(/(^|\/)README$/, "").re
 
 function rewriteLinks(md, rel) {
   const dir = path.posix.dirname(rel);
+  md = md.replace(/(srcset|src)="(?:\.\.\/)+assets\/diagrams\/([\w-]+\.svg)"/g, `$1="${BASE}/diagrams/$2"`); // copied by syncBrand
   return md.replace(/\]\(([^)\s#]+)(#[^)\s]*)?\)/g, (all, target, hash = "") => {
     if (/^[a-z][a-z0-9+.-]*:/i.test(target)) return all;
     const resolved = path.posix.normalize(path.posix.join("docs", dir, target)); // relative to the repo root
@@ -114,6 +115,10 @@ async function syncBrand() {
   await copy("favicon.ico", "public/favicon.ico");
   await copy("apple-touch-icon.png", "public/apple-touch-icon.png");
   await copy("social-preview.png", "public/og.png");
+  await fs.mkdir(path.join(site, "public/diagrams"), { recursive: true });
+  for (const f of ["pipeline-dark.svg", "pipeline-light.svg"]) {
+    await fs.copyFile(path.join(repo, "assets/diagrams", f), path.join(site, "public/diagrams", f));
+  }
   await fs.mkdir(path.join(site, "public/media"), { recursive: true });
   for (const f of ["demo.webm", "demo.mp4", "poster.png"]) {
     await fs.copyFile(path.join(repo, "assets/media", f), path.join(site, "public/media", f));
@@ -128,7 +133,7 @@ async function llms(docs, harnesses) {
 
 > A lockfile and review gate for agent skills. skigard fetches skills (folders with a SKILL.md) into quarantine, scans them, optionally has an agent you already use review them, makes a human approve the exact bytes in a real terminal, pins the approval to a content hash in a lockfile, and installs them into the agent harnesses it detects. A project by Ambier Oy, Finland. MIT licensed, Go, one static binary, no telemetry. Runs on macOS, Linux and Windows.
 
-Agents cannot approve: \`approve\` reads the controlling terminal only and has no --yes flag. The scanner is heuristic and an agent review can be fooled, so a pass is not a safety certificate.
+Approval needs a human at a terminal: \`approve\` reads the controlling terminal and has no --yes flag, stdin or environment path, but a process that creates its own pseudo-terminal can still type the answer (signed approvals are planned). The scanner is heuristic and an agent review can be fooled, so a pass is not a safety certificate.
 
 ## Docs
 ${docs.map((d) => `- [${d.title}](${SITE}${BASE}/docs/${d.slug}${d.slug ? "/" : ""}): ${d.description}`).join("\n")}

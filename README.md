@@ -16,7 +16,7 @@
 
 # skigard: lockfile and security review gate for Claude Code, Codex and Cursor agent skills
 
-**A lockfile and review gate for agent skills.** Nothing reaches your agents until a human has approved those exact bytes.
+**A lockfile and review gate for agent skills:** skills installed through skigard are scanned, shown to a human and pinned to the exact bytes they approved.
 
 <p>
   <a href="#install">Install</a> ·
@@ -39,42 +39,31 @@ skigard puts a gate in front of that: **fetch to quarantine, scan, optional agen
 | `git clone` or copy a skill straight into `~/.claude/skills` | Fetched as an archive into a private quarantine, never executed |
 | Whatever is on the branch today | Pinned to a commit and a SHA-256 content hash in `skigard.lock` |
 | You skim it, maybe | A deterministic scan, an optional agent review, and a diff against what you approved before |
-| An agent can install more skills | Approval needs a human at a terminal: no `--yes`, no stdin or env path, and known agent harnesses are refused (best effort) |
+| An agent can install more skills | Approval needs a human at a terminal: no `--yes`, no stdin path, and agents it can detect are refused |
 | A skill changes silently on update | Changes go back to quarantine and need a new approval |
-| Each agent has its own skills folder | Installs once into every detected harness (Claude Code, Pi, Codex, Cursor, Gemini CLI, OpenCode and about 70 more) |
+| Each agent has its own skills folder | Installs once into every detected harness (Claude Code, Pi, Codex, Cursor, Gemini CLI, OpenCode and 72 more) |
 | No way to notice drift | `skigard verify` fails CI if the lock, the store or the installs change |
 
-```mermaid
-%%{init: {'theme':'neutral','flowchart':{'curve':'basis'}}}%%
-flowchart TD
-  A["skigard add"] --> Q["Quarantine<br/>archive, never executed"]
-  Q --> S["Scan<br/>deterministic rules"]
-  S --> R["Agent review<br/>advisory only"]
-  R --> H["Human approve<br/>real terminal, /dev/tty"]
-  H --> L[("skigard.lock<br/>commit + SHA-256")]
-  L --> I["Install<br/>into detected harnesses"]
-  L -.-> V["skigard verify<br/>CI drift check"]
-  L -. "skigard update" .-> U["Re-fetch + diff"]
-  U --> Q
-  classDef human fill:#5AA9FF,stroke:#1d5fa8,color:#0b1a2b,stroke-width:2px
-  classDef step fill:#eeeeee,stroke:#777777,color:#111111
-  class H human
-  class A,Q,S,R,L,I,V,U step
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/diagrams/pipeline-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/diagrams/pipeline-light.svg">
+  <img alt="skigard pipeline: add to quarantine, scan, agent review, human approve in a real terminal, skigard.lock, install; update loops back to quarantine and verify checks drift from the lock" src="assets/diagrams/pipeline-dark.svg" width="880">
+</picture>
 
-<sub>Source and rendered copies: [assets/diagrams](assets/diagrams). `verify` and `update` branch off the lock.</sub>
+<sub>Made with [Archify](https://github.com/tt-a1i/archify); the Mermaid sources stay in [assets/diagrams](assets/diagrams). `verify` and `update` branch off the lock.</sub>
 
 <p align="center">
   <img alt="skigard adding, scanning, approving and installing a skill" src="assets/media/demo.gif" width="800">
 </p>
 
 - **One static binary**, no runtime, no telemetry, one dependency (a TOML parser).
-- **Agents cannot approve.** `approve` reads the terminal device only, has no `--yes`, and refuses when it detects an agent harness in its environment or among its ancestor processes. Best effort, evadable by re-parenting (double fork / daemonize), not a security boundary.
+- **Approval needs a human at a terminal.** `approve` reads the terminal device only: there is no `--yes`, no stdin path and no environment variable, and skigard refuses when it detects an agent harness in its environment or among its parent processes (best effort, evadable by re-parenting). A process that creates its own pseudo-terminal can still type the answer, so the gate stops accidents and ordinary prompt injection, not a determined agent ([details](docs/threat-model.md#the-pseudo-terminal-case)). Signed approvals (a key in your OS keychain or a passkey) are planned.
 - **Reproducible.** `skigard.lock` records source, commit, content hash, scan result, review and approver. Commit it.
 - **Portable.** The content hash is identical on Linux, macOS and Windows.
 
 > The scanner is heuristic and an agent review can be fooled. "Pass" is not a safety certificate. Read the skill,
-> especially bundled scripts. See the [threat model](docs/threat-model.md).
+> especially bundled scripts. See the [threat model](docs/threat-model.md) and
+> [what skigard does not protect against](#what-skigard-does-not-protect-against).
 
 ## Install
 
@@ -82,7 +71,7 @@ flowchart TD
 
 | Channel | Command | Status |
 |---|---|---|
-| Go | `go install github.com/ambierhq/skigard/cmd/skigard@latest` | live (a `go install` build reports version `dev`) |
+| Go | `go install github.com/ambierhq/skigard/cmd/skigard@latest` | live |
 | Shell installer (macOS, Linux) | `curl -fsSL https://ambierhq.com/skigard/install.sh \| sh` | live |
 | PowerShell (Windows) | `irm https://ambierhq.com/skigard/install.ps1 \| iex` | live (tested in CI on `windows-latest`) |
 | GitHub Releases | archives, `.deb`, `.rpm`, `.apk`, `.pkg.tar.zst`, checksums, SBOMs, cosign signatures | live |
@@ -92,11 +81,10 @@ flowchart TD
 | mise | `mise use -g github:ambierhq/skigard` | live (the short name `skigard` needs a registry entry, not submitted) |
 | Nix | `nix run github:ambierhq/skigard` | flake builds in CI; not tested by hand |
 | npx / npm | `npx skigard` or `npm i -g skigard` | not published yet |
-| Docker | `docker run --rm ghcr.io/ambierhq/skigard` | not yet: the image is built by the release but the package is not public |
 | apt, dnf, pacman repositories | not offered. Install the `.deb`, `.rpm` or `.pkg.tar.zst` attached to a GitHub Release (see [Linux](docs/install/linux.md)) | not offered |
 
 Per-system pages: [macOS](docs/install/macos.md) · [Linux](docs/install/linux.md) · [Windows](docs/install/windows.md) ·
-[other channels](docs/install/other.md). Releases are checksummed, SBOM-ed and signed with cosign
+[other channels](docs/install/other.md). Releases are checksummed, SBOM-ed, signed with cosign and carry GitHub build attestations
 ([verify them](docs/install/README.md#verify-what-you-downloaded)). The installers never use `sudo`.
 
 ### Supported platforms
@@ -109,17 +97,27 @@ Per-system pages: [macOS](docs/install/macos.md) · [Linux](docs/install/linux.m
 
 ## Quick start
 
+`examples/hello-skill` is a tiny skill that passes the scanner, so the whole flow runs without an override:
+
 ```sh
-skigard detect                                       # which agent harnesses are on this machine?
-skigard add github:tt-a1i/archify --skill archify   # fetch into quarantine and scan
-skigard review archify                               # optional second opinion from pi / claude / omp (asks which)
-skigard approve archify                              # in a real terminal: shows scan, review and diff; you type the name
-skigard install archify                              # link into every detected, verified harness
-skigard verify                                       # CI-friendly: lock vs store vs installs
+skigard detect                                                         # which agent harnesses are on this machine?
+skigard add github:ambierhq/skigard/examples/hello-skill               # fetch into quarantine and scan: PASS, 1 file
+skigard review hello-skill                                             # optional second opinion from pi / claude / omp (asks which)
+skigard approve hello-skill                                            # in a real terminal: shows scan, review and diff; you type the name
+skigard install hello-skill                                            # link into every detected, verified harness
+skigard verify                                                         # CI-friendly: lock vs store vs installs
 ```
 
-`archify` is a good first example: the scanner blocks it because the skill *talks about* the things the scanner looks for, so you get to see how an
-override is read and recorded. A step-by-step version is in [Getting started](docs/getting-started.md).
+What a block looks like: this repository's own `skills/review-skill` talks *about* credentials and `curl | sh`, so the scanner blocks it
+(risk 100/100, four high or critical findings, each with file, line and the matching text). `approve` refuses until you have read it and record why:
+
+```sh
+skigard add github:ambierhq/skigard/skills/review-skill
+skigard approve review-skill --override --reason "reviewed by hand: it only describes risks"
+```
+
+Large skills can produce hundreds of findings; read the verdict and the counts first, then the files. A step-by-step version is in
+[Getting started](docs/getting-started.md).
 
 Update later: `skigard update` re-fetches approved skills; anything that changed goes back to quarantine with a diff.
 New machine: clone your home repository to `~/.config/skigard` and run `skigard sync`.
@@ -162,11 +160,11 @@ Layout, formats and the Windows split are in [concepts](docs/concepts.md), [lock
 ## CI usage
 
 ```yaml
-- run: curl -fsSL https://raw.githubusercontent.com/ambierhq/skigard/main/scripts/install.sh | sh
+- run: curl -fsSL https://github.com/ambierhq/skigard/releases/download/v0.1.1/install.sh | SKIGARD_VERSION=v0.1.1 sh
 - run: skigard verify --strict        # with SKIGARD_HOME=./.skigard committed to the repository
 ```
 
-See the [CI guide](docs/ci.md) and [`examples/verify-workflow.yml`](examples/verify-workflow.yml). A reusable `skigard-action` is coming.
+Pin the release, never `main`. See the [CI guide](docs/ci.md) and [`examples/verify-workflow.yml`](examples/verify-workflow.yml). A reusable [`skigard-action`](https://github.com/ambierhq/skigard-action) (`v1`) wraps `skigard verify` for GitHub Actions.
 
 ## Supported harnesses
 
@@ -189,7 +187,7 @@ No. It is a second opinion that can only raise concern. It is optional, and noth
 
 <details><summary><b>Why can't my agent approve skills?</b></summary>
 
-An injected agent installing more skills is the threat. `approve` reads the terminal device only, has no `--yes` or env bypass, and refuses under agent harnesses on a best-effort basis (evadable by re-parenting; not a security boundary).
+An injected agent installing more skills is the threat. Approval needs a human at a terminal: there is no `--yes`, no stdin path and no environment variable, and skigard refuses inside the agent harnesses it can detect. A process that creates its own pseudo-terminal can still type the answer, so the gate stops accidents and ordinary prompt injection, not a determined agent. Signed approvals (a key in your OS keychain or a passkey) are planned. See [the pseudo-terminal case](docs/threat-model.md#the-pseudo-terminal-case).
 </details>
 
 <details><summary><b>Does it phone home?</b></summary>
@@ -211,7 +209,7 @@ Sources are GitHub (public, or private with `GITHUB_TOKEN`) and local directorie
 <details><summary><b>How is it different from asm (luongnv89/asm)?</b></summary>
 
 [`asm`](https://github.com/luongnv89/asm) is a scriptable skill manager with a large catalog, a TUI, `--json`/`--yes` automation and a pre-install scan, built to be driven by agents.
-skigard is the opposite on one point: installing can never be completed by an agent or script, because approval needs a human at a terminal. Pick asm for catalog and convenience, skigard for an auditable approval trail.
+skigard is the opposite on one point: installing cannot be completed through a flag, a pipe or an environment variable, because approval needs a human at a terminal (a process that builds its own pseudo-terminal can still type the answer; see the [threat model](docs/threat-model.md#the-pseudo-terminal-case)). Pick asm for catalog and convenience, skigard for an auditable approval trail.
 </details>
 
 <details><summary><b>Does it work on Windows?</b></summary>
@@ -240,6 +238,13 @@ No. Scan, approve, lock and verify need no agent. Review does.
 `skigard uninstall`, then delete the binary (and the home to drop approvals). Report malicious skills to GitHub; if one gets past a rule, open an issue or PR with a defanged fixture. Flaws in skigard itself: see [SECURITY.md](SECURITY.md).
 </details>
 
+## What skigard does not protect against
+
+- **Anyone who can write to your home as you.** Write access to `~/.config/skigard` or to a harness skills directory (`~/.claude/skills`, `~/.agents/skills`, ...) can forge an approval or add a skill without skigard being involved. skigard is a gate for the supported install path, not a sandbox for your account.
+- **Forgery after the fact.** The answer is `skigard verify --strict` in CI with the home committed to a repository: a changed lock shows up as a reviewable diff ([CI guide](docs/ci.md)). Signed approvals are planned.
+- **A determined agent with its own pseudo-terminal.** See [the pseudo-terminal case](docs/threat-model.md#the-pseudo-terminal-case).
+- **Malicious code in a skill you approved anyway.** The scanner is heuristic and a reviewing agent can be fooled. skigard pins the bytes you approved; it does not make them safe, and it does not sandbox the skill when an agent later uses it.
+
 ## Security
 
 Report vulnerabilities privately; see [SECURITY.md](SECURITY.md). What skigard promises, and what it does not, is in the [threat model](docs/threat-model.md).
@@ -247,13 +252,12 @@ Releases are signed (cosign, keyless), come with SBOMs, and CI is pinned and har
 
 ## Roadmap
 
-- Install channels still to land: npm, the Docker image, winget (in review) and the mise registry.
-- `skigard-action`, a reusable GitHub Action for `verify`.
+- Install channels still to land: npm, winget (in review) and the mise registry.
 - `skigard find` (#28): search skills.sh or a catalog (discovery is the main thing skigard lacks today).
 - An importer for `skills-lock.json` (#29) from vercel-labs/skills.
 - Verify more harnesses (each one needs a person to confirm its skills directory).
 - Automated review on Windows, once the reviewer CLIs have been verified there.
-- Signed approvals, and Windows code signing.
+- Signed approvals (approver key in the OS keychain or a passkey, signature stored in `skigard.lock`, checked by `verify --strict`), and Windows code signing.
 
 Ideas and votes: [Discussions](https://github.com/ambierhq/skigard/discussions). Changes so far: [CHANGELOG.md](CHANGELOG.md).
 

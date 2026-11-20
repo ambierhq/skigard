@@ -49,4 +49,4 @@ go install github.com/ambierhq/skigard/cmd/skigard@latest
 - WSL counts as Linux and gets the Linux sandbox.
 - Shell completions: `skigard completion bash > ~/.local/share/bash-completion/completions/skigard` (also `zsh`, `fish`).
 
-Other channels: [npx, Nix, Docker, mise](other.md). Next: [Getting started](../getting-started.md).
+Other channels: [npx, Nix, mise](other.md). Next: [Getting started](../getting-started.md).

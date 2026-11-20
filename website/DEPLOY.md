@@ -1,0 +1,41 @@
+name: site
+on:
+  push:
+    branches: [main]
+    paths: ["website/**", "docs/**", "README.md", "internal/harness/registry.toml", "assets/brand/**", ".github/workflows/site.yml"]
+  pull_request:
+    paths: ["website/**", "docs/**", "README.md", "internal/harness/registry.toml", "assets/brand/**", ".github/workflows/site.yml"]
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: site-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  build:
+    permissions: {contents: read}
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    defaults: {run: {working-directory: website}}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26.13.1"
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - run: npm run check:links
+      - name: No horizontal overflow (320-1280 px)
+        run: CHROME_PATH="$(command -v google-chrome || command -v chromium)" npm run check:overflow
+      - name: Lighthouse CI (all four categories >= 0.95)
+        run: npm run lhci
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: site-deploy
+          path: website/deploy
+          retention-days: 7
+  # No deploy job on purpose: the live site is deployed by Cloudflare Workers Builds (Worker ambier-skigard, connected
+  # to this repository, branch main). This workflow only verifies the site (build, links, overflow, Lighthouse).
+  # See website/DEPLOY.md.

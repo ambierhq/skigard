@@ -66,5 +66,5 @@ description = "govulncheck (pinned)"
 run = "go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./..."
 
 [tasks.snapshot]
-description = "Local GoReleaser snapshot build into ./dist (no signing, SBOM, docker or publishing)"
-run = "go run github.com/goreleaser/goreleaser/v2@v2.20.2 release --snapshot --clean --skip=sign,sbom,docker,publish"
+description = "Local GoReleaser snapshot build into ./dist (no signing, SBOM or publishing)"
+run = "go run github.com/goreleaser/goreleaser/v2@v2.20.2 release --snapshot --clean --skip=sign,sbom,publish"

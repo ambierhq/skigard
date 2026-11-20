@@ -36,4 +36,4 @@ go install github.com/ambierhq/skigard/cmd/skigard@latest
 - Files: `~/.config/skigard` (or `$XDG_CONFIG_HOME/skigard`, or `$SKIGARD_HOME`).
 - Shell completions: `skigard completion zsh > "${fpath[1]}/_skigard"` (also `bash`, `fish`).
 
-Other channels: [npx, Nix, Docker, mise](other.md). Next: [Getting started](../getting-started.md).
+Other channels: [npx, Nix, mise](other.md). Next: [Getting started](../getting-started.md).

@@ -5,7 +5,7 @@ skigard is one static binary (no runtime, no telemetry). Pick your system:
 - [macOS](macos.md)
 - [Linux](linux.md)
 - [Windows](windows.md)
-- [Other channels: npx, Nix, Docker, mise, Go](other.md)
+- [Other channels: npx, Nix, mise, Go](other.md)
 
 ## Channels and status
 
@@ -13,7 +13,7 @@ skigard is one static binary (no runtime, no telemetry). Pick your system:
 
 | Channel | Command | Platforms | Status |
 |---|---|---|---|
-| Go | `go install github.com/ambierhq/skigard/cmd/skigard@latest` | all (Go 1.27+) | live (a `go install` build reports version `dev`) |
+| Go | `go install github.com/ambierhq/skigard/cmd/skigard@latest` | all (Go 1.27+) | live |
 | Shell installer | `curl -fsSL https://ambierhq.com/skigard/install.sh \| sh` | macOS, Linux | live |
 | PowerShell installer | `irm https://ambierhq.com/skigard/install.ps1 \| iex` | Windows | live (tested in CI on `windows-latest`) |
 | GitHub Releases | archives, `.deb`, `.rpm`, `.apk`, Arch packages, checksums, SBOMs, cosign signatures | all | live |
@@ -23,7 +23,6 @@ skigard is one static binary (no runtime, no telemetry). Pick your system:
 | mise | `mise use -g github:ambierhq/skigard` | all | live (the short name `skigard` needs a registry entry, not submitted) |
 | Nix | `nix run github:ambierhq/skigard` | Linux, macOS | flake builds in CI; not tested by hand |
 | npx / npm | `npx skigard`, `npm i -g skigard` | all | not published yet |
-| Docker | `docker run ghcr.io/ambierhq/skigard` | Linux | not yet: the release builds the image, but the package is not public |
 | apt, dnf, pacman repositories | not offered; install the `.deb`, `.rpm` or `.pkg.tar.zst` attached to a GitHub Release ([Linux](linux.md)) | Debian, Ubuntu, Fedora, RHEL, Arch | not offered |
 
 Channel details: [npm](npm.md), [Nix](nix.md), [mise](mise.md).
@@ -32,7 +31,7 @@ Maintainer view (secrets, switches, registry PRs): [packaging/README.md](../../p
 ## Verify what you downloaded
 
 Every release carries `checksums.txt` (SHA-256), a keyless [cosign](https://github.com/sigstore/cosign) signature for it, and an SBOM per archive.
-Build provenance attestations (GitHub) are published for releases after `v0.1.1`; `v0.1.1` has none.
+Build provenance attestations (GitHub) are published for `v0.1.1` and later; check one with `gh attestation verify skigard_0.1.1_linux_amd64.tar.gz --repo ambierhq/skigard`.
 `install.sh` always checks the archive against `checksums.txt`, and also verifies the signature when `cosign` is installed. The installers never use
 `sudo` and install to `~/.local/bin` (override with `SKIGARD_INSTALL_DIR`; pin a release with `SKIGARD_VERSION=v0.1.1`).
 

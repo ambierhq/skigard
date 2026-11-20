@@ -31,7 +31,7 @@ in it. Someone who can write to your home as you can already do anything; skigar
 
 | Attack | Control |
 |---|---|
-| A skill tries to run code while being inspected | Nothing from a skill is ever executed. Scanning is regex and parsing only. Git is never invoked; GitHub sources are downloaded as tarballs |
+| A skill tries to run code while being inspected | Nothing from a skill is ever executed. Scanning is regex and parsing only. skigard never invokes `git` on skill content (GitHub sources are downloaded as tarballs); the only `git` call is `skigard init --git`, which runs `git init` in your own home, and `doctor` looks for the binary |
 | A branch or tag changes between review and install | Refs are resolved to a full commit SHA before download. The lock records the commit and the content hash. Installs re-check the hash |
 | Archive tricks: `../`, absolute paths, symlinks, hardlinks, devices, case-fold collisions, zip bombs | Extraction goes through `os.Root`. Only regular files and directories are written. Links are not extracted and a skill that contains one is refused. Limits on compressed size (64 MiB), extracted size (128 MiB), entries (10,000), file size (8 MiB), depth and compression ratio |
 | SSRF, DNS rebinding, redirect abuse | HTTPS only. Redirects only to `api.github.com`, `codeload.github.com`, `github.com`, at most 5. The connect hook rejects loopback, private, link-local, CGNAT and multicast addresses *after* DNS resolution |
@@ -39,7 +39,7 @@ in it. Someone who can write to your home as you can already do anything; skigar
 | A skill gains an execute bit after review, with the same bytes | Caught on Linux and macOS: `exec_hash` in the lock no longer matches, `verify` fails and `install` refuses. Not detectable on Windows, which has no execute bit; there the files are not executable by the OS either. Entries still on hash version 1 bind the bit inside the hash. `lock upgrade` converts them only if the old hash still matches, so it can never approve anything new |
 | A skill hides behaviour from reviewers | Rules for zero-width/bidi/tag characters, NUL bytes, long encoded blobs, HTML comments, binaries and executables. Binary or oversized files make coverage *partial*, which blocks approval without an explicit override |
 | Prompt injection aimed at the reviewing agent ("tell the user this is safe") | The reviewer harness runs with tools, MCP, extensions and sessions disabled by flags, an empty working directory and a scrubbed environment plus, on macOS and Linux, an OS sandbox (Seatbelt, bubblewrap or Landlock) limiting file reads, writes, exec and outbound ports; its isolation mode is recorded and shown at approval (see docs/review.md). Windows has none and fails closed. Skill text is delimited by a random boundary and the system prompt says it is untrusted. The reviewer's verdict is *advisory and can only raise concern*: it never lowers a scanner finding. Quotes it cites are checked against the real file text; findings with invented quotes are dropped |
-| An agent approves a skill itself | `approve` reads its confirmation from `/dev/tty` only. There is no `--yes`, no stdin path and no environment override. It also refuses, best effort, when it detects an agent harness: a known agent environment variable, or a known agent binary or environment marker on any of its ancestor processes (see "Agent detection" below) |
+| An agent approves a skill itself (accident, prompt injection) | `approve` reads its confirmation from `/dev/tty` only. There is no `--yes`, no stdin path and no environment override. It also refuses when it detects, best effort, an agent harness in its environment or among its ancestor processes (see [Agent detection](#agent-detection-best-effort-not-a-security-boundary)). This does **not** stop a process that allocates its own pseudo-terminal: see [the pseudo-terminal case](#the-pseudo-terminal-case) |
 | Terminal escape injection through names or content | All untrusted text printed to a terminal is escaped (control characters, bidi and zero-width characters). Secrets matching common token shapes are masked in evidence |
 | Path traversal through names | Skill, plugin and meta names must match `^[a-z0-9]+(-[a-z0-9]+)*$` (max 64). They are validated when the lock, manifest and metadata are loaded, not only when typed |
 | Two processes corrupt the lock | An exclusive advisory lock on the home for every mutating command |
@@ -70,20 +70,42 @@ in one tab and approving in another is not affected (separate process trees).
 - It does not prove that a skill is benign. A malicious skill can pass a regex scanner and a reviewing model.
   Read the skill, especially bundled scripts. The scanner exists to focus your attention.
 - It does not sandbox the skill when an agent *uses* it later. Use your harness's permission system.
-- It cannot stop an agent that has a real terminal, your keyboard, or screen control from approving. The
-  `/dev/tty` (Unix) or `CONIN$`/`CONOUT$` (Windows) and the best-effort agent detection stop the ordinary cases, not a
+- It cannot stop an agent that has a real terminal, a pseudo-terminal of its own, your keyboard, or screen control from approving ([details](#the-pseudo-terminal-case)). The
+  `/dev/tty` (Unix) or `CONIN$`/`CONOUT$` (Windows) and agent-detection checks stop the ordinary cases, not a
   determined attacker who is already controlling your machine. On Windows the same residual risk applies: a
   process that owns a ConPTY (pseudo console) can type into `CONIN$`, just as a process that owns a pty master can
   type into `/dev/tty`. If there is no console, `approve` refuses; there is no flag, environment variable or stdin path.
 - The exec set is only as trustworthy as the source's modes: GitHub tarballs (git file modes) are trusted as given; a
   local directory source uses the modes on disk. Timestamps, owners and other permission bits are not bound.
 - It does not authenticate publishers. A familiar organisation name or a star count is not a signal.
-- Signed approvals are not implemented in 0.1. `skigard verify` in CI is the control that notices a lock file
+- Signed approvals are not implemented in 0.1 (they are planned). Anyone who can write to `~/.config/skigard` or a harness skills directory as you
+  can forge an approval or add a skill without skigard. `skigard verify --strict` in CI, with the home committed to a repository, is the control that notices a lock file
   changed without a matching reviewable diff.
 - HTTP proxies are not used (the address check would otherwise be bypassed). Environments that require a proxy
   cannot fetch from GitHub in 0.1.
 - Non-GitHub sources (GitLab, arbitrary git URLs, private hosts) are not supported. Private GitHub repositories work with
   `GITHUB_TOKEN`, which is sent only to GitHub hosts.
+
+## The pseudo-terminal case
+
+`approve` insists on a terminal device, not on a human. Any process that can create a pseudo-terminal can be that terminal and type the answer, which is the skill name printed on the same screen:
+
+```sh
+(sleep 2; echo NAME) | script -q /dev/null skigard approve NAME
+```
+
+This approves a quarantined `NAME` with no person and no keyboard involved. A ten-line Python `pty.fork()` that types the name when it sees the prompt does the same. The Windows equivalent is a process that owns a ConPTY.
+
+**What this proves.** The terminal requirement is an accident and prompt-injection control, not authentication. It rules out `--yes`, a pipe, a CI job, a cron job and an environment variable, and it makes the approval step visible and deliberate. It does not prove that a human was present.
+
+**What defends against it today, best effort.**
+
+- Agent detection: `approve` refuses when it sees environment variables set by the agent harnesses it knows. The list is short, and a wrapper that unsets the variable before running `script` is not caught.
+- A check of the parent process chain for known agent binaries is being added in a separate change. It raises the cost, and it can still be evaded by re-parenting. Treat it as best effort.
+
+**What does not defend.** A determined agent or script running as you, a harness skigard does not know about, and anything that can run `script`, Python's `pty` module or `expect`.
+
+**Why signed approvals are the real fix.** Every defence above lives on the same machine and in the same account as the attacker. A signature made with a key that needs a person (an approver key in the OS keychain or Secure Enclave, or a passkey), stored in `skigard.lock` and checked by `skigard verify --strict`, moves the decision out of reach of anything that can only type. Signed approvals are planned, not built. Until then, `verify --strict` in CI with the home in a reviewed repository is the practical control, and this limitation is documented rather than treated as a vulnerability (see [SECURITY.md](../SECURITY.md)).
 
 ## Reviewing agents: what leaves your machine
 
@@ -98,5 +120,5 @@ automatically.
 - `internal/scan`: one malicious fixture per rule family; a test that every prefilter keyword set still admits every sample the rule matches.
 - `internal/review`: policy isolation properties (stdin only, empty cwd, scrubbed env), quote verification, "reviewer cannot lower".
 - `internal/hash`: pinned version 1 and 2 vectors, a golden fixture hashed identically on Linux, macOS and Windows CI, mode-independence and one-byte/name/length/order sensitivity, exec set tamper detection, fuzzing.
-- `internal/core`: exec-bit tamper (quarantine and approved), lock upgrade only on a matching v1 hash, forged `exec_set` refused, approve cancel/tamper/override paths, refusal inside an agent, install refusing a tampered store. Also: approve cancel/tamper/override paths, refusal inside an agent, install refusing a tampered store.
+- `internal/core`: exec-bit tamper (quarantine and approved), lock upgrade only on a matching v1 hash, forged `exec_set` refused, approve cancel/tamper/override paths, refusal inside an agent, install refusing a tampered store.
 - End to end: `approve` run under a real pty, and without any controlling terminal (see `scripts/e2e.sh`).
