@@ -39,3 +39,4 @@ details p { margin: 0.5rem 0 0; }
 .footer-row { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 @media (max-width: 800px) { .hero { grid-template-columns: 1fr; padding-top: 2rem; } }
 video { width: 100%; height: auto; border: 1px solid var(--ambier-line); border-radius: 10px; background: #0f0d09; margin-top: 0.5rem; }
+.pipeline { display: block; width: 100%; max-width: 880px; height: auto; margin: 0 auto 1.25rem; }
