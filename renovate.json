@@ -1,68 +1,112 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:best-practices", "helpers:pinGitHubActionDigests"],
-  "enabledManagers": ["mise", "github-actions", "gomod", "npm", "dockerfile", "custom.regex"],
-  "labels": ["deps"],
+  "extends": [
+    "config:best-practices",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "enabledManagers": [
+    "mise",
+    "github-actions",
+    "gomod",
+    "npm",
+    "custom.regex"
+  ],
+  "labels": [
+    "deps"
+  ],
   "timezone": "Europe/Helsinki",
-  "schedule": ["before 6am on monday"],
+  "schedule": [
+    "before 6am on monday"
+  ],
   "minimumReleaseAge": "7 days",
   "internalChecksFilter": "strict",
   "pinDigests": true,
   "prConcurrentLimit": 5,
-  "postUpdateOptions": ["gomodTidy"],
+  "postUpdateOptions": [
+    "gomodTidy"
+  ],
   "automerge": false,
   "packageRules": [
     {
       "description": "Group non-major updates, one PR per week",
-      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest",
+        "pin",
+        "pinDigest"
+      ],
       "groupName": "non-major dependencies",
       "automerge": false
     },
     {
       "description": "Majors, GitHub Actions, the Go toolchain and new dependencies always need a human",
-      "matchUpdateTypes": ["major"],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "automerge": false,
-      "addLabels": ["needs-human"]
+      "addLabels": [
+        "needs-human"
+      ]
     },
     {
-      "matchManagers": ["github-actions"],
+      "matchManagers": [
+        "github-actions"
+      ],
       "groupName": "github actions",
       "automerge": false,
-      "addLabels": ["needs-human"]
+      "addLabels": [
+        "needs-human"
+      ]
     },
     {
-      "matchPackageNames": ["go", "golang", "/^golang\\//"],
+      "matchPackageNames": [
+        "go",
+        "golang",
+        "/^golang\\//"
+      ],
       "groupName": "go toolchain",
       "automerge": false,
-      "addLabels": ["needs-human"]
+      "addLabels": [
+        "needs-human"
+      ]
     },
     {
       "description": "The site's npm tooling is build-time only: exact pins, and a human reviews every bump",
-      "matchManagers": ["npm"],
-      "matchFileNames": ["website/package.json"],
+      "matchManagers": [
+        "npm"
+      ],
+      "matchFileNames": [
+        "website/package.json"
+      ],
       "rangeStrategy": "pin",
       "groupName": "website npm",
       "automerge": false,
-      "addLabels": ["needs-human"]
-    },
-    {
-      "description": "Dockerfile base images are pinned by digest",
-      "matchManagers": ["dockerfile"],
-      "pinDigests": true,
-      "automerge": false
+      "addLabels": [
+        "needs-human"
+      ]
     }
   ],
   "customManagers": [
     {
       "description": "Tools pinned inside workflow and mise files as go run module@version or tool@version",
       "customType": "regex",
-      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/", "/^mise\\.toml$/"],
-      "matchStrings": ["go run (?<depName>[\\w./-]+)@(?<currentValue>v[\\w.-]+)"],
+      "managerFilePatterns": [
+        "/^\\.github/workflows/.+\\.ya?ml$/",
+        "/^mise\\.toml$/"
+      ],
+      "matchStrings": [
+        "go run (?<depName>[\\w./-]+)@(?<currentValue>v[\\w.-]+)"
+      ],
       "datasourceTemplate": "go"
     }
   ],
   "vulnerabilityAlerts": {
-    "labels": ["deps", "security", "needs-human"],
+    "labels": [
+      "deps",
+      "security",
+      "needs-human"
+    ],
     "automerge": false
   }
 }

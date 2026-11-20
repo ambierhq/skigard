@@ -5,7 +5,7 @@ skigard is one static binary (no runtime, no telemetry). Pick your system:
 - [macOS](macos.md)
 - [Linux](linux.md)
 - [Windows](windows.md)
-- [Other channels: npx, Nix, Docker, mise, Go](other.md)
+- [Other channels: npx, Nix, mise, Go](other.md)
 
 ## Channels and status
 
@@ -23,7 +23,6 @@ skigard is one static binary (no runtime, no telemetry). Pick your system:
 | mise | `mise use -g github:ambierhq/skigard` | all | live (the short name `skigard` needs a registry entry, not submitted) |
 | Nix | `nix run github:ambierhq/skigard` | Linux, macOS | flake builds in CI; not tested by hand |
 | npx / npm | `npx skigard`, `npm i -g skigard` | all | not published yet |
-| Docker | `docker run ghcr.io/ambierhq/skigard` | Linux | not yet: the release builds the image, but the package is not public |
 | apt, dnf, pacman repositories | not offered; install the `.deb`, `.rpm` or `.pkg.tar.zst` attached to a GitHub Release ([Linux](linux.md)) | Debian, Ubuntu, Fedora, RHEL, Arch | not offered |
 
 Channel details: [npm](npm.md), [Nix](nix.md), [mise](mise.md).

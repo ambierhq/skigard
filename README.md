@@ -80,7 +80,6 @@ skigard puts a gate in front of that: **fetch to quarantine, scan, optional agen
 | mise | `mise use -g github:ambierhq/skigard` | live (the short name `skigard` needs a registry entry, not submitted) |
 | Nix | `nix run github:ambierhq/skigard` | flake builds in CI; not tested by hand |
 | npx / npm | `npx skigard` or `npm i -g skigard` | not published yet |
-| Docker | `docker run --rm ghcr.io/ambierhq/skigard` | not yet: the image is built by the release but the package is not public |
 | apt, dnf, pacman repositories | not offered. Install the `.deb`, `.rpm` or `.pkg.tar.zst` attached to a GitHub Release (see [Linux](docs/install/linux.md)) | not offered |
 
 Per-system pages: [macOS](docs/install/macos.md) · [Linux](docs/install/linux.md) · [Windows](docs/install/windows.md) ·
@@ -235,7 +234,7 @@ Releases are signed (cosign, keyless), come with SBOMs, and CI is pinned and har
 
 ## Roadmap
 
-- Install channels still to land: npm, the Docker image, winget (in review) and the mise registry.
+- Install channels still to land: npm, winget (in review) and the mise registry.
 - `skigard-action`, a reusable GitHub Action for `verify`.
 - `skigard find` (#28): search skills.sh or a catalog (discovery is the main thing skigard lacks today).
 - An importer for `skills-lock.json` (#29) from vercel-labs/skills.

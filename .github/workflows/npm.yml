@@ -40,6 +40,6 @@ jobs:
         with:
           distribution: goreleaser
           version: v2.20.2
-          args: release --snapshot --clean --skip=sign,sbom,docker,publish
+          args: release --snapshot --clean --skip=sign,sbom,publish
       - name: pack from the snapshot, install the tarballs, run through npx and a pty
         run: scripts/npm-smoke.sh dist "$(jq -r .version dist/metadata.json)"
