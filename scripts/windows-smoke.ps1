@@ -258,7 +258,9 @@ function Test-Quickstart {
             $r = Invoke-Native 'go' @('test', '-tags', 'e2e', '-count=1', '-v', '-run', 'TestPublishedSmoke', './e2e/windows')
             Assert ($r.Code -eq 0) "go test exit $($r.Code)"
             # Skips are not passes: the console sub-tests must have run.
-            $must = @('conpty:_wrong_answer_cancels', 'approve_is_refused_under_an_agent-named_ancestor', 'approve_is_refused_when_CLAUDECODE=1', 'verify_--strict', 'install_into_a_temp_skills_dir')
+            $must = @('conpty:_wrong_answer_cancels', 'approve_is_refused_when_CLAUDECODE=1', 'verify_--strict', 'install_into_a_temp_skills_dir')
+            # Ancestor-process detection shipped in v0.1.2; older releases are expected to skip that sub-test.
+            if ($Version -notmatch '^\d+\.\d+\.\d+' -or [version]($Matches[0]) -ge [version]'0.1.2') { $must += 'approve_is_refused_under_an_agent-named_ancestor' }
             if ($env:SKIGARD_SMOKE_REMOTE -eq '1') { $must += 'remote_add_has_the_same_content_hash' }
             foreach ($t in $must) {
                 Assert ($r.Out.Contains("--- PASS: TestPublishedSmoke/$t")) "sub-test '$t' did not pass or did not run"

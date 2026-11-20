@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -109,6 +110,10 @@ func TestPublishedSmoke(t *testing.T) {
 	})
 
 	t.Run("approve is refused under an agent-named ancestor", func(t *testing.T) {
+		// Ancestor-process detection shipped in v0.1.2 (#38). Older releases would approve here, so do not run it.
+		if !atLeast(os.Getenv("SKIGARD_SMOKE_VERSION"), 0, 1, 2) {
+			t.Skipf("ancestor detection arrived in 0.1.2; testing %s", os.Getenv("SKIGARD_SMOKE_VERSION"))
+		}
 		cmd := filepath.Join(os.Getenv("SystemRoot"), "System32", "cmd.exe")
 		fake := filepath.Join(work, "claude.exe")
 		copyFile(t, cmd, fake)
@@ -178,6 +183,25 @@ func TestPublishedSmoke(t *testing.T) {
 			t.Fatalf("remote hash %q != local hash %q (the checked-out example may differ from main: informational if so)", got, localHash)
 		}
 	})
+}
+
+// atLeast reports whether version "X.Y.Z[-suffix]" is >= the given one. An empty or unparsable version counts as new.
+func atLeast(version string, major, minor, patch int) bool {
+	m := regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)`).FindStringSubmatch(version)
+	if m == nil {
+		return true
+	}
+	have := [3]int{}
+	for i := range have {
+		have[i], _ = strconv.Atoi(m[i+1])
+	}
+	want := [3]int{major, minor, patch}
+	for i := range have {
+		if have[i] != want[i] {
+			return have[i] > want[i]
+		}
+	}
+	return true
 }
 
 func dropEmpty(env []string, keys ...string) []string {
