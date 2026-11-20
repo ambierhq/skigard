@@ -12,6 +12,7 @@ nav { display: flex; gap: 1.5rem; }
 nav a { color: var(--ambier-fg-dim); text-decoration: none; }
 nav a:hover, nav a:focus-visible { color: var(--ambier-fg); }
 .hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 2.5rem; padding-top: 3.5rem; padding-bottom: 4rem; align-items: start; }
+.hero > * { min-width: 0; }
 .hero h1 { margin: 0 0 1rem; font-size: clamp(2.1rem, 4.4vw, 3.2rem); }
 .lede { color: var(--ambier-fg-dim); font-size: 1.2rem; margin: 0 0 1.75rem; }
 .block { padding-top: 2.5rem; padding-bottom: 2.5rem; border-top: 1px solid var(--ambier-line); }

@@ -22,7 +22,7 @@ skigard is one static binary (no runtime, no telemetry). Pick your system:
 | Scoop | `scoop bucket add ambierhq https://github.com/ambierhq/scoop-bucket` then `scoop install skigard` | Windows | live, not yet tested on Windows |
 | mise | `mise use -g github:ambierhq/skigard` | all | live (the short name `skigard` needs a registry entry, not submitted) |
 | Nix | `nix run github:ambierhq/skigard` | Linux, macOS | flake builds in CI; not tested by hand |
-| npx / npm | `npx skigard`, `npm i -g skigard` | all | not published yet |
+| npx / npm | `npx skigard`, `npm i -g skigard` | all | available (v0.1.1) |
 | apt, dnf, pacman repositories | not offered; install the `.deb`, `.rpm` or `.pkg.tar.zst` attached to a GitHub Release ([Linux](linux.md)) | Debian, Ubuntu, Fedora, RHEL, Arch | not offered |
 
 Channel details: [npm](npm.md), [Nix](nix.md), [mise](mise.md).

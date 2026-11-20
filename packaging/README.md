@@ -15,7 +15,7 @@ binaries, `.deb/.rpm/.pkg.tar.zst`, `install.sh` and `install.ps1` are GitHub re
 ## Release-time checklist (what the owner enables, in order)
 
 1. Done: `v0.1.1` is released (the release workflow builds everything and uploads `install.sh` / `install.ps1` as assets). winget is submitted ([winget-pkgs#484409](https://github.com/microsoft/winget-pkgs/pull/484409)); the Homebrew tap and Scoop bucket are live. The Docker image `ghcr.io/ambierhq/skigard` is built but its package must be made public in the GitHub package settings.
-2. npm: create the `@ambierhq` org, add trusted publishers for `skigard` and the six `@ambierhq/skigard-*` packages, set `NPM_PUBLISH=true`, re-run `npm-publish` for the tag. (Trusted publishers can only be configured for an existing package: publish the first version of each package once, manually with 2FA, or use a placeholder.)
+2. npm: done for the first release (`skigard` and the six `@ambierhq/skigard-*` packages are published at 0.1.1, manually). Still to do: add trusted publishers for `skigard` and the six `@ambierhq/skigard-*` packages, set `NPM_PUBLISH=true`, re-run `npm-publish` for the tag. (Trusted publishers can only be configured for an existing package: publish the first version of each package once, manually with 2FA, or use a placeholder.)
 3. Done: `ambierhq.com/skigard/install.{sh,ps1}` redirect to `releases/latest/download/install.{sh,ps1}` (site Worker).
 4. Submit the registry PRs below. Tag `v1` on `skigard-action` after review.
 

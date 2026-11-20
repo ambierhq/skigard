@@ -80,7 +80,7 @@ skigard puts a gate in front of that: **fetch to quarantine, scan, optional agen
 | Scoop | `scoop bucket add ambierhq https://github.com/ambierhq/scoop-bucket && scoop install skigard` | live, not yet tested on Windows |
 | mise | `mise use -g github:ambierhq/skigard` | live (the short name `skigard` needs a registry entry, not submitted) |
 | Nix | `nix run github:ambierhq/skigard` | flake builds in CI; not tested by hand |
-| npx / npm | `npx skigard` or `npm i -g skigard` | not published yet |
+| npx / npm | `npx skigard` or `npm i -g skigard` | available (v0.1.1) |
 | apt, dnf, pacman repositories | not offered. Install the `.deb`, `.rpm` or `.pkg.tar.zst` attached to a GitHub Release (see [Linux](docs/install/linux.md)) | not offered |
 
 Per-system pages: [macOS](docs/install/macos.md) · [Linux](docs/install/linux.md) · [Windows](docs/install/windows.md) ·
@@ -252,7 +252,7 @@ Releases are signed (cosign, keyless), come with SBOMs, and CI is pinned and har
 
 ## Roadmap
 
-- Install channels still to land: npm, winget (in review) and the mise registry.
+- Install channels still to land: winget (in review) and the mise registry.
 - `skigard find` (#28): search skills.sh or a catalog (discovery is the main thing skigard lacks today).
 - An importer for `skills-lock.json` (#29) from vercel-labs/skills.
 - Verify more harnesses (each one needs a person to confirm its skills directory).
