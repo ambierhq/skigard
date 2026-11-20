@@ -9,6 +9,8 @@ on:
       - packaging/**
       - scripts/homebrew-formula.sh
       - scripts/winget-manifests.sh
+      - scripts/winget-plan.sh
+      - scripts/test-winget-plan.sh
       - .github/workflows/release.yml
       - npm/**
       - scripts/npm-pack.mjs
@@ -41,6 +43,8 @@ jobs:
           distribution: goreleaser
           version: v2.20.2
           args: release --snapshot --clean --skip=sign,sbom,publish
+      - name: test the winget submission plan (stubbed gh)
+        run: scripts/test-winget-plan.sh
       - name: render the Homebrew formula from the snapshot checksums
         run: |
           version="$(jq -r .version dist/metadata.json)"
@@ -141,7 +145,9 @@ jobs:
           git diff --cached --quiet || { git commit -m "skigard ${version}" && git push origin HEAD; }
   # winget: GoReleaser's publisher is off (its Contents API writes time out on the ~1 GB winget-pkgs fork).
   # Manifests come from scripts/winget-manifests.sh and are pushed with plain git (sparse, partial clone) to
-  # ambierhq/winget-pkgs:skigard-<version>, then a PR to microsoft/winget-pkgs is opened (or the open one is reused).
+  # ambierhq/winget-pkgs:skigard-<version>, then a PR to microsoft/winget-pkgs is opened. scripts/winget-plan.sh decides
+  # first: while the package is not upstream yet our open PR's branch is updated (force-with-lease) and the PR retitled
+  # instead of opening a second one; once upstream has it, normal "New version" PRs are opened.
   # Skipped when the WINGET_TOKEN secret is not configured. Safe to rerun.
   winget:
     needs: homebrew
@@ -182,7 +188,20 @@ jobs:
           export GH_TOKEN="$WINGET_TOKEN"
           gh repo sync "$fork" --source "$upstream" --branch master
 
-          # 3. sparse, partial, shallow clone; the credential never lands in .git/config
+          # 3. decide: create a PR, update our open one (package not upstream yet), reuse it, or skip (see the script header)
+          cd "$GITHUB_WORKSPACE"
+          plan="$(scripts/winget-plan.sh "$version")"
+          echo "$plan"
+          field() { printf '%s\n' "$plan" | sed -n "s/^$1=//p"; }
+          action="$(field action)"; branch="$(field branch)"; kind="$(field kind)"; pr="$(field pr)"
+          case "$action" in
+            skip|reuse) echo "nothing to push ($action): $(field reason)"; exit 0 ;;
+            create|update) ;;
+            *) echo "::error::unexpected plan action '$action'"; exit 1 ;;
+          esac
+          title="${kind}: Ambier.Skigard version ${version}"
+
+          # 4. sparse, partial, shallow clone; the credential never lands in .git/config
           auth="$(printf 'x-access-token:%s' "$WINGET_TOKEN" | base64 | tr -d '\n')"
           echo "::add-mask::$auth"
           g() { git -c "http.extraheader=Authorization: Basic $auth" "$@"; }
@@ -191,7 +210,6 @@ jobs:
           g sparse-checkout set "$pkg"
           git config user.name "skigard release bot"
           git config user.email "skigard@ambierhq.com"
-          if [ -d "$pkg" ] && [ -n "$(ls -A "$pkg")" ]; then kind="New version"; else kind="New package"; fi
           git checkout -q -B "$branch"
           rm -rf "${pkg:?}/${version:?}"
           mkdir -p "$pkg"
@@ -201,20 +219,23 @@ jobs:
             echo "Ambier.Skigard $version is already on upstream master; nothing to submit"
             exit 0
           fi
-          git commit -q -m "${kind}: Ambier.Skigard version ${version}"
+          git commit -q -m "$title"
 
-          # 4. push the branch unless it already carries identical manifests (reruns)
-          if g fetch --quiet --depth 1 origin "$branch" 2>/dev/null && git diff --quiet FETCH_HEAD HEAD -- "$pkg/$version"; then
-            echo "branch $branch already has these manifests"
+          # 5. push the branch unless it already carries identical manifests (reruns); force-with-lease on our own fork branch
+          if g fetch --quiet --depth 1 origin "+refs/heads/$branch:refs/remotes/origin/$branch" 2>/dev/null; then
+            if git diff --quiet "origin/$branch" HEAD -- "$pkg"; then
+              echo "branch $branch already has these manifests"
+            else
+              g push --force-with-lease="refs/heads/$branch:$(git rev-parse "origin/$branch")" origin "HEAD:refs/heads/$branch"
+            fi
           else
-            g push --force origin "HEAD:refs/heads/$branch"   # throwaway branch on the bot's own fork
+            g push origin "HEAD:refs/heads/$branch"
           fi
 
-          # 5. open the PR, or reuse the open one
-          existing="$(gh pr list --repo "$upstream" --head "$branch" --state open --json number,headRepositoryOwner \
-            -q '[.[] | select(.headRepositoryOwner.login == "ambierhq")][0].number // empty')"
-          if [ -n "$existing" ]; then
-            echo "reusing open PR https://github.com/$upstream/pull/$existing"
+          # 6. open the PR, or retitle the open one
+          if [ "$action" = update ]; then
+            gh pr edit "$pr" --repo "$upstream" --title "$title"
+            echo "updated https://github.com/$upstream/pull/$pr"
             exit 0
           fi
           others="$(gh pr list --repo "$upstream" --state open --search "Ambier.Skigard in:title" --json number -q length)"
@@ -325,8 +346,8 @@ jobs:
         run: node scripts/npm-pack.mjs --dist dist --version "${TAG#v}" --out npm-dist --pack
       - name: npm with trusted publishing support
         # Trusted publishing needs npm >= 11.5.1. A global install fails on the runner (EACCES in /usr/local), so install into a temp prefix and put it first on PATH.
-        run: |
-          npm install --prefix "$RUNNER_TEMP/npm-cli" --no-save --no-audit --no-fund npm@11.21.3  # zizmor: ignore[adhoc-packages] exact version pinned
+        run: |  # zizmor: ignore[adhoc-packages] exact version pinned
+          npm install --prefix "$RUNNER_TEMP/npm-cli" --no-save --no-audit --no-fund npm@11.21.3
           echo "$RUNNER_TEMP/npm-cli/node_modules/.bin" >> "$GITHUB_PATH"
       - name: show the npm version
         run: npm --version
