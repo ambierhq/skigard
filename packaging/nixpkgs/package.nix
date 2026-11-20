@@ -19,6 +19,11 @@ buildGoModule (finalAttrs: {
     hash = "sha256-pfan8utVwoFkuC7JWzyALHbJmfdZaOEV1spixMrEiYk=";
   };
 
+  # go.mod asks for go 1.27.4, nixpkgs has 1.27.3 (GOTOOLCHAIN=local). skigard builds with 1.27.3; drop this when nixpkgs' Go catches up.
+  postPatch = ''
+    substituteInPlace go.mod --replace-fail "go 1.27.4" "go 1.27.3"
+  '';
+
   vendorHash = "sha256-pbA/AlBz3cQYRTMnQ/qBPcinYOKokrBLNhkbRTq54gE=";
 
   subPackages = [ "cmd/skigard" ];
