@@ -28,7 +28,7 @@ jobs:
           cp packaging/nixpkgs/package.nix nixpkgs/pkgs/by-name/sk/skigard/package.nix
       - name: nixfmt
         working-directory: nixpkgs
-        run: nix-shell -p nixfmt --run 'nixfmt --check pkgs/by-name/sk/skigard/package.nix'
+        run: nix-shell -I nixpkgs=. -p nixfmt --run 'nixfmt --check pkgs/by-name/sk/skigard/package.nix'
       - name: build
         working-directory: nixpkgs
         run: nix-build -A skigard --option sandbox true --print-build-logs
