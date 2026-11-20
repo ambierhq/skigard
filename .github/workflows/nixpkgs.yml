@@ -31,7 +31,7 @@ jobs:
         run: nix-shell -I nixpkgs=. -p nixfmt --run 'nixfmt --check pkgs/by-name/sk/skigard/package.nix'
       - name: build
         working-directory: nixpkgs
-        run: nix-build -A skigard --option sandbox true -L
+        run: nix-build -A skigard --option sandbox true
       - name: version
         working-directory: nixpkgs
         run: |
