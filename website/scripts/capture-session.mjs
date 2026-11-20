@@ -77,7 +77,14 @@ if (process.argv.includes("--check")) {
   const have = await fs.readFile(out, "utf8").catch(() => "");
   // The version string carries the commit; compare the transcript only so unrelated commits do not fail CI.
   const same = JSON.stringify(JSON.parse(have || "{}").lines) === JSON.stringify(lines);
-  if (!same) { console.error("src/data/session.json is out of date: run npm run capture"); process.exit(1); }
+  if (!same) {
+    const want = JSON.parse(have || "{}").lines ?? [];
+    for (let i = 0; i < Math.max(want.length, lines.length); i++) {
+      if (want[i]?.t !== lines[i]?.t) console.error(`line ${i + 1}:\n  committed: ${want[i]?.t}\n  current:   ${lines[i]?.t}`);
+    }
+    console.error("src/data/session.json is out of date: run npm run capture");
+    process.exit(1);
+  }
   console.log("session.json matches the current binary");
 } else {
   await fs.mkdir(path.dirname(out), { recursive: true });
