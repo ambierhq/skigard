@@ -2,7 +2,7 @@
 
 <!-- Generated from internal/scan. Run: go test ./internal/scan -run Docs -update -->
 
-Rules version `2026.2`. The scanner is deterministic and heuristic: it flags, a human decides. It never executes anything.
+Rules version `2026.3`. The scanner is deterministic and heuristic: it flags, a human decides. It never executes anything.
 
 Severity maps to a verdict: any `high` or `critical` finding gives **block**; `medium` (or incomplete coverage) gives **review**; otherwise **pass**.
 In the prose of Markdown/text files (outside code fences) command-like mentions matching rules marked `(prose-low)` are downgraded to `low`.
@@ -36,6 +36,7 @@ Accepted findings (`approve --accept REASON`) can suppress `medium` and below, n
 | `SKG-OBF-003` | encoded-blob | OBF | medium | long encoded-looking blob |
 | `SKG-OBF-004` | html-comment | OBF | medium | HTML comment (can hide instructions) |
 | `SKG-OBF-005` | nul-bytes | OBF | medium | NUL bytes inside a text file (can hide content from reviewers) |
+| `SKG-OBF-006` | encoded-command | OBF | medium | runs an encoded PowerShell command (prose-low) |
 | `SKG-PROMPT-001` | instruction-override | PROMPT | high | tries to override higher-priority instructions |
 | `SKG-PROMPT-002` | concealment | PROMPT | high | asks the agent to hide actions from the user |
 | `SKG-PROMPT-003` | safety-bypass | PROMPT | medium | asks to bypass safety controls |
@@ -44,6 +45,8 @@ Accepted findings (`approve --accept REASON`) can suppress `medium` and below, n
 | `SKG-SECRETS-003` | exfiltration | SECRETS | high | uploads secrets or environment over the network |
 | `SKG-SUPPLY-001` | package-install | SUPPLY | medium | installs third-party packages (prose-low) |
 | `SKG-SUPPLY-002` | remote-instructions | SUPPLY | medium | loads instructions from a remote URL |
+| `SKG-SUPPLY-003` | remote-instructions-indirect | SUPPLY | medium | loads the real instructions from somewhere else and follows them |
+| `SKG-SUPPLY-004` | install-hook | SUPPLY | medium | package install hook (runs code when the skill's dependencies are installed) |
 
 ## Capabilities and chains
 

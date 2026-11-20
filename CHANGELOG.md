@@ -8,6 +8,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - Wording: approval is described as needing a human at a terminal, with the pseudo-terminal limitation documented (threat model, README, FAQ, SECURITY.md). The one-line pitch no longer claims that nothing can reach an agent without approval. Quick start uses a small passing sample (`examples/hello-skill`).
+- Scanner rules `2026.3` (37 rules). New: `SKG-OBF-006` encoded PowerShell command, `SKG-SUPPLY-003` indirect "fetch the real
+  instructions" without a URL, `SKG-SUPPLY-004` package install hooks. Extended: `SKG-EXEC-002` (python `pty.spawn` shell,
+  socket `dup2`), `SKG-EXEC-003` (`rm -rf --no-preserve-root /`), `SKG-PROMPT-001/002/003` (disregard/forget synonyms, "the
+  person you work for", auto-approve). `SKG-OBF-003` no longer fires on `data:font/` and `data:image/` URIs.
 
 ### Fixed
 

@@ -147,7 +147,7 @@ Full reference: [docs/commands.md](docs/commands.md) (generated from the CLI).
 
 ### How the gate decides
 
-1. **Scan**: [34 rules](docs/rules.md) plus capability chains. Any `high`/`critical` finding is a **block**; `medium` or incomplete coverage is a **review**.
+1. **Scan**: [37 rules](docs/rules.md) plus capability chains. Any `high`/`critical` finding is a **block**; `medium` or incomplete coverage is a **review**.
 2. **Review** (optional): an installed harness reads the files with tools off, inside an OS sandbox where one works. It can only add doubt.
 3. **Approve**: you see the scan, the review and the diff, and type the skill name. A block or failing review needs `--override --reason "..."`, which is recorded forever.
 4. **Install** refuses anything whose hash no longer matches the lock.

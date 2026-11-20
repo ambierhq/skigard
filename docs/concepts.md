@@ -45,7 +45,7 @@ case-folding collisions and zip bombs, and only writes regular files. Nothing in
 
 ## Scan
 
-A deterministic rule engine ([34 rules](rules.md) plus capability chains such as "reads a credential file and also makes a network call").
+A deterministic rule engine ([37 rules](rules.md) plus capability chains such as "reads a credential file and also makes a network call").
 Severity maps to a verdict: any `high` or `critical` finding is a **block**; `medium` or incomplete coverage (binary or oversized files)
 is a **review**; otherwise **pass**. "Pass" means the rules found nothing, not that the skill is safe.
 
