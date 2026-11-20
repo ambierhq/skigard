@@ -243,7 +243,7 @@ jobs:
           cat > "$RUNNER_TEMP/pr-body.md" <<BODY
           ## Description
 
-          ${kind}: **Ambier.Skigard** ${version}. skigard is a lockfile and review gate for agent skills (single static Go binary, MIT licensed).
+          ${kind}: **Ambier.Skigard** ${version}. skigard is a safer way to manage agent skills: it scans and scores each skill, pins the exact bytes in a lockfile and installs in one command (single static Go binary, MIT licensed).
           Source: https://github.com/ambierhq/skigard, release: https://github.com/ambierhq/skigard/releases/tag/${TAG}.
           Installers are the release's Windows zip archives (x64 and arm64) with a nested portable \`skigard.exe\`; the SHA-256 values come from the release's signed checksums.txt.
 
