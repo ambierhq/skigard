@@ -1,6 +1,6 @@
 # Concepts
 
-skigard is a pipeline with one rule: **nothing reaches an agent until a human has approved those exact bytes.**
+skigard is a pipeline with one rule: **skills installed through skigard are scanned, shown to a human and pinned to the exact bytes they approved.** It is a gate for that install path, not a sandbox for your account: see [what it does not protect against](threat-model.md#what-skigard-does-not-do).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/diagrams/pipeline-dark.svg">
@@ -8,7 +8,7 @@ skigard is a pipeline with one rule: **nothing reaches an agent until a human ha
   <img alt="skigard pipeline: add to quarantine, scan, agent review, human approve in a real terminal, skigard.lock, install; update loops back to quarantine and verify checks drift from the lock" src="../assets/diagrams/pipeline-dark.svg" width="880">
 </picture>
 
-Who does what, and where an agent is refused:
+Who does what, and where an agent it can detect is refused:
 
 ```mermaid
 %%{init: {'theme':'neutral'}}%%
@@ -22,7 +22,7 @@ sequenceDiagram
   Human->>Skigard: review (optional)
   Skigard-->>Human: findings, advisory verdict
   Agent->>Skigard: approve
-  Skigard--xAgent: refused (needs a real terminal, no --yes)
+  Skigard--xAgent: refused (detected agent, no terminal, no --yes)
   Human->>Skigard: approve (types at /dev/tty)
   Skigard->>Skigard: write skigard.lock (commit + hash)
   Human->>Skigard: install
@@ -40,7 +40,7 @@ may run its scripts with your permissions. That is why a skill is code, not just
 ## Quarantine
 
 `skigard add` fetches into `quarantine/`, a directory with mode 0700 that is never read by an agent. GitHub sources are resolved to a full
-commit SHA and downloaded as an archive (skigard never runs `git`). Extraction goes through `os.Root`, rejects links, devices, path tricks,
+commit SHA and downloaded as an archive (skigard never invokes `git` on skill content; only `skigard init --git` runs `git init` in your home). Extraction goes through `os.Root`, rejects links, devices, path tricks,
 case-folding collisions and zip bombs, and only writes regular files. Nothing in quarantine is ever executed.
 
 ## Scan
@@ -58,7 +58,7 @@ can only raise concern; it never lowers a scanner finding. Details: [review](rev
 ## Approve
 
 The only step that needs a person. `skigard approve NAME` reads your confirmation from the terminal device (`/dev/tty`, or `CONIN$` on
-Windows), never from stdin, and refuses when it detects it is inside an agent. You see the scan, the review and a diff against the previously
+Windows), never from stdin, and refuses when it detects it is inside an agent harness. A process that creates its own pseudo-terminal can still type the answer, so the gate stops accidents and ordinary prompt injection, not a determined agent. Signed approvals (a key in your OS keychain or a passkey) are planned. See [the pseudo-terminal case](threat-model.md#the-pseudo-terminal-case). You see the scan, the review and a diff against the previously
 approved version, and type the name. The decision is bound to a **content hash**, recorded with who approved it and when.
 
 ## Lockfile and content hash

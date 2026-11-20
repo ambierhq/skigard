@@ -12,9 +12,7 @@ especially bundled scripts.
 
 ## Why can't my agent approve skills for me?
 
-Because the threat is an agent that has been prompt-injected into installing more skills. `approve` reads the terminal device (`/dev/tty`, or `CONIN$` on Windows),
-has no `--yes`, no stdin path and no environment override, and refuses when it detects it is inside an agent harness. Agents can still `add`, `scan`, `review`
-and `verify`.
+Because the threat is an agent that has been prompt-injected into installing more skills. Approval needs a human at a terminal: there is no `--yes`, no stdin path and no environment variable, and skigard refuses inside the agent harnesses it can detect. A process that creates its own pseudo-terminal can still type the answer, so the gate stops accidents and ordinary prompt injection, not a determined agent. Signed approvals (a key in your OS keychain or a passkey) are planned. Agents can still `add`, `scan`, `review` and `verify`. See [the pseudo-terminal case](threat-model.md#the-pseudo-terminal-case).
 
 ## Does it phone home?
 
@@ -48,7 +46,7 @@ skigard credits vercel-labs/skills for the harness map and the shared `.agents/s
 ## How is it different from asm (luongnv89/asm)?
 
 [`asm`](https://github.com/luongnv89/asm) is a scriptable skill manager with a big catalog, a TUI, `--json`/`--yes` for automation, inventory and context-cost reporting, and a pre-install security scan.
-It is built to be driven by agents and scripts. skigard is deliberately the opposite on one point: installation can never be completed by an agent or a script, because `approve` needs a human at a terminal, and
+It is built to be driven by agents and scripts. skigard is deliberately the opposite on one point: installation cannot be completed through a flag, a pipe or an environment variable, because `approve` needs a human at a terminal (a process that builds its own pseudo-terminal can still type the answer: see the [threat model](threat-model.md#the-pseudo-terminal-case)), and
 approvals are pinned to hashes in a lockfile you commit. If you want a catalog and convenience, asm fits; if you want an auditable approval trail, skigard does. We borrowed ideas from asm (`doctor`,
 `--json` everywhere, token cost reporting); see [Acknowledgements](../README.md#acknowledgements).
 

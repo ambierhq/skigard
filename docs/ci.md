@@ -6,7 +6,7 @@ Two jobs fit CI, and neither needs an agent or a terminal:
   It catches a skill that changed without a re-approval, an unapproved directory that appeared, or a lock edited by hand.
 - **`skigard scan`** checks a skill you are *writing* (or reviewing in a PR) and can emit SARIF.
 
-`approve` cannot run in CI. It reads a terminal, has no `--yes`, and refuses inside agent harnesses. That is the point.
+`approve` is not meant to run in CI. It reads a terminal, has no `--yes`, no stdin path and no environment variable, and refuses inside agent harnesses it can detect. That is the point.
 
 ## Verify a repository's pinned skills
 
@@ -26,12 +26,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4          # pin to a full commit SHA in your own repository
         with: {persist-credentials: false}
-      - run: curl -fsSL https://raw.githubusercontent.com/ambierhq/skigard/main/scripts/install.sh | sh
+      - run: curl -fsSL https://github.com/ambierhq/skigard/releases/download/v0.1.1/install.sh | SKIGARD_VERSION=v0.1.1 sh
       - run: skigard verify --strict
 ```
 
-A copy lives in [`examples/verify-workflow.yml`](../examples/verify-workflow.yml). Pin the installer to a release with `SKIGARD_VERSION=v0.1.1`, so
-a CI run cannot change behaviour under you.
+A copy lives in [`examples/verify-workflow.yml`](../examples/verify-workflow.yml). The installer is taken from the release and pinned with `SKIGARD_VERSION=v0.1.1`, so
+a CI run cannot change behaviour under you; never pipe the installer from `main`.
 
 `--strict` also fails on warnings, such as an approval that used `--override` or a review that did not pass. Without it, only errors fail.
 Exit codes: `0` ok, `1` drift or policy failure, `2` usage or error ([reference](commands.md#exit-codes)). Use `--json` for machine-readable results:

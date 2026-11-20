@@ -31,7 +31,7 @@ Maintainer view (secrets, switches, registry PRs): [packaging/README.md](../../p
 ## Verify what you downloaded
 
 Every release carries `checksums.txt` (SHA-256), a keyless [cosign](https://github.com/sigstore/cosign) signature for it, and an SBOM per archive.
-Build provenance attestations (GitHub) are published for releases after `v0.1.1`; `v0.1.1` has none.
+Build provenance attestations (GitHub) are published for `v0.1.1` and later; check one with `gh attestation verify skigard_0.1.1_linux_amd64.tar.gz --repo ambierhq/skigard`.
 `install.sh` always checks the archive against `checksums.txt`, and also verifies the signature when `cosign` is installed. The installers never use
 `sudo` and install to `~/.local/bin` (override with `SKIGARD_INSTALL_DIR`; pin a release with `SKIGARD_VERSION=v0.1.1`).
 
