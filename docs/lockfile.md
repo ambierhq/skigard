@@ -21,8 +21,8 @@ hash_version = 2                # default scheme for entries that carry no hash_
   # upgraded_from = "sha256:..." # only after `skigard lock upgrade`: the version 1 hash this entry replaced
 
   [skill.scan]
-    tool = "skigard 0.1.0"
-    rules = "2026.1"
+    tool = "skigard 0.1.2"
+    rules = "2026.3"
     verdict = "block"           # pass | review | block
     coverage = "complete"       # complete | partial
     risk = 100

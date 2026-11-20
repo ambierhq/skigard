@@ -5,6 +5,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Docs and site: install status, pinned versions (`v0.1.2`), provenance wording and test coverage statements brought in line with what is verified (winget #484914 and nixpkgs #590787 are in review; Windows is CI-tested only; the Linux sandboxed review was not run by hand). No code change.
+- Release workflow: the winget job updates our open PR while the package is not in microsoft/winget-pkgs yet, instead of opening a second one.
+
 ## [0.1.2] - 2026-11-20
 
 ### Added

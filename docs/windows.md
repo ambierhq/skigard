@@ -1,6 +1,6 @@
 # skigard on Windows
 
-skigard builds for `windows/amd64` and `windows/arm64`. Everything works except automated review (see below).
+skigard builds for `windows/amd64` and `windows/arm64`. Everything works except automated review (see below). Windows is covered by CI on `windows-latest` (tests, installer, `approve` through a ConPTY); it has not been tested by hand on a real Windows machine yet.
 This page lists what is different from Linux and macOS.
 
 ## Where files live

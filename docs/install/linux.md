@@ -42,6 +42,8 @@ go install github.com/ambierhq/skigard/cmd/skigard@latest
 
 ## Notes
 
+- Tested by hand on Ubuntu 26.04 x86_64 (Landlock available, no bubblewrap): the installer, extracting the `.deb`, the quick start and `approve` through a pty. The sandboxed `review` was not run there, and Linux arm64 was not tested by hand (it is cross-compiled in CI).
+
 - Review uses bubblewrap (`bwrap`) when it is installed, otherwise Landlock (Linux 5.13+), and otherwise runs under policy only. See
   [review](../review.md) for what each one confines and the `--allow-policy-only` switch.
 - `approve` needs a controlling terminal (`/dev/tty`). It refuses in containers and CI jobs without one, by design.
