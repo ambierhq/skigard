@@ -8,11 +8,17 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ambierhq/skigard/internal/core"
 	"github.com/ambierhq/skigard/internal/util"
 )
 
 // run executes the CLI with an isolated home. It never calls `approve`, which
 // needs a terminal (and would block on a developer's real one).
+func init() {
+	// The real ancestor walk would see the agent running `go test`.
+	testAppHook = func(a *core.App) { a.AgentAncestor = nil }
+}
+
 func run(t *testing.T, home string, args ...string) (int, string, string) {
 	t.Helper()
 	var out, errb bytes.Buffer

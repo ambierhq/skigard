@@ -57,7 +57,7 @@ skigard puts a gate in front of that: **fetch to quarantine, scan, optional agen
 </p>
 
 - **One static binary**, no runtime, no telemetry, one dependency (a TOML parser).
-- **Approval needs a human at a terminal.** `approve` reads the terminal device only: there is no `--yes`, no stdin path and no environment variable, and skigard refuses inside the agent harnesses it can detect. A process that creates its own pseudo-terminal can still type the answer, so the gate stops accidents and ordinary prompt injection, not a determined agent ([details](docs/threat-model.md#the-pseudo-terminal-case)). Signed approvals (a key in your OS keychain or a passkey) are planned.
+- **Approval needs a human at a terminal.** `approve` reads the terminal device only: there is no `--yes`, no stdin path and no environment variable, and skigard refuses when it detects an agent harness in its environment or among its parent processes (best effort, evadable by re-parenting). A process that creates its own pseudo-terminal can still type the answer, so the gate stops accidents and ordinary prompt injection, not a determined agent ([details](docs/threat-model.md#the-pseudo-terminal-case)). Signed approvals (a key in your OS keychain or a passkey) are planned.
 - **Reproducible.** `skigard.lock` records source, commit, content hash, scan result, review and approver. Commit it.
 - **Portable.** The content hash is identical on Linux, macOS and Windows.
 

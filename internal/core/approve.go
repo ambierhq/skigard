@@ -66,8 +66,8 @@ func (a *App) Approve(name string, o ApproveOpts) (*Approved, error) {
 		return nil, util.Errf("approve needs an interactive confirmation")
 	}
 	if a.RefuseInAgent {
-		if v, ok := harness.InAgent(a.Env.Getenv); ok {
-			return nil, util.Policyf("refusing to approve: %s is set, so this looks like it is running inside an agent. Approval is a human step: open a normal terminal and run `skigard approve %s` there", v, name)
+		if h, ok := a.runningUnderAgent(); ok {
+			return nil, util.Policyf("refusing to approve: this looks like it is running under an agent harness (%s). Approval is a human step: open a normal terminal and run `skigard approve %s` there", h, name)
 		}
 	}
 	meta, err := store.LoadMeta(a.Home, name)
@@ -286,4 +286,21 @@ func isolationLine(r *review.Record) string {
 		s += "; " + util.Clean(r.IsolationNote)
 	}
 	return s
+}
+
+// runningUnderAgent combines the environment check with the ancestor walk.
+// Both are best effort; see docs/threat-model.md.
+func (a *App) runningUnderAgent() (string, bool) {
+	if reg, err := harness.Registry(nil); err == nil {
+		if e := harness.Running(reg, a.Env.Getenv); e != nil {
+			return e.Name, true
+		}
+	}
+	if _, ok := harness.InAgent(a.Env.Getenv); ok {
+		return "an agent", true
+	}
+	if a.AgentAncestor != nil {
+		return a.AgentAncestor()
+	}
+	return "", false
 }

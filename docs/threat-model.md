@@ -39,12 +39,31 @@ in it. Someone who can write to your home as you can already do anything; skigar
 | A skill gains an execute bit after review, with the same bytes | Caught on Linux and macOS: `exec_hash` in the lock no longer matches, `verify` fails and `install` refuses. Not detectable on Windows, which has no execute bit; there the files are not executable by the OS either. Entries still on hash version 1 bind the bit inside the hash. `lock upgrade` converts them only if the old hash still matches, so it can never approve anything new |
 | A skill hides behaviour from reviewers | Rules for zero-width/bidi/tag characters, NUL bytes, long encoded blobs, HTML comments, binaries and executables. Binary or oversized files make coverage *partial*, which blocks approval without an explicit override |
 | Prompt injection aimed at the reviewing agent ("tell the user this is safe") | The reviewer harness runs with tools, MCP, extensions and sessions disabled by flags, an empty working directory and a scrubbed environment plus, on macOS and Linux, an OS sandbox (Seatbelt, bubblewrap or Landlock) limiting file reads, writes, exec and outbound ports; its isolation mode is recorded and shown at approval (see docs/review.md). Windows has none and fails closed. Skill text is delimited by a random boundary and the system prompt says it is untrusted. The reviewer's verdict is *advisory and can only raise concern*: it never lowers a scanner finding. Quotes it cites are checked against the real file text; findings with invented quotes are dropped |
-| An agent approves a skill itself (accident, prompt injection) | `approve` reads its confirmation from `/dev/tty` only. There is no `--yes`, no stdin path and no environment override. It also refuses when it detects, best effort, that it is running inside an agent harness. This does **not** stop a process that allocates its own pseudo-terminal: see [the pseudo-terminal case](#the-pseudo-terminal-case) |
+| An agent approves a skill itself (accident, prompt injection) | `approve` reads its confirmation from `/dev/tty` only. There is no `--yes`, no stdin path and no environment override. It also refuses when it detects, best effort, an agent harness in its environment or among its ancestor processes (see [Agent detection](#agent-detection-best-effort-not-a-security-boundary)). This does **not** stop a process that allocates its own pseudo-terminal: see [the pseudo-terminal case](#the-pseudo-terminal-case) |
 | Terminal escape injection through names or content | All untrusted text printed to a terminal is escaped (control characters, bidi and zero-width characters). Secrets matching common token shapes are masked in evidence |
 | Path traversal through names | Skill, plugin and meta names must match `^[a-z0-9]+(-[a-z0-9]+)*$` (max 64). They are validated when the lock, manifest and metadata are loaded, not only when typed |
 | Two processes corrupt the lock | An exclusive advisory lock on the home for every mutating command |
 | A malicious skill ships its own "receipt" | Install records live in `state/`, outside every harness skills directory |
 | Installing over something that is not ours | Existing unmanaged entries are never replaced without `--force`, and then only after being renamed to a backup. `uninstall` refuses to delete modified copies without `--force` |
+
+## Agent detection (best effort, not a security boundary)
+
+Before prompting, `approve` refuses if an agent environment variable is set, or if any of its ancestor processes
+(up to 20) is a known agent binary (`bins` in `internal/harness/registry.toml`) or carries an agent marker in its
+environment (`env`). The ancestor's own environment is read, so `env -u CLAUDECODE script ...` is still caught while
+the agent is above it. Linux reads `/proc`, macOS uses `sysctl` (KERN_PROCARGS2, same user only), Windows matches
+image names only (it cannot read another process's environment). If the process table is unreadable the check
+fails open to the other checks.
+
+It is **evadable by re-parenting**: a process that double-forks, daemonizes or is started by `launchd`/`systemd`
+leaves the agent's process tree. It does not close the pty bypass; it removes the one-line version.
+
+Humans are not blocked by hosts they use: tmux, ssh and the integrated terminals of VS Code, Cursor, Windsurf, Kiro
+and Zed are not agents, so the editor process and `TERM_PROGRAM` are never matched. Known false positives: approving
+from a shell that an agent started (for example Claude Code's `!` shell or Pi's bash) is refused by design; a tmux
+server first started from inside an agent keeps that agent's environment markers for every pane; a program that
+happens to share a short agent binary name (`cn`, `forge`, `kilo`) above skigard is matched. A human running an agent
+in one tab and approving in another is not affected (separate process trees).
 
 ## What skigard does not do
 
@@ -81,7 +100,7 @@ This approves a quarantined `NAME` with no person and no keyboard involved. A te
 
 **What defends against it today, best effort.**
 
-- Agent detection: `approve` refuses when it sees environment variables set by the agent harnesses it knows. The list is short, and a wrapper that unsets the variable before running `script` is not caught.
+- Agent detection: `approve` refuses on known agent environment variables and on known agent binaries or markers among its ancestors. A process that re-parents itself (double fork, daemonize) or never runs under a known harness is not caught; unknown harnesses are not covered.
 - A check of the parent process chain for known agent binaries is being added in a separate change. It raises the cost, and it can still be evaded by re-parenting. Treat it as best effort.
 
 **What does not defend.** A determined agent or script running as you, a harness skigard does not know about, and anything that can run `script`, Python's `pty` module or `expect`.

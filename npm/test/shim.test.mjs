@@ -95,7 +95,7 @@ test("approve refuses inside an agent", { skip: process.platform === "win32" }, 
   const { env } = quarantined();
   const r = spawnSync(node, [shim, "approve", "good"], { encoding: "utf8", env: { ...env, PI_CODING_AGENT: "1" } });
   assert.notEqual(r.status, 0);
-  assert.match(r.stderr, /inside an agent/);
+  assert.match(r.stderr, /agent harness/);
 });
 
 // approve through a real pty, with the launcher in the middle: wrong answer cancels (3), right answer approves (0).
