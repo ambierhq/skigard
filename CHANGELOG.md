@@ -5,6 +5,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- npm packages published: `skigard` and the six `@ambierhq/skigard-<os>-<cpu>` packages (`npx skigard`, `npm i -g skigard`).
+
 ### Changed
 
 - Wording: approval is described as needing a human at a terminal, with the pseudo-terminal limitation documented (threat model, README, FAQ, SECURITY.md). The one-line pitch no longer claims that nothing can reach an agent without approval. Quick start uses a small passing sample (`examples/hello-skill`).
@@ -39,7 +43,6 @@ publisher step (a templating error in the token settings, fixed in #26), so the 
 - The winget manifest was submitted by hand ([winget-pkgs#484409](https://github.com/microsoft/winget-pkgs/pull/484409)) after the workflow's
   winget step timed out; the Homebrew formula was pushed by hand too. The workflow now does both in separate jobs.
 - The `v0.1.1` build provenance attestations were added after the release (`gh attestation verify ... --repo ambierhq/skigard` works). Checksums are signed with cosign.
-- The npm packages are not public yet.
 
 [Unreleased]: https://github.com/ambierhq/skigard/compare/v0.1.1...HEAD
 [0.1.1]: https://github.com/ambierhq/skigard/releases/tag/v0.1.1

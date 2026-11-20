@@ -1,8 +1,8 @@
 # Other install channels
 
-Status of each channel is in the [status table](README.md#channels-and-status): mise, Go and Nix are available now; npm is not yet.
+Status of each channel is in the [status table](README.md#channels-and-status): npm, mise, Go and Nix are available now.
 
-## npx and npm (not published yet)
+## npx and npm
 
 ```sh
 npx skigard detect            # run without installing

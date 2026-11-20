@@ -12,5 +12,4 @@ x64, arm64), an `optionalDependency` that npm only installs for your platform. T
 is downloaded at install time. Do not install with `--omit=optional` / `--no-optional`: the launcher then has no binary and says so.
 
 The launcher inherits stdio and propagates the exit code, and `skigard approve` opens your terminal itself, so approval
-works through `npx` in a real terminal. Packages are published from GitHub Actions with npm provenance, so
-`npm audit signatures` verifies where they were built.
+works through `npx` in a real terminal.
