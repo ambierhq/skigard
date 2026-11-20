@@ -69,11 +69,11 @@ skigard puts a check in front of that: **fetch to quarantine, scan, optional age
 
 ## Install
 
-`v0.1.2` is the latest release ([GitHub Releases](https://github.com/ambierhq/skigard/releases)). Status of each channel:
+`v0.2.0` is the latest release ([GitHub Releases](https://github.com/ambierhq/skigard/releases)). Status of each channel:
 
 | Channel | Command | Status |
 |---|---|---|
-| Go | `go install github.com/ambierhq/skigard/cmd/skigard@latest` | live (`go install ...@v0.1.2` prints `skigard 0.1.2`) |
+| Go | `go install github.com/ambierhq/skigard/cmd/skigard@latest` | live (`go install ...@v0.2.0` prints `skigard 0.2.0`) |
 | Shell installer (macOS, Linux) | `curl -fsSL https://ambierhq.com/skigard/install.sh \| sh` | live |
 | PowerShell (Windows) | `irm https://ambierhq.com/skigard/install.ps1 \| iex` | live (tested in CI on `windows-latest`; not tested by hand on Windows) |
 | GitHub Releases | archives, `.deb`, `.rpm`, `.apk`, `.pkg.tar.zst`, checksums, SBOMs, cosign signatures | live |
@@ -82,7 +82,7 @@ skigard puts a check in front of that: **fetch to quarantine, scan, optional age
 | Scoop | `scoop bucket add ambierhq https://github.com/ambierhq/scoop-bucket && scoop install skigard` | live (the bucket is updated by the release workflow); not tested by hand on Windows |
 | mise | `mise use -g github:ambierhq/skigard` | live (`github:` backend, checked with v0.1.2; the short name `skigard` needs a registry entry, not submitted) |
 | Nix | `nix run github:ambierhq/skigard` | the flake builds in CI (Linux and macOS), not tested by hand. A nixpkgs package (`pkgs.skigard`) is submitted and in review ([nixpkgs#590787](https://github.com/NixOS/nixpkgs/pull/590787)); it does not exist yet |
-| npx / npm | `npx skigard` or `npm i -g skigard` | available (v0.1.2, published by the release workflow with npm provenance) |
+| npx / npm | `npx skigard` or `npm i -g skigard` | available (v0.2.0, published by the release workflow with npm provenance) |
 | apt, dnf, pacman repositories | not offered. Install the `.deb`, `.rpm` or `.pkg.tar.zst` attached to a GitHub Release (see [Linux](docs/install/linux.md)) | not offered |
 
 Per-system pages: [macOS](docs/install/macos.md) · [Linux](docs/install/linux.md) · [Windows](docs/install/windows.md) ·
@@ -214,7 +214,7 @@ Layout, formats and the Windows split are in [concepts](docs/concepts.md), [lock
 ## CI usage
 
 ```yaml
-- run: curl -fsSL https://github.com/ambierhq/skigard/releases/download/v0.1.2/install.sh | SKIGARD_VERSION=v0.1.2 sh
+- run: curl -fsSL https://github.com/ambierhq/skigard/releases/download/v0.2.0/install.sh | SKIGARD_VERSION=v0.2.0 sh
 - run: skigard verify --strict        # with SKIGARD_HOME=./.skigard committed to the repository
 ```
 
