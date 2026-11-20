@@ -19,11 +19,20 @@ func init() {
 	testAppHook = func(a *core.App) { a.AgentAncestor = nil }
 }
 
+// isolateUserHome points every user-home lookup at a scratch directory. os.UserHomeDir reads $HOME on Unix but
+// %USERPROFILE% on Windows, so both are set: otherwise an installing `add` writes into the real home of the machine.
+func isolateUserHome(t *testing.T, home string) {
+	t.Helper()
+	fake := filepath.Join(home, "..", "fakehome")
+	t.Setenv("HOME", fake)
+	t.Setenv("USERPROFILE", fake)
+}
+
 func run(t *testing.T, home string, args ...string) (int, string, string) {
 	t.Helper()
 	var out, errb bytes.Buffer
 	t.Setenv("SKIGARD_HOME", home)
-	t.Setenv("HOME", filepath.Join(home, "..", "fakehome"))
+	isolateUserHome(t, home)
 	// Tests must behave the same inside and outside an agent harness.
 	for _, n := range []string{"CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CODEX_SANDBOX", "CODEX_THREAD_ID", "GEMINI_CLI", "OPENCODE", "CURSOR_AGENT", "PI_CODING_AGENT", "GOOSE_TERMINAL", "AMP_CURRENT_THREAD_ID"} {
 		t.Setenv(n, "")
@@ -268,7 +277,7 @@ func runAgent(t *testing.T, home string, args ...string) (int, string, string) {
 	t.Helper()
 	var out, errb bytes.Buffer
 	t.Setenv("SKIGARD_HOME", home)
-	t.Setenv("HOME", filepath.Join(home, "..", "fakehome"))
+	isolateUserHome(t, home)
 	t.Setenv("PI_CODING_AGENT", "1")
 	code := Run(args, &out, &errb)
 	return code, out.String(), errb.String()

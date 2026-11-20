@@ -1,9 +1,13 @@
 {
-  "version": "dev+ff8f1ba",
+  "version": "dev+c66bc8f",
   "lines": [
     {
-      "t": "$ skigard add ./examples/hello-skill --mode strict",
+      "t": "$ skigard add ./examples/hello-skill --quarantine-only",
       "c": "cmd"
+    },
+    {
+      "t": "quarantined \"hello-skill\" from <repo>/examples/hello-skill",
+      "c": "ok"
     },
     {
       "t": "scan: PASS  coverage: complete  risk: 0/100  (1 files, 0 scripts)",
@@ -15,22 +19,6 @@
     },
     {
       "t": "note: the scanner is heuristic. A pass is not a safety certificate.",
-      "c": "out"
-    },
-    {
-      "t": "safety score: 10/10 (ok; threshold 7; mode strict)",
-      "c": "out"
-    },
-    {
-      "t": "  - no findings",
-      "c": "out"
-    },
-    {
-      "t": "  - strict mode: a human must confirm with `skigard approve hello-skill`",
-      "c": "out"
-    },
-    {
-      "t": "\"hello-skill\" is in quarantine and waiting for a human.",
       "c": "out"
     },
     {

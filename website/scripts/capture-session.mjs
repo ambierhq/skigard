@@ -46,16 +46,10 @@ const add = (text, keep = () => true) => {
 };
 
 const skigard = (args) => run(bin, args);
-// `add` installs by default in auto mode; the landing page shows the strict path, where it stops and waits for a human
-// (exit 1, the skill stays in quarantine).
-push("$ skigard add ./examples/hello-skill --mode strict", "cmd");
-let addOut;
-try {
-  addOut = skigard(["add", "./examples/hello-skill", "--mode", "strict"]);
-} catch (e) {
-  if (e.status !== 1) throw e;
-  addOut = e.stdout;
-}
+// `add` installs by default; the landing page shows the fetch-and-scan step on its own (--quarantine-only), which is
+// deterministic: it never prompts, never needs a terminal and does not depend on whether an agent runs it.
+push("$ skigard add ./examples/hello-skill --quarantine-only", "cmd");
+const addOut = skigard(["add", "./examples/hello-skill", "--quarantine-only"]);
 add(addOut, (l) => !/^(next:|\s+skigard )/.test(l));
 
 push("$ skigard approve hello-skill", "cmd");

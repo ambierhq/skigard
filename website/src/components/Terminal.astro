@@ -9,7 +9,7 @@ const sha = session.version.match(/^dev\+([0-9a-f]+)/)?.[1];
 const label = sha ? `v${latestVersion()}+${sha} (main)` : session.version.startsWith("v") ? session.version : `v${session.version}`;
 const delay = Math.min(0.35, 7 / lines.length);
 ---
-<figure class="term" role="img" aria-label="Terminal session: add a skill in strict mode, approve it as a human, install and verify it with skigard. Real output, trimmed.">
+<figure class="term" role="img" aria-label="Terminal session: fetch and scan a skill into quarantine, approve it as a human, install and verify it with skigard. Real output, trimmed.">
   <div class="bar"><span></span><span></span><span></span></div>
   <div class="body" aria-hidden="true">
     {lines.map((l, i) => <div class={`l ${l.c}`} style={`--d:${(i * delay).toFixed(1)}s`}>{l.t}</div>)}
