@@ -12,7 +12,7 @@ export const software = {
   name: "skigard",
   applicationCategory: "DeveloperApplication",
   operatingSystem: "Windows, macOS, Linux",
-  description: "A lockfile and review gate for agent skills. A human approves the exact bytes before anything reaches your agents.",
+  description: "A lockfile and review gate for agent skills. Skills installed through skigard are scanned, shown to a human and pinned to the exact bytes that person approved.",
   url: "https://ambierhq.com/skigard/",
   downloadUrl: "https://github.com/ambierhq/skigard/releases",
   codeRepository: "https://github.com/ambierhq/skigard",
@@ -23,7 +23,7 @@ export const software = {
 };
 
 export const faq: { q: string; a: string }[] = [
-  { q: "Can an agent approve a skill?", a: "No. approve reads the controlling terminal (/dev/tty on Unix, the console on Windows), has no --yes flag, no stdin path and no environment bypass, and refuses to run inside a detected agent harness." },
+  { q: "Can an agent approve a skill?", a: "Not through any flag or pipe. Approval needs a human at a terminal: approve reads the controlling terminal (/dev/tty on Unix, the console on Windows), has no --yes flag, no stdin or environment path, and refuses inside the agent harnesses it can detect. A process that creates its own pseudo-terminal can still type the answer, so the gate stops accidents and ordinary prompt injection, not a determined agent. Signed approvals are planned. See the threat model for the limits." },
   { q: "Does skigard run anything from a skill?", a: "No. It never executes skill content and never invokes git. Skills are fetched, copied with hostile-input handling, hashed and scanned as data." },
   { q: "Does skigard send telemetry?", a: "No. The binary has no telemetry and one runtime dependency, a TOML parser. This website uses privacy-friendly analytics only when enabled." },
   { q: "Is a passing scan a safety certificate?", a: "No. The scanner is heuristic and an agent review can be fooled. The review can only raise concern, never lower a scanner finding. Read the skill, especially bundled scripts." },

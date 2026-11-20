@@ -9,6 +9,7 @@
     "build": "npm run sync && astro build && mkdir -p deploy && rm -rf deploy/skigard && mv dist deploy/skigard && cp _redirects deploy/_redirects && cp .assetsignore deploy/.assetsignore",
     "preview": "astro preview",
     "check:links": "node scripts/check-links.mjs",
+    "check:overflow": "node scripts/check-overflow.mjs",
     "lhci": "lhci autorun --config=lighthouserc.json",
     "deploy": "wrangler deploy"
   },
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@lhci/cli": "0.16.1",
+    "puppeteer-core": "25.18.1",
     "wrangler": "4.164.0"
   }
 }
