@@ -12,6 +12,8 @@ buildGoModule (finalAttrs: {
   pname = "skigard";
   version = "0.1.1";
 
+  __structuredAttrs = true;
+
   src = fetchFromGitHub {
     owner = "ambierhq";
     repo = "skigard";
