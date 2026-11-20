@@ -1,24 +1,28 @@
-# Draft for nixpkgs: pkgs/by-name/sk/skigard/package.nix (needs a maintainer entry in maintainers/maintainer-list.nix).
-# Do not submit before the first release. At that time: set `version`, `hash` (nix-prefetch-url --unpack, or build once with
-# lib.fakeHash) and `vendorHash` (scripts/nix-vendor-hash.py gives the same value; confirm with a build).
 {
   lib,
   buildGoModule,
   fetchFromGitHub,
   installShellFiles,
+  nix-update-script,
   stdenv,
+  versionCheckHook,
 }:
 
 buildGoModule (finalAttrs: {
   pname = "skigard";
-  version = "0.1.0";
+  version = "0.1.1";
 
   src = fetchFromGitHub {
     owner = "ambierhq";
     repo = "skigard";
     tag = "v${finalAttrs.version}";
-    hash = lib.fakeHash;
+    hash = "sha256-pfan8utVwoFkuC7JWzyALHbJmfdZaOEV1spixMrEiYk=";
   };
+
+  # go.mod asks for go 1.27.4, nixpkgs has 1.27.3 (GOTOOLCHAIN=local). skigard builds with 1.27.3; drop this when nixpkgs' Go catches up.
+  postPatch = ''
+    substituteInPlace go.mod --replace-fail "go 1.27.4" "go 1.27.3"
+  '';
 
   vendorHash = "sha256-pbA/AlBz3cQYRTMnQ/qBPcinYOKokrBLNhkbRTq54gE=";
 
@@ -41,12 +45,11 @@ buildGoModule (finalAttrs: {
       --fish <($out/bin/skigard completion fish)
   '';
 
+  nativeInstallCheckInputs = [ versionCheckHook ];
+  versionCheckProgramArg = "version";
   doInstallCheck = true;
-  installCheckPhase = ''
-    runHook preInstallCheck
-    $out/bin/skigard version | grep -F "${finalAttrs.version}"
-    runHook postInstallCheck
-  '';
+
+  passthru.updateScript = nix-update-script { };
 
   meta = {
     description = "Lockfile and review gate for agent skills";
@@ -54,6 +57,6 @@ buildGoModule (finalAttrs: {
     changelog = "https://github.com/ambierhq/skigard/releases/tag/v${finalAttrs.version}";
     license = lib.licenses.mit;
     mainProgram = "skigard";
-    maintainers = [ ]; # add the owner's entry
+    maintainers = with lib.maintainers; [ pexea12 ];
   };
 })
