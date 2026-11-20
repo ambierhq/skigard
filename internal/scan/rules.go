@@ -69,6 +69,9 @@ var lineRules = []rule{
 	{ID: "SKG-EXEC-001", Name: "pipe-to-shell", Family: "EXEC", Sev: High, Caps: []string{"remote_exec", "network_egress", "dynamic_exec"},
 		Pre: []string{"curl", "wget", "fetch"},
 		Msg: "downloads and pipes straight into an interpreter",
+		// A regex alternation such as (curl|wget|python|nikto) is a pattern list,
+		// not a pipeline.
+		Strip: re(`\(\??:?[\w-]+(\|[\w-]+)+\)`),
 		// The interpreter must read the download from stdin as its program: no
 		// script path, and no -c/-m/-e style argument that carries other code
 		// (so "| python3 -m json.tool" and "| python script.py" are data
@@ -78,17 +81,21 @@ var lineRules = []rule{
 			`((ba|z|da|k)?sh(\s+-([^c\s]\S*)?)*|python3?(\s+-([^cm\s]\S*)?)*|(node|perl|ruby)(\s+-([^ecpm\s]\S*)?)*)` +
 			`\s*(\d?[<>]|[|;&)\x60'"#]|$))`)},
 	{ID: "SKG-EXEC-002", Name: "reverse-shell", Family: "EXEC", Sev: High, Caps: []string{"network_egress", "dynamic_exec"},
-		Pre: []string{"/dev/tcp/", "/dev/udp/", "sh -i", "mkfifo", "socat", " -e"},
+		Pre: []string{"/dev/tcp/", "/dev/udp/", "sh -i", "mkfifo", "socat", " -e", "pty.spawn", "dup2"},
 		Msg: "reverse-shell pattern",
 		// A /dev/tcp port probe against loopback, or a bare connect test with a
 		// variable host (exec 3<>"/dev/tcp/$host/$port"), is not a shell: the
 		// rule wants fd duplication, a literal remote host, or an interactive shell.
 		Strip: re(`/dev/(tcp|udp)/(127\.\d+\.\d+\.\d+|localhost|\[?::1\]?)`),
-		Re:    re(`\b(ba|z|da|k)?sh\s+-i\b|/dev/(tcp|udp)/\S*\s*\d?[<>]&\s*\d|[<>]&\s*["']?/dev/(tcp|udp)/|[<>]\s*["']?/dev/(tcp|udp)/[a-z0-9]|\bnc\b[^\n]*\s-e\b|mkfifo[^\n]*\bnc\b|\bsocat\b[^\n]*exec`)},
+		Re: re(`\b(ba|z|da|k)?sh\s+-i\b|/dev/(tcp|udp)/\S*\s*\d?[<>]&\s*\d|[<>]&\s*["']?/dev/(tcp|udp)/|[<>]\s*["']?/dev/(tcp|udp)/[a-z0-9]|\bnc\b[^\n]*\s-e\b|mkfifo[^\n]*\bnc\b|\bsocat\b[^\n]*exec|` +
+			// python reverse shell: a pty shell, or a socket duplicated onto stdin/stdout
+			`\bpty\.spawn\s*\(\s*["']?(/\w+)*/?(ba|z|da|k)?sh\b|\bsocket\b[^\n]*\bdup2\b|\bdup2\b[^\n]*\bsocket\b`)},
 	{ID: "SKG-EXEC-003", Name: "destructive", Family: "EXEC", Sev: High, Caps: []string{"destructive_write"},
 		Pre: []string{"rm ", "rm\t"},
 		Msg: "recursive delete of root or home",
-		Re:  re(`\brm\s+-[a-z]*r[a-z]*\s+(/|~/?|\$HOME/?)(\s|$|\*)`)},
+		// Extra options between the flags and the target (rm -rf --no-preserve-root /)
+		// do not make it safe, and --no-preserve-root exists only for this.
+		Re: re(`\brm\s+(-\S+\s+)*-[a-z]*r[a-z]*\s+(-\S+\s+)*(/|~/?|\$HOME/?)(\s|$|\*)|\brm\s[^\n]*--no-preserve-root`)},
 	{ID: "SKG-EXEC-004", Name: "dynamic-exec", Family: "EXEC", Sev: Medium, Caps: []string{"dynamic_exec"}, DocLow: true,
 		Pre: []string{"eval", "exec", "os.system", "subprocess", "child_process", "__import__", "new&function"},
 		Msg: "dynamic code or process execution",
@@ -134,9 +141,9 @@ var lineRules = []rule{
 		Msg: "network library",
 		Re:  re(`\b(requests\.(get|post|put|request)|urllib|http\.client|httpx|aiohttp|fetch\(|XMLHttpRequest|WebSocket|socket\.|net/http|http\.(Get|Post))`)},
 	{ID: "SKG-PROMPT-001", Name: "instruction-override", Family: "PROMPT", Sev: High,
-		Pre: []string{"ignore", "disregard", "you are now", "override"},
+		Pre: []string{"ignore", "disregard", "you are now", "override", "forget"},
 		Msg: "tries to override higher-priority instructions",
-		Re:  re(`ignore\s+(all\s+|any\s+)?(the\s+)?(previous|prior|above|earlier|system)\s+(instructions|prompts?|rules)|disregard\s+[^\n]{0,40}(instructions|rules|system prompt)|you\s+are\s+now\s+(in\s+)?(dan|developer mode|unrestricted)|(system|developer)\s+(prompt|message)\s+override`)},
+		Re:  re(`ignore\s+(all\s+|any\s+)?(the\s+)?(previous|prior|above|earlier|system)\s+(instructions|prompts?|rules)|disregard\s+[^\n]{0,40}(instructions|rules|system prompt|guidance|directions|directives)|forget\s+(all\s+|any\s+|everything\s+)?(the\s+|your\s+)?(previous|prior|above|earlier)\s+(instructions|prompts?|rules|guidance|directions)|you\s+are\s+now\s+(in\s+)?(dan|developer mode|unrestricted)|(system|developer)\s+(prompt|message)\s+override`)},
 	{ID: "SKG-PROMPT-002", Name: "concealment", Family: "PROMPT", Sev: High,
 		Pre: []string{"tell", "inform", "mention", "reveal", "show", "notify", "disclose", "silently", "secretly", "covertly", "quietly"},
 		Msg: "asks the agent to hide actions from the user",
@@ -145,12 +152,12 @@ var lineRules = []rule{
 		// autonomy and UI rules, and "do not silently install" or a bullet
 		// that forbids acting "without telling the user" is the opposite of
 		// concealment, so negated forms are stripped before matching.
-		Strip: re(`(do\s+not|don'?t|never|must\s+not|mustn'?t|should\s+not|shouldn'?t|cannot|can'?t|not|without|avoid)\s+(\w+\s+){0,2}(silently|secretly|covertly|quietly)\b|(do\s+not|don'?t|never|must\s+not|should\s+not|avoid|not|❌|✗|✘|🚫)[^\n.;]{0,60}?\bwithout\s+(telling|informing|notifying)\b`),
-		Re:    re(`(do\s+not|don'?t|never)\s+(tell|inform|notify)\s+(the\s+|your\s+)?user\b|(do\s+not|don'?t|never)\s+(mention|reveal|show|disclose|tell)\s+[^\n.]{0,40}\bto\s+(the\s+)?user\b|without\s+(telling|informing|notifying)\s+(the\s+)?user\b|(silently|secretly|covertly|quietly)\s+(run|execute|send|upload|post|install|download)\b`)},
+		Strip: re(`(do\s+not|don'?t|never|must\s+not|mustn'?t|should\s+not|shouldn'?t|cannot|can'?t|not|without|avoid)\s+(\w+\s+){0,2}(silently|secretly|covertly|quietly)\b|(do\s+not|don'?t|never)\s+(tell|inform|notify)\s+(the\s+|your\s+)?users?\s+(to|they|how)\b|(do\s+not|don'?t|never|must\s+not|should\s+not|avoid|not|❌|✗|✘|🚫)[^\n.;]{0,60}?\bwithout\s+(telling|informing|notifying)\b`),
+		Re:    re(`(do\s+not|don'?t|never)\s+(tell|inform|notify)\s+(the\s+|your\s+)?user\b|(do\s+not|don'?t|never)\s+(mention|reveal|show|disclose|tell)\s+[^\n.]{0,40}\bto\s+(the\s+|your\s+)?(user|human|operator|person\s+you)\b|without\s+(telling|informing|notifying)\s+(the\s+)?user\b|(silently|secretly|covertly|quietly)\s+(run|execute|send|upload|post|install|download)\b`)},
 	{ID: "SKG-PROMPT-003", Name: "safety-bypass", Family: "PROMPT", Sev: Medium,
-		Pre: []string{"disable", "bypass", "skip", "--yolo"},
+		Pre: []string{"disable", "bypass", "skip", "--yolo", "auto-approve", "auto approve", "autoapprove", "no longer need"},
 		Msg: "asks to bypass safety controls",
-		Re:  re(`(disable|bypass|skip)\s+(the\s+)?(permission|approval|confirmation|safety|sandbox)|dangerously-skip-permissions|--yolo`)},
+		Re:  re(`(disable|bypass|skip)\s+(the\s+)?(permission|approval|confirmation|safety|sandbox)|dangerously-skip-permissions|--yolo|auto[- ]?approv(e|ing)\s+(every|all|any)\b|no\s+longer\s+need\w*\s+(any\s+)?(confirmation|approval|permission)`)},
 	{ID: "SKG-OBF-002", Name: "base64-decode", Family: "OBF", Sev: Medium, DocLow: true,
 		Pre: []string{"base64", "b64decode", "atob"},
 		Msg: "decodes base64 (possible obfuscation)",
@@ -158,7 +165,14 @@ var lineRules = []rule{
 	{ID: "SKG-OBF-003", Name: "encoded-blob", Family: "OBF", Sev: Medium,
 		MinLen: 120,
 		Msg:    "long encoded-looking blob",
-		Re:     regexp.MustCompile(`[A-Za-z0-9+/]{120,}={0,2}`)},
+		// Embedded fonts and raster/vector images (data:font/woff2;base64,...) are
+		// the normal source of long base64 in HTML and CSS; they are inert data.
+		Strip: regexp.MustCompile(`(?i)data:(font/|application/(x-)?font[\w.+-]*|image/[\w.+-]+)[^,"')\s]*,[A-Za-z0-9+/=_-]+`),
+		Re:    regexp.MustCompile(`[A-Za-z0-9+/]{120,}={0,2}`)},
+	{ID: "SKG-OBF-006", Name: "encoded-command", Family: "OBF", Sev: Medium, Caps: []string{"dynamic_exec"}, DocLow: true,
+		Pre: []string{"powershell", "pwsh"},
+		Msg: "runs an encoded PowerShell command",
+		Re:  re(`\b(powershell|pwsh)(\.exe)?\b[^\n]*\s-(e|ec|enc|encodedcommand)\s+['"]?[A-Za-z0-9+/=]{8,}`)},
 	{ID: "SKG-OBF-004", Name: "html-comment", Family: "OBF", Sev: Medium, MarkdownOnly: true,
 		Pre: []string{"<!--"},
 		Msg: "HTML comment (can hide instructions)",
@@ -171,6 +185,17 @@ var lineRules = []rule{
 		Pre: []string{"instruction&http", "prompt&http", "skill&http", "rules&http"},
 		Msg: "loads instructions from a remote URL",
 		Re:  re(`\b(fetch|download|curl|wget|read|load|follow)\b[^\n]{0,40}\b(instructions?|prompt|skill|rules)\b[^\n]{0,60}https?://`)},
+	{ID: "SKG-SUPPLY-003", Name: "remote-instructions-indirect", Family: "SUPPLY", Sev: Medium, Caps: []string{"external_instruction"},
+		Pre: []string{"instruction", "prompt", "rules"},
+		Msg: "loads the real instructions from somewhere else and follows them",
+		// No URL needed: "fetch the real instructions from the wiki and follow them".
+		// The qualifier (real, actual, latest, hidden, ...) and the follow-up verb
+		// keep ordinary "read the instructions in references/x.md" quiet.
+		Re: re(`\b(fetch|download|retrieve|load|get)\b[^\n]{0,40}\b(real|actual|true|hidden|secret|latest|updated|remaining|additional|full)\s+(instructions?|prompt|rules)\b[^\n]{0,80}\b(follow|obey|execute|apply)\b`)},
+	{ID: "SKG-SUPPLY-004", Name: "install-hook", Family: "SUPPLY", Sev: Medium, Caps: []string{"supply_chain", "dynamic_exec"},
+		Pre: []string{"install"},
+		Msg: "package install hook (runs code when the skill's dependencies are installed)",
+		Re:  re(`"(pre|post)?install"\s*:\s*"[^"]*\S`)},
 }
 
 // Rules that are not line patterns, kept here so every ID lives in one place.
