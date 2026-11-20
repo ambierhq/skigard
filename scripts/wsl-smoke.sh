@@ -18,7 +18,10 @@ skigard version | grep -E "^skigard v?$expected( |\$)" || fail "version is not $
 echo "== quick start"
 SKIGARD_HOME="$(mktemp -d)/home"; export SKIGARD_HOME
 skigard init
-skigard add "$PWD/examples/hello-skill"
+# The repository is on the Windows drive (/mnt/d), where every file looks executable (mode 777), and the scanner
+# rightly flags that (SKG-FS-004). Copy the skill into the Linux filesystem, as a user would keep it.
+work="$(mktemp -d)"; cp -R examples/hello-skill "$work/hello-skill"; find "$work" -type f -exec chmod 644 {} +
+skigard add "$work/hello-skill"
 skigard scan hello-skill | tee /dev/stderr | grep -q PASS || fail "scan did not pass"
 
 res=$(python3 scripts/pty_approve.py "$(command -v skigard)" "$SKIGARD_HOME" hello-skill nope)
