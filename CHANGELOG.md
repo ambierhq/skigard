@@ -5,6 +5,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-20
+
 ### Changed
 
 - **BREAKING: `skigard add` now installs by default in `auto` mode.** Scripts and agents that relied on `add` only fetching and scanning will now
@@ -81,6 +83,7 @@ publisher step (a templating error in the token settings, fixed in #26), so the 
   winget step timed out; the Homebrew formula was pushed by hand too. The workflow now does both in separate jobs.
 - The `v0.1.1` build provenance attestations were added after the release (`gh attestation verify ... --repo ambierhq/skigard` works). Checksums are signed with cosign.
 
-[Unreleased]: https://github.com/ambierhq/skigard/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/ambierhq/skigard/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ambierhq/skigard/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/ambierhq/skigard/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/ambierhq/skigard/releases/tag/v0.1.1
