@@ -19,7 +19,8 @@ await fs.mkdir(path.join(home, ".claude"), { recursive: true });
 await fs.mkdir(path.join(home, ".pi"), { recursive: true });
 
 // Agent markers must not leak in: approve (correctly) refuses inside an agent harness.
-const env = { PATH: process.env.PATH, HOME: home, USERPROFILE: home, SKIGARD_HOME: path.join(home, "skigard"), TERM: "dumb", GOCACHE: process.env.GOCACHE ?? "" };
+// A fixed PATH so harness detection (which looks for binaries such as pi and omp) does not depend on this machine.
+const env = { PATH: "/usr/bin:/bin", HOME: home, USERPROFILE: home, SKIGARD_HOME: path.join(home, "skigard"), TERM: "dumb", GOCACHE: process.env.GOCACHE ?? "" };
 if (!env.GOCACHE) delete env.GOCACHE;
 const run = (cmd, args, opts = {}) => execFileSync(cmd, args, { cwd: repo, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...opts });
 

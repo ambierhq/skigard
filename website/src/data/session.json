@@ -1,5 +1,5 @@
 {
-  "version": "dev+a1f41b7",
+  "version": "dev+e2904ed",
   "lines": [
     {
       "t": "$ skigard add ./examples/hello-skill",
