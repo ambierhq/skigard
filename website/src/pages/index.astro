@@ -103,6 +103,7 @@ const features = [
 
       <section class="wrap block" id="how">
         <h2 class="display">How it works</h2>
+        <img class="pipeline" src={`${base}/diagrams/pipeline-dark.svg`} width="880" height="252" alt="skigard pipeline: add to quarantine, scan, agent review, human approve in a real terminal, skigard.lock, install; update loops back to quarantine and verify checks drift from the lock" />
         <ol class="steps">
           {steps.map(([h, t]) => <li><h3>{h}</h3><p>{t}</p></li>)}
         </ol>

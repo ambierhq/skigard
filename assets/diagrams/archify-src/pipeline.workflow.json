@@ -1,0 +1,144 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "skigard pipeline",
+    "quality_profile": "showcase",
+    "output": "assets/diagrams/pipeline-archify.html",
+    "visual_preset": "editorial"
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "skigard add"
+    },
+    {
+      "id": "loop",
+      "label": "Later"
+    }
+  ],
+  "mainPath": [
+    "q",
+    "scan",
+    "review",
+    "approve",
+    "lock",
+    "install"
+  ],
+  "nodes": [
+    {
+      "id": "q",
+      "lane": "main",
+      "col": 0,
+      "type": "database",
+      "label": "Quarantine",
+      "sublabel": "add \u00b7 never run"
+    },
+    {
+      "id": "scan",
+      "lane": "main",
+      "col": 1,
+      "type": "backend",
+      "label": "Scan",
+      "sublabel": "fixed rules"
+    },
+    {
+      "id": "review",
+      "lane": "main",
+      "col": 2,
+      "type": "external",
+      "label": "Agent review",
+      "sublabel": "adds doubt only"
+    },
+    {
+      "id": "approve",
+      "lane": "main",
+      "col": 3,
+      "type": "security",
+      "label": "Human approve",
+      "sublabel": "real terminal",
+      "tag": "agents refused"
+    },
+    {
+      "id": "lock",
+      "lane": "main",
+      "col": 4,
+      "type": "database",
+      "label": "skigard.lock",
+      "sublabel": "commit + SHA-256"
+    },
+    {
+      "id": "install",
+      "lane": "main",
+      "col": 5,
+      "type": "frontend",
+      "label": "Install",
+      "sublabel": "your harnesses"
+    },
+    {
+      "id": "update",
+      "lane": "loop",
+      "col": 2,
+      "type": "cloud",
+      "label": "skigard update",
+      "sublabel": "re-fetch + diff"
+    },
+    {
+      "id": "verify",
+      "lane": "loop",
+      "col": 4,
+      "type": "messagebus",
+      "label": "skigard verify",
+      "sublabel": "CI drift check"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "q",
+      "to": "scan"
+    },
+    {
+      "id": "e2",
+      "from": "scan",
+      "to": "review"
+    },
+    {
+      "id": "e3",
+      "from": "review",
+      "to": "approve"
+    },
+    {
+      "id": "e4",
+      "from": "approve",
+      "to": "lock",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e5",
+      "from": "lock",
+      "to": "install"
+    },
+    {
+      "id": "e6",
+      "from": "lock",
+      "to": "update",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "e7",
+      "from": "update",
+      "to": "q",
+      "variant": "dashed",
+      "role": "return"
+    },
+    {
+      "id": "e8",
+      "from": "lock",
+      "to": "verify",
+      "variant": "dashed",
+      "role": "branch"
+    }
+  ]
+}

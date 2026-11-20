@@ -44,25 +44,13 @@ skigard puts a gate in front of that: **fetch to quarantine, scan, optional agen
 | Each agent has its own skills folder | Installs once into every detected harness (Claude Code, Pi, Codex, Cursor, Gemini CLI, OpenCode and about 70 more) |
 | No way to notice drift | `skigard verify` fails CI if the lock, the store or the installs change |
 
-```mermaid
-%%{init: {'theme':'neutral','flowchart':{'curve':'basis'}}}%%
-flowchart TD
-  A["skigard add"] --> Q["Quarantine<br/>archive, never executed"]
-  Q --> S["Scan<br/>deterministic rules"]
-  S --> R["Agent review<br/>advisory only"]
-  R --> H["Human approve<br/>real terminal, /dev/tty"]
-  H --> L[("skigard.lock<br/>commit + SHA-256")]
-  L --> I["Install<br/>into detected harnesses"]
-  L -.-> V["skigard verify<br/>CI drift check"]
-  L -. "skigard update" .-> U["Re-fetch + diff"]
-  U --> Q
-  classDef human fill:#5AA9FF,stroke:#1d5fa8,color:#0b1a2b,stroke-width:2px
-  classDef step fill:#eeeeee,stroke:#777777,color:#111111
-  class H human
-  class A,Q,S,R,L,I,V,U step
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/diagrams/pipeline-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/diagrams/pipeline-light.svg">
+  <img alt="skigard pipeline: add to quarantine, scan, agent review, human approve in a real terminal, skigard.lock, install; update loops back to quarantine and verify checks drift from the lock" src="assets/diagrams/pipeline-dark.svg" width="880">
+</picture>
 
-<sub>Source and rendered copies: [assets/diagrams](assets/diagrams). `verify` and `update` branch off the lock.</sub>
+<sub>Made with [Archify](https://github.com/tt-a1i/archify); the Mermaid sources stay in [assets/diagrams](assets/diagrams). `verify` and `update` branch off the lock.</sub>
 
 <p align="center">
   <img alt="skigard adding, scanning, approving and installing a skill" src="assets/media/demo.gif" width="800">

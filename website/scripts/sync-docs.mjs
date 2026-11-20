@@ -30,6 +30,7 @@ const slugOf = (rel) => rel.replace(/\.md$/, "").replace(/(^|\/)README$/, "").re
 
 function rewriteLinks(md, rel) {
   const dir = path.posix.dirname(rel);
+  md = md.replace(/(srcset|src)="(?:\.\.\/)+assets\/diagrams\/([\w-]+\.svg)"/g, `$1="${BASE}/diagrams/$2"`); // copied by syncBrand
   return md.replace(/\]\(([^)\s#]+)(#[^)\s]*)?\)/g, (all, target, hash = "") => {
     if (/^[a-z][a-z0-9+.-]*:/i.test(target)) return all;
     const resolved = path.posix.normalize(path.posix.join("docs", dir, target)); // relative to the repo root
@@ -114,6 +115,10 @@ async function syncBrand() {
   await copy("favicon.ico", "public/favicon.ico");
   await copy("apple-touch-icon.png", "public/apple-touch-icon.png");
   await copy("social-preview.png", "public/og.png");
+  await fs.mkdir(path.join(site, "public/diagrams"), { recursive: true });
+  for (const f of ["pipeline-dark.svg", "pipeline-light.svg"]) {
+    await fs.copyFile(path.join(repo, "assets/diagrams", f), path.join(site, "public/diagrams", f));
+  }
   await fs.mkdir(path.join(site, "public/media"), { recursive: true });
   for (const f of ["demo.webm", "demo.mp4", "poster.png"]) {
     await fs.copyFile(path.join(repo, "assets/media", f), path.join(site, "public/media", f));

@@ -8,6 +8,7 @@ public/favicon.ico
 public/apple-touch-icon.png
 public/og.png
 public/media/
+public/diagrams/
 src/data/harnesses.json
 public/llms.txt
 public/llms-full.txt
