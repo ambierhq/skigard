@@ -5,13 +5,10 @@ Enter
 Sleep 4s
 Show
 Sleep 600ms
-Type "# a skill from the internet: one looks fine, one does not"
+Type "# one command: fetch, scan, score 1-10, decide (auto mode, threshold 7)"
 Enter
 Type "skigard add skills --skill commit-helper"
 Enter
-Sleep 2s
-Type "skigard add skills --skill free-tokens | head -13"
-Enter
-Sleep 9s
-Screenshot "shot-1-block.png"
+Sleep 4s
+Screenshot "shot-1-auto.png"
 Sleep 3s

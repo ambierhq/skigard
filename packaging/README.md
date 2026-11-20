@@ -23,7 +23,7 @@ binaries, `.deb/.rpm/.pkg.tar.zst`, `install.sh` and `install.ps1` are GitHub re
 
 Title: `feat(ambierhq/skigard): add ambierhq/skigard`
 
-> Adds skigard, a lockfile and review gate for agent skills (https://github.com/ambierhq/skigard).
+> Adds skigard, a safer way to manage agent skills (https://github.com/ambierhq/skigard).
 > Release archives are `skigard_<version>_<os>_<arch>.tar.gz` (`.zip` on Windows) with the binary at the archive root, built by GoReleaser
 > for darwin/linux/windows on amd64/arm64. `checksums.txt` is signed with keyless cosign (`checksums.txt.sigstore.json`), configured in `checksum.cosign`.
 > Generated with `aqua gr ambierhq/skigard` and tested with `cmdx t ambierhq/skigard` / `aqua i` on Linux, macOS and Windows (draft text: run these before submitting; not done yet).
@@ -46,7 +46,7 @@ File: `registry/skigard.toml` (content: `packaging/mise/registry-entry.toml`). R
 
 Title: `skigard: init at 0.1.1`
 
-> Lockfile and review gate for agent skills. `buildGoModule`, one Go dependency, tests run in the Go check phase, shell completions installed.
+> A safer way to manage agent skills. `buildGoModule`, one Go dependency, tests run in the Go check phase, shell completions installed.
 > Built on the platforms nixpkgs CI covers (draft text: confirm what was actually built before claiming more). License MIT.
 
 File: `pkgs/by-name/sk/skigard/package.nix` (content: `packaging/nixpkgs/package.nix`), add the maintainer to `maintainers/maintainer-list.nix` in a separate commit.

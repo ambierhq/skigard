@@ -45,7 +45,7 @@ func init() {
 	commands = []command{
 		{"init", "[--git]", "create the skigard home directory", cmdInit},
 		{"detect", "[--all]", "list agent harnesses found on this machine", cmdDetect},
-		{"add", "SOURCE [--skill N | --all]", "fetch a skill into quarantine and scan it", cmdAdd},
+		{"add", "SOURCE [--skill N | --all] [--mode strict|auto] [--threshold N] [--review] [--force-install] [--quarantine-only]", "fetch, scan, score and (per mode) install a skill; --quarantine-only stops after the scan", cmdAdd},
 		{"scan", "NAME|PATH [--format text|json|sarif]", "scan a skill", cmdScan},
 		{"review", "NAME [--harness ID | --manual]", "have an agent harness review a quarantined skill (advisory)", cmdReview},
 		{"diff", "NAME", "show quarantined changes against the approved version", cmdDiff},
@@ -55,7 +55,8 @@ func init() {
 		{"install", "NAME... | --plugin P", "install approved skills into harnesses", cmdInstall},
 		{"uninstall", "[NAME...]", "remove skills installed by skigard", cmdUninstall},
 		{"sync", "", "install every approved skill into the default harnesses", cmdSync},
-		{"verify", "", "check lock, store, installs and marketplace (CI-friendly)", cmdVerify},
+		{"config", "get [KEY] | set KEY VALUE", "read or change mode, threshold and auto_review (set of mode/threshold is human only)", cmdConfig},
+		{"verify", "[--strict] [--require-human]", "check lock, store, installs and marketplace (CI-friendly)", cmdVerify},
 		{"lock", "upgrade [NAME...]", "upgrade lock entries to hash version 2 (only if the old hash still matches)", cmdLock},
 		{"init-ci", "[--version X.Y.Z] [--action-sha SHA]", "write a GitHub workflow that runs skigard verify", cmdInitCI},
 		{"list", "", "list approved and quarantined skills", cmdList},
@@ -109,12 +110,13 @@ func Run(args []string, stdout, stderr io.Writer) int {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprintln(w, "skigard "+Version+": a review-gated, lockfile-based manager for agent skills")
+	fmt.Fprintln(w, "skigard "+Version+": a safer way to manage agent skills")
 	fmt.Fprintln(w, "\nUsage: skigard COMMAND [ARGS]\n\nCommands:")
 	for _, c := range commands {
 		fmt.Fprintf(w, "  %-12s %s\n", c.name, c.summary)
 	}
-	fmt.Fprintln(w, "\nTypical flow:  add -> scan -> review -> approve (in a real terminal) -> install")
+	fmt.Fprintln(w, "\nTypical flow:  add (fetch, scan, score, install if it clears your threshold)")
+	fmt.Fprintln(w, "Step by step:  add --quarantine-only -> review -> approve (in a real terminal) -> install")
 	fmt.Fprintln(w, "Run `skigard COMMAND -h` for a command's flags. Home: $SKIGARD_HOME or ~/.config/skigard.")
 }
 

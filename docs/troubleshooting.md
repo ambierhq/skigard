@@ -6,7 +6,17 @@ Start with `skigard doctor` (checks the environment) and `skigard status` (summa
 
 `approve` reads the terminal device only: `/dev/tty` on Linux and macOS, the console (`CONIN$`) on Windows. It fails in CI, cron, containers without
 `-it`, and when stdin is a pipe with no controlling terminal. Run it from an interactive terminal. It also refuses when it detects that it is
-running inside an agent harness it can detect (for example Claude Code); open your own terminal window. This cannot be disabled. (Detection is best effort; see [the pseudo-terminal case](threat-model.md#the-pseudo-terminal-case).)
+running inside an agent harness it can detect (for example Claude Code); open your own terminal window. This cannot be disabled. (Detection is best effort; see [the pseudo-terminal case](threat-model.md#the-pseudo-terminal-case).) The same goes for `add --force-install` and `config set mode|threshold`.
+
+## `add` left the skill in quarantine
+
+When `add` holds a skill back it exits 1 (policy), so scripts notice that nothing was installed; `--quarantine-only` exits 0. In `auto` mode the skill scored below the threshold (default 7), or hit a hard stop (scanner `block`, reviewer `fail`). In `strict` mode, or with no terminal or inside an agent, `add` never installs by itself.
+The output lists the reasons and the commands to continue: read it, `skigard review NAME` if you want a second opinion, then `skigard approve NAME` in your own terminal (with `--override --reason "..."` for a hard stop) and `skigard install NAME`.
+Inside an agent, `--mode` and `--threshold` can only be stricter than your stored setting; change the setting yourself with `skigard config set`.
+
+## `verify --require-human` fails
+
+At least one approval was written by `add` or `update` in `auto` mode, or by `--force-install`. `skigard list` shows each skill's mode. Re-approve it with `skigard approve`, or drop `--require-human`.
 
 ## A skill I trust is blocked
 
@@ -47,7 +57,7 @@ modified). A skill with executable scripts can only be upgraded on Linux or macO
 ## `add` fails to fetch
 
 - GitHub only, over HTTPS, with redirects limited to GitHub hosts. Check the ref (`github:owner/repo/path@ref`). For a private repository or a rate limit, set `GITHUB_TOKEN` (or `GH_TOKEN`), or clone it yourself and `skigard add ./path`.
-- Behind a proxy, set `HTTPS_PROXY`. Private or loopback addresses are refused after DNS resolution.
+- HTTP proxies are not used (the address check would otherwise be bypassed), so environments that require one cannot fetch from GitHub; clone the skill yourself and `skigard add ./path`. Private or loopback addresses are refused after DNS resolution.
 - A local source that contains symlinks or junctions is refused.
 
 ## Another skigard process is using the home

@@ -14,7 +14,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "skigard",
-      description: "A lockfile and review gate for agent skills. A human approves the exact bytes before anything reaches your agents.",
+      description: "A safer way to manage agent skills. skigard scans and scores each agent skill from 1 to 10, pins the exact bytes in a lockfile and installs in one command; strict mode asks a human first.",
       logo: { src: "./src/assets/mark.svg", alt: "skigard" },
       favicon: "/favicon.svg",
       social: [{ icon: "github", label: "GitHub", href: "https://github.com/ambierhq/skigard" }],
@@ -27,7 +27,7 @@ export default defineConfig({
       head: [
         { tag: "meta", attrs: { property: "og:site_name", content: "skigard by Ambier" } },
         { tag: "meta", attrs: { property: "og:image", content: `${SITE}${BASE}/og.png` } },
-        { tag: "meta", attrs: { property: "og:image:alt", content: "skigard: a lockfile and review gate for agent skills" } },
+        { tag: "meta", attrs: { property: "og:image:alt", content: "skigard: a safer way to manage agent skills" } },
         { tag: "meta", attrs: { name: "twitter:card", content: "summary_large_image" } },
         { tag: "meta", attrs: { name: "twitter:image", content: `${SITE}${BASE}/og.png` } },
         { tag: "meta", attrs: { name: "theme-color", content: "#16130E" } },

@@ -2,7 +2,7 @@
 # Rebuild every demo asset: recordings (VHS), GIF/MP4/WebM, poster and screenshots.
 # Needs: go (via mise), vhs, ttyd, ffmpeg, and Chrome/Chromium for the poster (optional: set CHROME=/path).
 # Outputs land in assets/media/. Intermediate files go to a temp dir. Never calls `approve` outside a pty:
-# scene 3 types it into VHS's pseudo-terminal, scene 4 uses scripts/pty_approve.py.
+# scene 3 types the override prompt into VHS's pseudo-terminal (a real tty); there is no bypass.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT=$PWD
@@ -45,8 +45,9 @@ ffmpeg -y -loglevel error -i "$WORK/all.mp4" \
 if [ -n "${DEMO_KEEP:-}" ]; then mkdir -p "$DEMO_KEEP"; cp "${scenes[@]}" "$DEMO_KEEP/"; fi
 
 # 3. screenshots (consistent: same theme, window chrome and size)
-cp "$WORK/shot-1-block.png"    "$OUT/screenshot-1-block.png"
-cp "$WORK/shot-2-refused.png"  "$OUT/screenshot-2-agent-refused.png"
+cp "$WORK/shot-1-auto.png"     "$OUT/screenshot-1-auto-install.png"
+cp "$WORK/shot-2-block.png"    "$OUT/screenshot-1-block.png"
+cp "$WORK/shot-3-refused.png"  "$OUT/screenshot-2-agent-refused.png"
 cp "$WORK/shot-3-approved.png" "$OUT/screenshot-3-approve.png"
 cp "$WORK/shot-4-tamper.png"   "$OUT/screenshot-4-verify-fails.png"
 

@@ -1,7 +1,7 @@
 {
   "name": "skigard",
   "version": "0.0.0-dev",
-  "description": "Lockfile and review gate for agent skills",
+  "description": "A safer way to manage agent skills",
   "license": "MIT",
   "author": "Ambier Oy <skigard@ambierhq.com>",
   "homepage": "https://github.com/ambierhq/skigard",

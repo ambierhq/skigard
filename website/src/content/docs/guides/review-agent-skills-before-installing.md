@@ -23,19 +23,20 @@ checklist, and how [skigard](/skigard/) turns it into a habit.
 ## Doing it with skigard
 
 ```sh
-skigard add github:owner/repo --skill name    # fetch into quarantine; nothing is executed
+skigard add github:owner/repo --skill name --mode strict   # fetch, scan, score, then you confirm in a terminal
+skigard add github:owner/repo --skill name --quarantine-only   # or: fetch and scan only, nothing installed
 skigard scan name                              # deterministic rules, no model involved
 skigard review name                            # optional second opinion, advisory only
 skigard approve name                           # you read the evidence and type the skill name
 ```
 
-`add` resolves the reference to a full commit and downloads it as an archive, without running git. `approve` shows the
+By default (`auto` mode) `add` installs a skill that scores 7 or more out of 10 with no hard stop, and keeps the rest in quarantine with the reasons; `--mode strict` always asks you. `add` resolves the reference to a full commit and downloads it as an archive, without running git. `approve` shows the
 scan, the review and the diff against anything you approved before, and pins the result to a content hash in
 `skigard.lock`. Later, `skigard verify` fails if anything drifts.
 
 ## What a pass does not mean
 
-The scanner is heuristic and a model review can be fooled. A pass means the enabled rules found nothing, not that the
+The scanner is heuristic and a model review can be fooled. A pass or a high score means the enabled rules found nothing, not that the
 skill is safe. Read the skill yourself, especially bundled scripts. See the [threat model](/skigard/docs/threat-model/).
 
 [Install skigard](/skigard/docs/install/) · [Getting started](/skigard/docs/getting-started/)

@@ -54,7 +54,7 @@ buildGoModule (finalAttrs: {
   passthru.updateScript = nix-update-script { };
 
   meta = {
-    description = "Lockfile and review gate for agent skills";
+    description = "A safer way to manage agent skills";
     homepage = "https://github.com/ambierhq/skigard";
     changelog = "https://github.com/ambierhq/skigard/releases/tag/v${finalAttrs.version}";
     license = lib.licenses.mit;

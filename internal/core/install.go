@@ -109,6 +109,11 @@ func (a *App) Install(o InstallOpts) ([]Installed, []string, error) {
 		return nil, nil, err
 	}
 	defer unlock()
+	return a.install(o)
+}
+
+// install is Install without taking the home lock; the caller holds it.
+func (a *App) install(o InstallOpts) ([]Installed, []string, error) {
 	lock, err := store.LoadLock(a.Home)
 	if err != nil {
 		return nil, nil, err

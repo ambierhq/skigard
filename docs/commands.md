@@ -25,7 +25,7 @@ Usage: `skigard COMMAND [ARGS]`. Flags may come before or after positional argum
 
 - [`init`](#skigard-init): create the skigard home directory
 - [`detect`](#skigard-detect): list agent harnesses found on this machine
-- [`add`](#skigard-add): fetch a skill into quarantine and scan it
+- [`add`](#skigard-add): fetch, scan, score and (per mode) install a skill; --quarantine-only stops after the scan
 - [`scan`](#skigard-scan): scan a skill
 - [`review`](#skigard-review): have an agent harness review a quarantined skill (advisory)
 - [`diff`](#skigard-diff): show quarantined changes against the approved version
@@ -35,6 +35,7 @@ Usage: `skigard COMMAND [ARGS]`. Flags may come before or after positional argum
 - [`install`](#skigard-install): install approved skills into harnesses
 - [`uninstall`](#skigard-uninstall): remove skills installed by skigard
 - [`sync`](#skigard-sync): install every approved skill into the default harnesses
+- [`config`](#skigard-config): read or change mode, threshold and auto_review (set of mode/threshold is human only)
 - [`verify`](#skigard-verify): check lock, store, installs and marketplace (CI-friendly)
 - [`lock`](#skigard-lock): upgrade lock entries to hash version 2 (only if the old hash still matches)
 - [`init-ci`](#skigard-init-ci): write a GitHub workflow that runs skigard verify
@@ -77,18 +78,29 @@ skigard detect [--all]
 
 ## skigard add
 
-Fetch a skill into quarantine and scan it.
+Fetch, scan, score and (per mode) install a skill; --quarantine-only stops after the scan.
 
 ```
-skigard add SOURCE [--skill N | --all]
+skigard add SOURCE [--skill N | --all] [--mode strict|auto] [--threshold N] [--review] [--force-install] [--quarantine-only]
 ```
 
 | Flag | Description |
 |---|---|
 | `--all` | take every skill found |
+| `--copy` | copy instead of symlink |
 | `--force` | allow replacing a name that is already approved |
+| `--force-install` | install whatever the score, recorded as forced (human terminal only, refused inside an agent) |
+| `--include-unverified` | also install to harnesses whose paths are not verified |
+| `--mode STRING` | strict or auto (default: your setting; inside an agent only a stricter one than the setting is allowed) |
 | `--name STRING` | store the skill under this name |
+| `--project STRING` | project root for --scope project (default: current directory) |
+| `--quarantine-only` | only fetch and scan; leave the skill in quarantine |
+| `--review` | run an advisory review before scoring (sends the skill to a model provider) |
+| `--review-harness STRING` | harness that runs the review (default: your saved choice) |
+| `--scope STRING` | user or project (default "user") |
 | `--skill STRING` | take one skill by name or path |
+| `--threshold INT` | minimum safety score 1..10 for auto install (default: your setting; inside an agent it cannot be lower) |
+| `--to STRING` | comma-separated harness ids (default: detected, verified harnesses) |
 
 ## skigard scan
 
@@ -208,16 +220,25 @@ skigard sync
 | `--scope STRING` | user or project (default "user") |
 | `--to STRING` | comma-separated harness ids (default: detected, verified harnesses) |
 
+## skigard config
+
+Read or change mode, threshold and auto_review (set of mode/threshold is human only).
+
+```
+skigard config get [KEY] | set KEY VALUE
+```
+
 ## skigard verify
 
 Check lock, store, installs and marketplace (CI-friendly).
 
 ```
-skigard verify
+skigard verify [--strict] [--require-human]
 ```
 
 | Flag | Description |
 |---|---|
+| `--require-human` | fail if any approval was made automatically (mode auto) or forced |
 | `--strict` | treat warnings (overrides, non-pass reviews) as failures |
 
 ## skigard lock

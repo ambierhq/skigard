@@ -201,6 +201,10 @@ type UpdateResult struct {
 	OldHash string
 	NewHash string
 	NewSHA  string
+	// Applied is set when auto mode approved the changed version; otherwise a
+	// changed skill is in quarantine. Safety is the score of the changed content.
+	Applied bool
+	Safety  scan.Safety
 }
 
 // Update re-fetches approved skills; changed ones go to quarantine for review.
@@ -223,18 +227,22 @@ func (a *App) Update(ctx context.Context, names []string) ([]UpdateResult, error
 	if err := a.Home.Init(); err != nil {
 		return nil, err
 	}
+	man, err := store.LoadManifest(a.Home)
+	if err != nil {
+		return nil, err
+	}
 	var out []UpdateResult
 	for _, n := range names {
 		ls, ok := lock.Get(n)
 		if !ok {
 			return nil, util.Errf("%q is not approved", n)
 		}
-		out = append(out, a.updateOne(ctx, ls))
+		out = append(out, a.updateOne(ctx, man, ls))
 	}
 	return out, nil
 }
 
-func (a *App) updateOne(ctx context.Context, ls *store.LockSkill) UpdateResult {
+func (a *App) updateOne(ctx context.Context, man *store.Manifest, ls *store.LockSkill) UpdateResult {
 	r := UpdateResult{Name: ls.Name, OldHash: ls.ContentHash}
 	fail := func(format string, args ...any) UpdateResult {
 		r.Note = fmt.Sprintf(format, args...)
@@ -283,6 +291,9 @@ func (a *App) updateOne(ctx context.Context, ls *store.LockSkill) UpdateResult {
 	r.Note = "changed upstream; review with: skigard diff " + ls.Name
 	if m, _ := skill.Read(a.Home.QuarantineSkill(ls.Name)); m != nil && m.Name != ls.Name {
 		r.Note += fmt.Sprintf(" (warning: the skill is now named %q)", util.Clean(m.Name))
+	}
+	if man.Settings.EffectiveMode() == store.ModeAuto {
+		a.updateAuto(ctx, man, ls, q, &r)
 	}
 	return r
 }

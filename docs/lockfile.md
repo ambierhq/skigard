@@ -35,8 +35,12 @@ hash_version = 2                # default scheme for entries that carry no hash_
     record = "reviews/archify/ee3a63eb39d7.json"
 
   [skill.approval]
-    by = "dzung"
+    by = "dzung"                 # the person for human and forced; "skigard (auto)" for mode = auto
     at = "2026-11-17T20:35:53Z"
+    mode = "human"               # human | auto | forced; absent in older locks and read as human
+    score = 9                   # safety score 1..10 at approval time (omitted when not recorded)
+    threshold = 7               # threshold in force when `add` decided (omitted for a plain `approve`)
+    score_version = "1"         # formula version that produced score
     override = true             # approved despite block / partial coverage / failing review
     reason = "read it; the credential regex is a deny-list"
     [[skill.approval.accepted]] # findings accepted with a reason (low/medium only), optionally expiring
@@ -44,6 +48,14 @@ hash_version = 2                # default scheme for entries that carry no hash_
       reason = "..."
       expires = "2027-01-01"
 ```
+
+### Approval fields
+
+- `mode`: `human` (a person confirmed on the terminal with `approve`, or in strict mode), `auto` (`add` or `update` in auto mode, no prompt) or `forced`
+  (`add --force-install`). Locks without these fields read as `human`.
+- `by`: who decided. For `human` and `forced` it is the OS user (or `--by`); for `auto` it is always `skigard (auto)`, because a machine decided, not a person. That value is reserved: a lock that uses it with another mode fails to load. Locks written before this change may carry the OS user with `mode = "auto"`; rely on `mode`, not `by`.
+- `score`, `threshold`, `score_version`: the safety score (1..10, 10 = no concern), the threshold in force, and the version of the formula. `approve` records the score and `score_version` but no threshold; `add` (auto, forced, or confirmed in strict mode) records all three. A formula change bumps `score_version`, like the rules version.
+- All four are additive and `omitempty`; the lock `version` stays 1. `skigard verify --require-human` fails if any approval is `auto` or `forced`. `list`, `show` and `status` display mode and score.
 
 `reviews/<name>/<hash12>.json` holds the evidence for each approval: the full scan report, the review record and the
 approval.
@@ -54,7 +66,7 @@ approval.
 |---|---|---|
 | `install`, `sync` | which skills are approved | recomputes `content_hash` (and, on Unix, the exec set) of `skills/<name>` and refuses on mismatch |
 | `verify` | everything | lock vs `skills/` vs install records vs marketplace; unapproved directories in `skills/` are errors |
-| `update` | source, ref, subpath | re-fetches; unchanged content and exec set is "up to date", a change goes to quarantine |
+| `update` | source, ref, subpath, approval score | re-fetches; unchanged content and exec set is "up to date". A change goes to quarantine, except in `auto` mode when it scores at or above the threshold with no hard stop and not lower than the approved score: then it is approved and installed |
 | `lock upgrade` | hash versions | upgrades version 1 entries to version 2, only where the version 1 hash still matches |
 
 ## Content hash and exec set

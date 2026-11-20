@@ -1,4 +1,4 @@
-// Command skigard is a review-gated, lockfile-based manager for agent skills.
+// Command skigard is a safer way to manage agent skills.
 package main
 
 import (

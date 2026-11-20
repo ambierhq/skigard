@@ -9,7 +9,7 @@ npm ci --ignore-scripts
 npm run build        # sync docs, astro build, output to deploy/skigard/
 npm run check:links
 npm run lhci         # Lighthouse CI, all categories >= 0.95 (needs Chrome)
-npx wrangler deploy  # needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID; CI does this on main
+npx wrangler deploy  # needs CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID; the live site is deployed by Cloudflare Workers Builds on main
 ```
 
 - Docs pages come from `../docs/*.md`, the harness grid from `../internal/harness/registry.toml`, the logo, favicons and social card from

@@ -1,11 +1,11 @@
 # Concepts
 
-skigard is a pipeline with one rule: **skills installed through skigard are scanned, shown to a human and pinned to the exact bytes they approved.** It is a gate for that install path, not a sandbox for your account: see [what it does not protect against](threat-model.md#what-skigard-does-not-do).
+skigard is a safer way to manage agent skills: it recommends and pins, it does not prove safety. A pipeline fetches, scans and scores a skill, then either installs it (it cleared the threshold you chose), keeps it in quarantine, or asks you. Whatever installs is pinned to **those exact bytes**, and the lock records how it was approved. It is a gate for the install path, not a sandbox for your account: see [what it does not protect against](threat-model.md#what-skigard-does-not-do).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/diagrams/pipeline-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="../assets/diagrams/pipeline-light.svg">
-  <img alt="skigard pipeline: add to quarantine, scan, agent review, human approve in a real terminal, skigard.lock, install; update loops back to quarantine and verify checks drift from the lock" src="../assets/diagrams/pipeline-dark.svg" width="880">
+  <img alt="skigard pipeline: add to quarantine, scan, agent review, safety score, auto-install above the threshold or human approve in a real terminal, skigard.lock, install; update loops back to quarantine and verify checks drift from the lock" src="../assets/diagrams/pipeline-dark.svg" width="880">
 </picture>
 
 Who does what, and where an agent it can detect is refused:
@@ -17,18 +17,17 @@ sequenceDiagram
   participant Agent
   participant Skigard as skigard
   participant Harness as Harness
-  Human->>Skigard: add owner/repo
-  Skigard->>Skigard: fetch to quarantine, scan
-  Human->>Skigard: review (optional)
-  Skigard-->>Human: findings, advisory verdict
-  Agent->>Skigard: approve
+  Human->>Skigard: add owner/repo (auto, threshold 7)
+  Skigard->>Skigard: fetch to quarantine, scan, score
+  Skigard->>Skigard: score >= threshold, no hard stop: write skigard.lock (mode auto)
+  Skigard->>Harness: link approved files
+  Agent->>Skigard: add --force-install / approve / config set threshold
   Skigard--xAgent: refused (detected agent, no terminal, no --yes)
+  Skigard-->>Human: below threshold: stays in quarantine, warning
   Human->>Skigard: approve (types at /dev/tty)
-  Skigard->>Skigard: write skigard.lock (commit + hash)
-  Human->>Skigard: install
-  Skigard->>Harness: copy approved files
+  Skigard->>Skigard: write skigard.lock (commit + hash, mode human)
   Harness-->>Agent: skill available
-  Note over Human,Harness: verify recomputes hashes, fails on drift
+  Note over Human,Harness: verify recomputes hashes, fails on drift; --require-human fails on auto or forced
 ```
 
 ## Skill
@@ -39,7 +38,7 @@ may run its scripts with your permissions. That is why a skill is code, not just
 
 ## Quarantine
 
-`skigard add` fetches into `quarantine/`, a directory with mode 0700 that is never read by an agent. GitHub sources are resolved to a full
+`skigard add` always fetches into `quarantine/` first (it is the staging area for every path, even when `add` goes on to install), a directory with mode 0700 that is never read by an agent. GitHub sources are resolved to a full
 commit SHA and downloaded as an archive (skigard never invokes `git` on skill content; only `skigard init --git` runs `git init` in your home). Extraction goes through `os.Root`, rejects links, devices, path tricks,
 case-folding collisions and zip bombs, and only writes regular files. Nothing in quarantine is ever executed.
 
@@ -55,23 +54,42 @@ Optional and advisory. A harness you already have (Pi, Oh My Pi, Claude Code) is
 with a scrubbed environment and, on macOS and Linux, inside an OS sandbox. It reads the skill from stdin and writes a verdict. The verdict
 can only raise concern; it never lowers a scanner finding. Details: [review](review.md).
 
+## Score, mode and threshold
+
+The **safety score** is 1 to 10, **10 = no concern**, and is always shown with its reasons. It starts from the scanner's risk score
+(`10 - ceil(risk / 12)`, clamped to 1..10), then applies caps: scanner verdict `block` at most 3, incomplete coverage at most 6, reviewer `fail` at most 3,
+reviewer `concerns` minus 2. A review can only lower it. The tier is `ok` (at or above the threshold), `caution` or `blocked`. The formula is versioned
+(`score_version` in the lock).
+
+**Hard stops** are a scanner `block` and a reviewer `fail`. They are never auto-installed, whatever the threshold; only `--force-install` or a human `approve --override` passes them.
+
+The **mode** decides who acts on the score:
+
+- `strict`: a human confirms on `/dev/tty` every time. Without a terminal, or inside an agent, the skill stays in quarantine.
+- `auto` (default, threshold 7): `score >= threshold` with no hard stop is approved and installed with no prompt; otherwise it stays in quarantine with a warning.
+- `--force-install` (any mode): installs regardless, recorded as `mode = "forced"`, human terminal only.
+
+Settings live in `skigard.toml` and are managed with `skigard config get|set mode|threshold|auto_review`. `set` of `mode` and `threshold` needs a human terminal.
+`auto_review` (default off) runs a review during `add`, which sends the skill to a model provider.
+
 ## Approve
 
-The only step that needs a person. `skigard approve NAME` reads your confirmation from the terminal device (`/dev/tty`, or `CONIN$` on
+`skigard approve NAME` is the human path, and the only one in `strict` mode. It reads your confirmation from the terminal device (`/dev/tty`, or `CONIN$` on
 Windows), never from stdin, and refuses when it detects it is inside an agent harness. A process that creates its own pseudo-terminal can still type the answer, so the gate stops accidents and ordinary prompt injection, not a determined agent. Signed approvals (a key in your OS keychain or a passkey) are planned. See [the pseudo-terminal case](threat-model.md#the-pseudo-terminal-case). You see the scan, the review and a diff against the previously
-approved version, and type the name. The decision is bound to a **content hash**, recorded with who approved it and when.
+approved version, and type the name. The decision is bound to a **content hash**, recorded with who approved it and when (`mode = "human"`). In `auto` mode the same record is written by the auto path, with `mode = "auto"`, the score and the threshold.
 
 ## Lockfile and content hash
 
 `skigard.lock` is TOML, sorted, and meant to be committed. Each entry records the source, commit, content hash (SHA-256 over every file's
 path, length and bytes, identical on every OS, "hash v2"), an **exec set** (which files had an execute bit, with its own digest), the scan
-and review results, and the approval. `install`, `sync` and `verify` recompute the hash and refuse on any mismatch. Locks written by earlier
+and review results, the score, and the approval (including its mode: `human`, `auto` or `forced`). `install`, `sync` and `verify` recompute the hash and refuse on any mismatch. Locks written by earlier
 releases keep verifying; `skigard lock upgrade` moves them to v2, only where the old hash still matches. Format: [lockfile](lockfile.md).
 
 ## Update
 
-`skigard update` re-fetches approved skills. Unchanged content is "up to date". Anything that changed goes back to quarantine with a diff and
-has to go through scan, review and approval again. An update never installs by itself.
+`skigard update` re-fetches approved skills. Unchanged content is "up to date". In `strict` mode anything that changed goes back to quarantine with a diff and
+needs approval again. In `auto` mode a change is approved and installed only if it scores at or above the threshold, has no hard stop, and does not score lower than the previously approved version;
+otherwise it goes back to quarantine with a warning and the diff. The output says which happened.
 
 ## Harness
 

@@ -70,7 +70,7 @@ nfpms:
     vendor: Ambier Oy
     maintainer: Ambier Oy <skigard@ambierhq.com>
     homepage: https://github.com/ambierhq/skigard
-    description: Lockfile and review gate for agent skills
+    description: A safer way to manage agent skills
     license: MIT
     formats: [deb, rpm, apk, archlinux]
     bindir: /usr/bin
@@ -92,7 +92,7 @@ scoops:
   - name: skigard
     ids: [skigard]
     homepage: https://github.com/ambierhq/skigard
-    description: Lockfile and review gate for agent skills
+    description: A safer way to manage agent skills
     license: MIT
     skip_upload: '{{ if index .Env "SCOOP_BUCKET_TOKEN" }}false{{ else }}true{{ end }}'
     repository:

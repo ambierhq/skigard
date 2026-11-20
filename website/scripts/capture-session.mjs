@@ -46,8 +46,17 @@ const add = (text, keep = () => true) => {
 };
 
 const skigard = (args) => run(bin, args);
-push("$ skigard add ./examples/hello-skill", "cmd");
-add(skigard(["add", "./examples/hello-skill"]), (l) => !/^(next:|\s+skigard )/.test(l));
+// `add` installs by default in auto mode; the landing page shows the strict path, where it stops and waits for a human
+// (exit 1, the skill stays in quarantine).
+push("$ skigard add ./examples/hello-skill --mode strict", "cmd");
+let addOut;
+try {
+  addOut = skigard(["add", "./examples/hello-skill", "--mode", "strict"]);
+} catch (e) {
+  if (e.status !== 1) throw e;
+  addOut = e.stdout;
+}
+add(addOut, (l) => !/^(next:|\s+skigard )/.test(l));
 
 push("$ skigard approve hello-skill", "cmd");
 const approve = execFileSync("python3", [path.join(repo, "scripts/pty_approve.py"), bin, env.SKIGARD_HOME, "hello-skill", "hello-skill"], { cwd: repo, env, encoding: "utf8" });

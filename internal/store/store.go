@@ -5,6 +5,7 @@ package store
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -140,6 +141,59 @@ type Settings struct {
 	MarketplaceName string   `toml:"marketplace_name,omitempty"`
 	Description     string   `toml:"description,omitempty"`
 	RequireReview   bool     `toml:"require_review,omitempty"`
+	// Mode is "strict" (a human confirms every add) or "auto" (skills that clear
+	// Threshold install without a prompt). Empty means DefaultMode.
+	Mode string `toml:"mode,omitempty"`
+	// Threshold is the minimum safety score (1..10) for auto install. 0 means DefaultThreshold.
+	Threshold int `toml:"threshold,omitempty"`
+	// AutoReview runs the advisory reviewer during add. Off by default: review sends the skill to a model provider.
+	AutoReview bool `toml:"auto_review,omitempty"`
+}
+
+// Modes and defaults for Settings.
+const (
+	ModeStrict       = "strict"
+	ModeAuto         = "auto"
+	DefaultMode      = ModeAuto
+	DefaultThreshold = scan.DefaultThreshold
+)
+
+// Approval modes recorded in the lock.
+const (
+	ApprovalHuman  = "human"
+	ApprovalAuto   = "auto"
+	ApprovalForced = "forced"
+)
+
+// AutoApprover is the `by` recorded for a machine decision (mode "auto"), so the
+// lock never names a person who did not decide. No other mode may use it.
+const AutoApprover = "skigard (auto)"
+
+// EffectiveMode is Mode, or DefaultMode when unset.
+func (s Settings) EffectiveMode() string {
+	if s.Mode == "" {
+		return DefaultMode
+	}
+	return s.Mode
+}
+
+// EffectiveThreshold is Threshold, or DefaultThreshold when unset.
+func (s Settings) EffectiveThreshold() int {
+	if s.Threshold == 0 {
+		return DefaultThreshold
+	}
+	return s.Threshold
+}
+
+// Validate checks mode and threshold.
+func (s Settings) Validate() error {
+	if s.Mode != "" && s.Mode != ModeStrict && s.Mode != ModeAuto {
+		return fmt.Errorf("settings.mode must be %q or %q, got %q", ModeStrict, ModeAuto, util.Clean(s.Mode))
+	}
+	if s.Threshold != 0 && (s.Threshold < 1 || s.Threshold > 10) {
+		return fmt.Errorf("settings.threshold must be 1..10, got %d", s.Threshold)
+	}
+	return nil
 }
 
 // Plugin is a named group of approved skills.
@@ -167,6 +221,9 @@ func LoadManifest(h Home) (*Manifest, error) {
 		return nil, err
 	}
 	if err := toml.Unmarshal(data, m); err != nil {
+		return nil, util.Errf("%s: %v", h.ManifestPath(), err)
+	}
+	if err := m.Settings.Validate(); err != nil {
 		return nil, util.Errf("%s: %v", h.ManifestPath(), err)
 	}
 	for pn, p := range m.Plugins {
@@ -220,6 +277,19 @@ type ApprovalRec struct {
 	Reason   string          `toml:"reason,omitempty"`
 	Migrated string          `toml:"migrated_from,omitempty"`
 	Accepted []scan.Accepted `toml:"accepted,omitempty"`
+	// Mode is human, auto or forced. Empty (older locks) reads as human.
+	Mode         string `toml:"mode,omitempty"`
+	Score        int    `toml:"score,omitempty"`
+	Threshold    int    `toml:"threshold,omitempty"`
+	ScoreVersion string `toml:"score_version,omitempty"`
+}
+
+// EffectiveMode is Mode, or human for records written before modes existed.
+func (r ApprovalRec) EffectiveMode() string {
+	if r.Mode == "" {
+		return ApprovalHuman
+	}
+	return r.Mode
 }
 
 // LockSkill is one approved skill.
@@ -304,6 +374,17 @@ func LoadLock(h Home) (*Lock, error) {
 // normalize resolves the entry's hash version and checks that the exec set and
 // its digest agree. It is a consistency check on the file, not a trust root.
 func (s *LockSkill) normalize(def int) error {
+	switch s.Approval.Mode {
+	case "", ApprovalHuman, ApprovalAuto, ApprovalForced:
+	default:
+		return util.Errf("unknown approval mode %q", util.Clean(s.Approval.Mode))
+	}
+	if s.Approval.By == AutoApprover && s.Approval.Mode != ApprovalAuto {
+		return util.Errf("approval by %q is only valid with mode %q", AutoApprover, ApprovalAuto)
+	}
+	if s.Approval.Score < 0 || s.Approval.Score > 10 || s.Approval.Threshold < 0 || s.Approval.Threshold > 10 {
+		return util.Errf("approval score/threshold out of range")
+	}
 	if s.HashVersion == 0 {
 		s.HashVersion = def
 		if def == 0 {
