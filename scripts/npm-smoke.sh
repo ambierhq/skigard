@@ -26,7 +26,7 @@ code=0; SKIGARD_HOME="$W/h" npx --no-install skigard scan nope >/dev/null 2>&1 |
 export SKIGARD_HOME="$W/home" HOME="$W/user"; mkdir -p "$HOME" "$W/src/good"
 printf -- '---\nname: good\ndescription: formats text\n---\n# good\nprose only\n' > "$W/src/good/SKILL.md"
 shim="$W/proj/node_modules/.bin/skigard"
-"$shim" init >/dev/null; "$shim" add "$W/src" --all >/dev/null
+"$shim" init >/dev/null; "$shim" add "$W/src" --all --quarantine-only >/dev/null
 cd - >/dev/null
 res=$(python3 scripts/pty_approve.py "$shim" "$SKIGARD_HOME" good nope); [ "$(echo "$res" | head -1)" = 3 ] || fail "wrong answer: $res"
 res=$(python3 scripts/pty_approve.py "$shim" "$SKIGARD_HOME" good good); [ "$(echo "$res" | head -1)" = 0 ] || fail "right answer: $res"

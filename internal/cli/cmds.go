@@ -102,6 +102,18 @@ func cmdAdd(c *ctx, args []string) error {
 	all := fs.Bool("all", false, "take every skill found")
 	name := fs.String("name", "", "store the skill under this name")
 	force := fs.Bool("force", false, "allow replacing a name that is already approved")
+	mode := fs.String("mode", "", "strict or auto (default: your setting; inside an agent only a stricter one than the setting is allowed)")
+	threshold := fs.Int("threshold", 0, "minimum safety score 1..10 for auto install (default: your setting; inside an agent it cannot be lower)")
+	rev := fs.Bool("review", false, "run an advisory review before scoring (sends the skill to a model provider)")
+	revHarness := fs.String("review-harness", "", "harness that runs the review (default: your saved choice)")
+	forceInstall := fs.Bool("force-install", false, "install whatever the score, recorded as forced (human terminal only, refused inside an agent)")
+	quarOnly := fs.Bool("quarantine-only", false, "only fetch and scan; leave the skill in quarantine")
+	var io core.InstallOpts
+	to := fs.String("to", "", "comma-separated harness ids (default: detected, verified harnesses)")
+	fs.StringVar(&io.Scope, "scope", "user", "user or project")
+	fs.StringVar(&io.Project, "project", "", "project root for --scope project (default: current directory)")
+	fs.BoolVar(&io.Copy, "copy", false, "copy instead of symlink")
+	fs.BoolVar(&io.IncludeUnverified, "include-unverified", false, "also install to harnesses whose paths are not verified")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
@@ -109,13 +121,35 @@ func cmdAdd(c *ctx, args []string) error {
 	if err := needArgs(pos, 1, "add SOURCE [--skill N | --all]"); err != nil {
 		return err
 	}
+	if *quarOnly && *forceInstall {
+		return util.Errf("--quarantine-only and --force-install contradict each other")
+	}
 	if err := c.open(); err != nil {
 		return err
 	}
-	qs, err := c.app.Add(c.ctx, pos[0], core.AddOpts{Skill: *skillName, All: *all, Name: *name, Force: *force})
+	ao := core.AddOpts{Skill: *skillName, All: *all, Name: *name, Force: *force}
+	if *quarOnly {
+		qs, err := c.app.Add(c.ctx, pos[0], ao)
+		if err != nil {
+			return err
+		}
+		return printQuarantined(c, qs)
+	}
+	io.To = split(*to)
+	ocs, err := c.app.AddAndInstall(c.ctx, pos[0], core.AddInstallOpts{
+		Add: ao, Mode: *mode, Threshold: *threshold, Review: *rev, ReviewOpts: core.ReviewOpts{Harness: *revHarness},
+		ForceInstall: *forceInstall, Install: io, Confirm: ttyConfirm,
+	})
+	if perr := printOutcomes(c, ocs); perr != nil {
+		return perr
+	}
 	if err != nil {
 		return err
 	}
+	return outcomeStatus(ocs)
+}
+
+func printQuarantined(c *ctx, qs []*core.Quarantined) error {
 	if c.json {
 		var out []map[string]any
 		for _, q := range qs {
@@ -132,6 +166,149 @@ func cmdAdd(c *ctx, args []string) error {
 		c.printf("\nnext: skigard review %s   (optional)\n      skigard approve %s  (in a real terminal)\n\n", q.Name, q.Name)
 	}
 	return nil
+}
+
+// outcomeStatus turns "nothing was installed" into a non-zero exit, so scripts
+// and agents can tell a held-back skill from an installed one.
+func outcomeStatus(ocs []core.AddOutcome) error {
+	held := 0
+	for _, o := range ocs {
+		switch o.Decision {
+		case core.DecisionInstalled, core.DecisionForced:
+		default:
+			held++
+			if o.Err != nil && util.CodeOf(o.Err) == util.ExitCancelled {
+				return o.Err
+			}
+		}
+	}
+	if held > 0 {
+		return util.Policyf("%d skill(s) left in quarantine, not installed", held)
+	}
+	return nil
+}
+
+func printOutcomes(c *ctx, ocs []core.AddOutcome) error {
+	if c.json {
+		out := []map[string]any{}
+		for _, o := range ocs {
+			m := map[string]any{
+				"name": o.Name, "content_hash": o.Hash, "mode": o.Mode, "decision": o.Decision,
+				"score": o.Safety, "reasons": o.Reasons, "scan": o.Report, "installed": o.Installed, "notes": o.Notes,
+			}
+			if o.Review != nil {
+				m["review"] = o.Review
+			}
+			if o.Err != nil {
+				m["error"] = util.Clean(o.Err.Error())
+			}
+			out = append(out, m)
+		}
+		return c.printJSON(out)
+	}
+	for _, o := range ocs {
+		if o.Decision == core.DecisionFailed {
+			c.printf("%q was not installed; it stopped before a decision was made\n\n", o.Name)
+			continue
+		}
+		scan.WriteText(c.out, o.Report)
+		if o.Review != nil {
+			c.printf("review: %s (advisory)\n", strings.ToUpper(o.Review.Verdict))
+		}
+		c.printf("\nsafety score: %d/10 (%s; threshold %d; mode %s)\n", o.Score, o.Tier, o.Safety.Threshold, o.Mode)
+		for _, r := range o.Reasons {
+			c.printf("  - %s\n", util.Clean(r))
+		}
+		switch o.Decision {
+		case core.DecisionInstalled, core.DecisionForced:
+			word := "approved and installed"
+			if o.Decision == core.DecisionForced {
+				word = "FORCED install (recorded in the lock as mode = forced)"
+			} else if o.Mode == store.ModeAuto {
+				word = "approved automatically and installed (recorded in the lock as mode = auto, by " + store.AutoApprover + ")"
+			}
+			c.printf("%s %q\n", word, o.Name)
+			for _, g := range o.Installed {
+				c.printf("installed %s -> %s (%s; %s)\n", g.Name, g.Path, g.Mode, strings.Join(g.Harnesses, ", "))
+			}
+		case core.DecisionWarned:
+			c.printf("WARNING: %q was NOT installed; it is still in quarantine.\n", o.Name)
+			c.printf("next: skigard diff %s\n      skigard review %s   (optional)\n      skigard approve %s  (in a real terminal)\n      skigard install %s\n      or: skigard add ... --force-install (human terminal only)\n", o.Name, o.Name, o.Name, o.Name)
+		case core.DecisionNeedsApproval:
+			c.printf("%q is in quarantine and waiting for a human.\n", o.Name)
+			if o.Err != nil {
+				c.printf("  (%s)\n", util.Clean(o.Err.Error()))
+			}
+			c.printf("next: skigard review %s   (optional)\n      skigard approve %s  (in a real terminal)\n      skigard install %s\n", o.Name, o.Name, o.Name)
+		default:
+			c.printf("%q was approved but installing failed: %s\n", o.Name, util.Clean(errText(o.Err)))
+		}
+		for _, n := range o.Notes {
+			c.printf("note: %s\n", n)
+		}
+		c.printf("\n")
+	}
+	return nil
+}
+
+// errText is the text of err, or "unknown error" when it is nil.
+func errText(err error) string {
+	if err == nil {
+		return "unknown error"
+	}
+	return err.Error()
+}
+
+func cmdConfig(c *ctx, args []string) error {
+	fs := c.flags("config")
+	pos, err := parse(fs, args)
+	if err != nil {
+		return err
+	}
+	usage := "config get [KEY] | config set KEY VALUE   (keys: " + strings.Join(core.ConfigKeys, ", ") + ")"
+	if len(pos) == 0 {
+		return util.Errf("usage: skigard %s", usage)
+	}
+	if err := c.open(); err != nil {
+		return err
+	}
+	switch pos[0] {
+	case "get":
+		keys := core.ConfigKeys
+		if len(pos) > 1 {
+			keys = pos[1:2]
+		}
+		vals := map[string]string{}
+		for _, k := range keys {
+			v, err := c.app.ConfigGet(k)
+			if err != nil {
+				return err
+			}
+			vals[k] = v
+		}
+		if c.json {
+			return c.printJSON(vals)
+		}
+		for _, k := range keys {
+			if len(pos) > 1 {
+				c.printf("%s\n", vals[k])
+			} else {
+				c.printf("%s = %s\n", k, vals[k])
+			}
+		}
+		return nil
+	case "set":
+		if len(pos) != 3 {
+			return util.Errf("usage: skigard config set KEY VALUE")
+		}
+		old, err := c.app.ConfigSet(pos[1], pos[2], ttyConfirm)
+		if err != nil {
+			return err
+		}
+		c.printf("%s: %s -> %s\n", pos[1], old, pos[2])
+		return nil
+	}
+	return util.Errf("usage: skigard %s", usage)
 }
 
 func cmdScan(c *ctx, args []string) error {
@@ -436,7 +613,14 @@ func cmdUpdate(c *ctx, args []string) error {
 		if r.Changed && r.Report != nil {
 			c.printf("  new commit: %s\n", r.NewSHA)
 			scan.WriteText(c.out, r.Report)
-			c.printf("  next: skigard diff %s; skigard review %s; skigard approve %s\n", r.Name, r.Name, r.Name)
+			if r.Safety.Score > 0 {
+				c.printf("  safety score: %d/10 (%s; threshold %d)\n", r.Safety.Score, r.Safety.Tier, r.Safety.Threshold)
+			}
+			if r.Applied {
+				c.printf("  approved automatically (recorded in the lock as mode = auto)\n")
+				continue
+			}
+			c.printf("  left in quarantine. next: skigard diff %s; skigard review %s; skigard approve %s\n", r.Name, r.Name, r.Name)
 		}
 	}
 	return nil
@@ -533,6 +717,7 @@ func cmdUninstall(c *ctx, args []string) error {
 func cmdVerify(c *ctx, args []string) error {
 	fs := c.flags("verify")
 	strict := fs.Bool("strict", false, "treat warnings (overrides, non-pass reviews) as failures")
+	requireHuman := fs.Bool("require-human", false, "fail if any approval was made automatically (mode auto) or forced")
 	if _, err := parse(fs, args); err != nil {
 		return err
 	}
@@ -542,6 +727,17 @@ func cmdVerify(c *ctx, args []string) error {
 	ps, err := c.app.Verify()
 	if err != nil {
 		return err
+	}
+	if *requireHuman {
+		lock, err := store.LoadLock(c.app.Home)
+		if err != nil {
+			return err
+		}
+		for _, sk := range lock.Skills {
+			if m := sk.Approval.EffectiveMode(); m != store.ApprovalHuman {
+				ps = append(ps, core.Problem{Level: "error", Msg: fmt.Sprintf("%s: approved with mode %s, not by a human (--require-human)", sk.Name, m)})
+			}
+		}
 	}
 	bad := core.HasErrors(ps)
 	if *strict {
@@ -595,7 +791,7 @@ func cmdList(c *ctx, args []string) error {
 		return nil
 	}
 	w := tabwriter.NewWriter(c.out, 0, 2, 2, ' ', 0)
-	fmt.Fprintln(w, "NAME\tSTATE\tSCAN\tREVIEW\tHASH\tSOURCE")
+	fmt.Fprintln(w, "NAME\tSTATE\tMODE\tSCORE\tSCAN\tREVIEW\tHASH\tSOURCE")
 	for _, e := range es {
 		flags := ""
 		if e.Override {
@@ -604,7 +800,11 @@ func cmdList(c *ctx, args []string) error {
 		if e.Drift {
 			flags += " [DRIFT]"
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s%s\n", e.Name, e.State, dash(e.Scan), dash(e.Review), hash.Short(e.Hash, 8), util.Clean(e.Source), flags)
+		score := "-"
+		if e.Score > 0 {
+			score = fmt.Sprintf("%d/10", e.Score)
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s%s\n", e.Name, e.State, dash(e.Mode), score, dash(e.Scan), dash(e.Review), hash.Short(e.Hash, 8), util.Clean(e.Source), flags)
 	}
 	return w.Flush()
 }
@@ -653,9 +853,11 @@ func cmdStatus(c *ctx, args []string) error {
 		return err
 	}
 	var appr, quar, over int
+	modes := map[string]int{}
 	for _, e := range es {
 		if e.State == "approved" {
 			appr++
+			modes[e.Mode]++
 			if e.Override {
 				over++
 			}
@@ -670,9 +872,13 @@ func cmdStatus(c *ctx, args []string) error {
 		}
 	}
 	if c.json {
-		return c.printJSON(map[string]any{"home": c.app.Home.Root, "approved": appr, "quarantined": quar, "overrides": over, "errors": errs, "problems": ps})
+		return c.printJSON(map[string]any{"home": c.app.Home.Root, "approved": appr, "quarantined": quar, "overrides": over, "approved_by": modes, "errors": errs, "problems": ps})
 	}
-	c.printf("home:        %s\napproved:    %d (%d with override)\nquarantined: %d\nproblems:    %d error(s)\n", c.app.Home.Root, appr, over, quar, errs)
+	c.printf("home:        %s\napproved:    %d (%d with override)\n", c.app.Home.Root, appr, over)
+	if appr > 0 {
+		c.printf("  by mode:   %d human, %d auto, %d forced\n", modes[store.ApprovalHuman], modes[store.ApprovalAuto], modes[store.ApprovalForced])
+	}
+	c.printf("quarantined: %d\nproblems:    %d error(s)\n", quar, errs)
 	for _, p := range ps {
 		if p.Level != "info" {
 			c.printf("  %-5s %s\n", p.Level, util.Clean(p.Msg))

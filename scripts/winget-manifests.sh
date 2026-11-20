@@ -76,7 +76,7 @@ PackageName: skigard
 PackageUrl: https://github.com/ambierhq/skigard
 License: MIT
 LicenseUrl: https://github.com/ambierhq/skigard/blob/main/LICENSE
-ShortDescription: Lockfile and review gate for agent skills
+ShortDescription: A safer way to manage agent skills
 Moniker: skigard
 ManifestType: defaultLocale
 ManifestVersion: 1.28.0

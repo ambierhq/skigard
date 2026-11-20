@@ -2,5 +2,5 @@
 # one file per tool; re-read CONTRIBUTING.md at submission time, the schema has changed before).
 # `mise use -g skigard` then resolves aqua first and falls back to the github backend.
 backends = ["aqua:ambierhq/skigard", "github:ambierhq/skigard"]
-description = "Lockfile and review gate for agent skills"
+description = "A safer way to manage agent skills"
 test = { cmd = "skigard version", expected = "skigard {{version}}" }

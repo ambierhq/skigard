@@ -6,7 +6,7 @@ Two jobs fit CI, and neither needs an agent or a terminal:
   It catches a skill that changed without a re-approval, an unapproved directory that appeared, or a lock edited by hand.
 - **`skigard scan`** checks a skill you are *writing* (or reviewing in a PR) and can emit SARIF.
 
-`approve` is not meant to run in CI. It reads a terminal, has no `--yes`, no stdin path and no environment variable, and refuses inside agent harnesses it can detect. That is the point.
+`approve` cannot run in CI. It reads a terminal, has no `--yes`, no stdin path and no environment variable, and refuses inside agent harnesses it can detect. That is the point. (`skigard add` in `auto` mode can install skills that clear the threshold, without a prompt, so do not rely on `add` in CI; commit the lock and `verify` it.)
 
 ## Verify a repository's pinned skills
 
@@ -34,6 +34,12 @@ A copy lives in [`examples/verify-workflow.yml`](../examples/verify-workflow.yml
 a CI run cannot change behaviour under you; never pipe the installer from `main`.
 
 `--strict` also fails on warnings, such as an approval that used `--override` or a review that did not pass. Without it, only errors fail.
+If you want the guarantee that a person confirmed every skill, add `--require-human`: it fails if any approval in the lock has `mode = "auto"` or `"forced"`.
+
+```sh
+skigard verify --strict --require-human
+```
+
 Exit codes: `0` ok, `1` drift or policy failure, `2` usage or error ([reference](commands.md#exit-codes)). Use `--json` for machine-readable results:
 
 ```sh

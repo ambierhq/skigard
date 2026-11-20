@@ -1,7 +1,8 @@
 # Agent review
 
 `skigard review NAME` asks an agent harness you already have to read a quarantined skill and say what it thinks.
-It is a second opinion for the human who approves. It is never the decision.
+It is a second opinion for the human who approves, and an input to the safety score. It is never the decision on its own: it can only lower the score, never raise it.
+It never runs unless you ask: `skigard review NAME`, `skigard add --review`, or `skigard config set auto_review true` (default off), because it sends the skill to a model provider.
 
 ## Choosing the reviewer
 
@@ -79,7 +80,7 @@ The reviewer must return one JSON object. skigard:
    claim that the description does not match the behaviour becomes "concerns". Partial coverage becomes "concerns".
 3. Stores the record next to the quarantined skill, tagged with the content hash it saw. If the skill changes, the
    review is ignored.
-4. Shows it in the approval screen. A reviewer verdict of `fail` requires `approve --override --reason`, the same as
+4. Feeds the safety score: `concerns` takes 2 points off, `fail` caps the score at 3 and is a **hard stop** (never auto-installed). Shows it in the approval screen. A reviewer verdict of `fail` requires `approve --override --reason`, the same as
    a scanner `block`. Set `require_review = true` in `skigard.toml` to refuse approvals with no review at all.
 
 ## Limits

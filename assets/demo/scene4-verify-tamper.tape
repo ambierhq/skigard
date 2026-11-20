@@ -5,7 +5,7 @@ Enter
 Sleep 4s
 Show
 Sleep 600ms
-Type "# approved and pinned. now someone edits the installed skill"
+Type "# installed and pinned. now someone edits the installed skill"
 Enter
 Type "skigard verify"
 Enter

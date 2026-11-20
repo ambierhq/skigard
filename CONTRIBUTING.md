@@ -23,7 +23,7 @@ mise run snapshot  # optional: GoReleaser snapshot build into ./dist (archives, 
 ## Demo media
 
 `mise run demo` (or `scripts/demo.sh`) rebuilds everything in `assets/media/` from the real binary: four VHS scenes
-in `assets/demo/`, a GIF for the README, MP4/WebM for the site, a poster and four screenshots. Install the tools with
+in `assets/demo/`, a GIF for the README, MP4/WebM for the site, a poster and five screenshots. Install the tools with
 `brew install vhs ttyd ffmpeg` (or the Linux equivalents). Details, the Windows clip and the video script are in
 [`assets/demo/README.md`](assets/demo/README.md). The mark used by the poster lives in `assets/brand/`.
 

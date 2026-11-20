@@ -4,3 +4,4 @@
 *.prof
 .DS_Store
 /completions/
+/.archify/

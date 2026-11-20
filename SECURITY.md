@@ -13,6 +13,7 @@ OS, and a minimal skill or archive that reproduces the problem.
 Bypasses of the guarantees in the [threat model](docs/threat-model.md), for example:
 
 - approving without going through the terminal device (a flag, stdin, an environment variable, a code path other than a pseudo-terminal), or getting unreviewed bytes installed;
+- an agent forcing an install, lowering the `mode`/`threshold`, or auto-installing a skill below the threshold or with a hard stop (scanner `block`, reviewer `fail`) through `add` or `update`;
 - bugs in content-hash, exec-set or lockfile verification (`verify`, `install`, `sync` accepting bytes that were not approved);
 - extraction or path escapes: writing outside the skigard home or a harness directory, symlink or archive tricks;
 - escapes from the review runner (tools, network, files or environment reachable by the reviewer despite the sandbox);

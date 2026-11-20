@@ -1,6 +1,6 @@
 # Getting started
 
-This takes about a minute and ends with a skill pinned in your lockfile and installed into your agents.
+This takes about a minute and ends with a skill pinned in your lockfile and installed into your agents. One command does the work; the steps after it are for when a skill is held back, or when you want to go step by step.
 
 1. **Install skigard.** See [install](install/README.md). The quickest route:
 
@@ -20,12 +20,16 @@ This takes about a minute and ends with a skill pinned in your lockfile and inst
    `installed` means the binary or app exists, `configured` means only its config directory exists. Add `--all` to list every one of the
    [78 known harnesses](harnesses.md).
 
-3. **Fetch a skill into quarantine.** Nothing is installed yet; the files sit in a private directory and are scanned. This sample is one
-   small file that passes the scanner (`PASS`, risk 0/100):
+3. **Add a skill.** skigard fetches it into a private quarantine, scans it, gives it a safety score from 1 to 10 with reasons, and then decides by mode.
+   This sample is one small file that passes the scanner (`PASS`, risk 0/100, score 10). In the default `auto` mode a skill scoring at or above the threshold (7) with no hard stop is approved and installed with no prompt. Anything else stays in
+   quarantine with a warning, the reasons and the commands to continue. Nothing from the skill is executed.
 
    ```sh
    skigard add github:ambierhq/skigard/examples/hello-skill
    ```
+
+   Want a human to confirm every time? `skigard config set mode strict` (or `add --mode strict`). Want the old fetch-and-scan-only behaviour? `add --quarantine-only`.
+   See [concepts](concepts.md#score-mode-and-threshold). The steps below are what to do when a skill stays in quarantine.
 
 4. **Optional: get a second opinion.** An agent you already use reads the skill with its tools off. It is advisory and can only add doubt.
    See [review](review.md). On Windows use `skigard review hello-skill --manual`.
@@ -34,7 +38,7 @@ This takes about a minute and ends with a skill pinned in your lockfile and inst
    skigard review hello-skill
    ```
 
-5. **Approve it, as a human, in a real terminal.** You see the scan, the review and the diff against anything approved before, then type
+5. **Approve it, as a human, in a real terminal.** (Needed for a held-back skill, and always in `strict` mode.) You see the scan, the review and the diff against anything approved before, then type
    the skill's name. There is no `--yes`, no stdin path and no environment variable, and skigard refuses inside the agent harnesses it can detect. A process that creates its own pseudo-terminal can still type the answer, so the gate stops accidents and ordinary prompt injection, not a determined agent. Signed approvals (a key in your OS keychain or a passkey) are planned.
 
    ```sh
@@ -51,7 +55,7 @@ This takes about a minute and ends with a skill pinned in your lockfile and inst
 
    Big skills can have hundreds of findings. Read the verdict and the counts first, then open the files they point at.
 
-6. **Install into every detected agent.**
+6. **Install into every detected agent.** (Already done by `add` when the skill cleared the threshold; run it for skills you approved by hand.)
 
    ```sh
    skigard install hello-skill

@@ -17,16 +17,20 @@ import (
 
 // Entry is one row of `list`.
 type Entry struct {
-	Name     string   `json:"name"`
-	State    string   `json:"state"` // approved | quarantined
-	Source   string   `json:"source"`
-	Commit   string   `json:"commit,omitempty"`
-	Hash     string   `json:"content_hash"`
-	Scan     string   `json:"scan,omitempty"`
-	Review   string   `json:"review,omitempty"`
-	Override bool     `json:"override,omitempty"`
-	Drift    bool     `json:"drift,omitempty"`
-	Installs []string `json:"installs,omitempty"`
+	Name     string `json:"name"`
+	State    string `json:"state"` // approved | quarantined
+	Source   string `json:"source"`
+	Commit   string `json:"commit,omitempty"`
+	Hash     string `json:"content_hash"`
+	Scan     string `json:"scan,omitempty"`
+	Review   string `json:"review,omitempty"`
+	Override bool   `json:"override,omitempty"`
+	// Mode (human, auto or forced), Score and Threshold come from the approval record.
+	Mode      string   `json:"mode,omitempty"`
+	Score     int      `json:"score,omitempty"`
+	Threshold int      `json:"threshold,omitempty"`
+	Drift     bool     `json:"drift,omitempty"`
+	Installs  []string `json:"installs,omitempty"`
 }
 
 // List returns approved and quarantined skills.
@@ -41,7 +45,8 @@ func (a *App) List() ([]Entry, error) {
 	}
 	var out []Entry
 	for _, s := range lock.Skills {
-		e := Entry{Name: s.Name, State: "approved", Source: s.Source, Commit: s.Commit, Hash: s.ContentHash, Scan: s.Scan.Verdict, Override: s.Approval.Override}
+		e := Entry{Name: s.Name, State: "approved", Source: s.Source, Commit: s.Commit, Hash: s.ContentHash, Scan: s.Scan.Verdict, Override: s.Approval.Override,
+			Mode: s.Approval.EffectiveMode(), Score: s.Approval.Score, Threshold: s.Approval.Threshold}
 		if s.Review != nil {
 			e.Review = s.Review.Verdict
 		}
@@ -81,6 +86,14 @@ func (a *App) Show(name string) (string, error) {
 		state = "approved"
 		if !isDir(dir) {
 			return "", util.Errf("no skill named %q", name)
+		}
+		if lock, err := store.LoadLock(a.Home); err == nil {
+			if ls, ok := lock.Get(name); ok {
+				state += ", approved by " + ls.Approval.EffectiveMode()
+				if ls.Approval.Score > 0 {
+					state += fmt.Sprintf(", score %d/10 (threshold %d)", ls.Approval.Score, ls.Approval.Threshold)
+				}
+			}
 		}
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "SKILL.md"))

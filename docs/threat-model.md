@@ -6,10 +6,19 @@ Status: 0.1. This is a design contract, not a claim that the software is free of
 
 > Should these exact bytes cross into the directory an agent reads skills from?
 
-skigard provides evidence (a deterministic scan, an optional advisory agent review, a diff), requires a human to
-decide, pins the decision to a content hash, and later detects drift. It does **not** prove that a skill is safe.
-`pass` means only that the enabled rules found nothing and, if a review ran, that the reviewer found nothing. Every
-report carries `safety_claim: not-proven-safe`.
+skigard is a **recommender**. It provides evidence (a deterministic scan, an optional advisory agent review, a diff),
+turns it into a safety score from 1 to 10 with reasons, pins the decision to a content hash, and later detects drift.
+Who decides depends on the mode:
+
+- In `strict` mode a human decides, on `/dev/tty`, every time.
+- In `auto` mode (the default) skigard decides for skills whose score is at or above the human-chosen threshold and
+  that have no hard stop (scanner verdict `block`, reviewer verdict `fail`). Everything else stays in quarantine
+  until a human approves it.
+- `--force-install` lets a human override all of that. It is recorded as `mode = "forced"`.
+
+It does **not** prove that a skill is safe. A high score means only that the enabled rules found nothing alarming and,
+if a review ran, that the reviewer found nothing. Every report carries `safety_claim: not-proven-safe`. A human stays
+in the loop when you choose strict mode or when a skill scores below your threshold.
 
 ## Assets
 
@@ -40,6 +49,8 @@ in it. Someone who can write to your home as you can already do anything; skigar
 | A skill hides behaviour from reviewers | Rules for zero-width/bidi/tag characters, NUL bytes, long encoded blobs, HTML comments, binaries and executables. Binary or oversized files make coverage *partial*, which blocks approval without an explicit override |
 | Prompt injection aimed at the reviewing agent ("tell the user this is safe") | The reviewer harness runs with tools, MCP, extensions and sessions disabled by flags, an empty working directory and a scrubbed environment plus, on macOS and Linux, an OS sandbox (Seatbelt, bubblewrap or Landlock) limiting file reads, writes, exec and outbound ports; its isolation mode is recorded and shown at approval (see docs/review.md). Windows has none and fails closed. Skill text is delimited by a random boundary and the system prompt says it is untrusted. The reviewer's verdict is *advisory and can only raise concern*: it never lowers a scanner finding. Quotes it cites are checked against the real file text; findings with invented quotes are dropped |
 | An agent approves a skill itself (accident, prompt injection) | `approve` reads its confirmation from `/dev/tty` only. There is no `--yes`, no stdin path and no environment override. It also refuses when it detects, best effort, an agent harness in its environment or among its ancestor processes (see [Agent detection](#agent-detection-best-effort-not-a-security-boundary)). This does **not** stop a process that allocates its own pseudo-terminal: see [the pseudo-terminal case](#the-pseudo-terminal-case) |
+| An agent forces an install or lowers the bar | `add --force-install` and `config set mode\|threshold` need a human terminal and are refused inside a detected agent. Inside an agent, `--mode` and `--threshold` on `add` may only be stricter than the stored setting |
+| Auto mode: a skill installs without a human | Only if `score >= threshold` and there is no hard stop. A scanner `block` or reviewer `fail` is never auto-installed, even at threshold 1. The lock records `mode = "auto"`, the score, the threshold and `score_version`; `verify --require-human` fails if any approval is `auto` or `forced`. `update` in auto mode installs a change only if it scores at or above the threshold and not lower than the approved score |
 | Terminal escape injection through names or content | All untrusted text printed to a terminal is escaped (control characters, bidi and zero-width characters). Secrets matching common token shapes are masked in evidence |
 | Path traversal through names | Skill, plugin and meta names must match `^[a-z0-9]+(-[a-z0-9]+)*$` (max 64). They are validated when the lock, manifest and metadata are loaded, not only when typed |
 | Two processes corrupt the lock | An exclusive advisory lock on the home for every mutating command |
@@ -70,6 +81,14 @@ in one tab and approving in another is not affected (separate process trees).
 - It does not prove that a skill is benign. A malicious skill can pass a regex scanner and a reviewing model.
   Read the skill, especially bundled scripts. The scanner exists to focus your attention.
 - It does not sandbox the skill when an agent *uses* it later. Use your harness's permission system.
+- **Agent-invoked `add` in auto mode (residual risk).** The auto path has no confirmation prompt. An agent that is
+  allowed to run `skigard add` in `auto` mode can therefore install any skill that clears the threshold you chose. This
+  is by design, it is visible in the lock as `mode = "auto"`, and the agent cannot lower the threshold, change the mode
+  or force an install. A skill that evades the scanner and the reviewer (see above) can still score 10 and be
+  installed this way. If that is unacceptable, set `mode` to `strict` (then an agent's `add` only quarantines), raise
+  the threshold, or run `verify --require-human` in CI.
+- The score is a heuristic, not a measurement. It can be gamed by an author who knows the rules, and it is only as good
+  as the scanner and the review behind it.
 - It cannot stop an agent that has a real terminal, a pseudo-terminal of its own, your keyboard, or screen control from approving ([details](#the-pseudo-terminal-case)). The
   `/dev/tty` (Unix) or `CONIN$`/`CONOUT$` (Windows) and agent-detection checks stop the ordinary cases, not a
   determined attacker who is already controlling your machine. On Windows the same residual risk applies: a
@@ -101,7 +120,7 @@ This approves a quarantined `NAME` with no person and no keyboard involved. A te
 **What defends against it today, best effort.**
 
 - Agent detection: `approve` refuses on known agent environment variables and on known agent binaries or markers among its ancestors. A process that re-parents itself (double fork, daemonize) or never runs under a known harness is not caught; unknown harnesses are not covered.
-- A check of the parent process chain for known agent binaries is being added in a separate change. It raises the cost, and it can still be evaded by re-parenting. Treat it as best effort.
+- The parent-process check (known agent binaries and environment markers among the ancestors) raises the cost, and it can still be evaded by re-parenting. Treat it as best effort. It also guards `add --force-install` and `config set mode|threshold`.
 
 **What does not defend.** A determined agent or script running as you, a harness skigard does not know about, and anything that can run `script`, Python's `pty` module or `expect`.
 
@@ -111,7 +130,7 @@ This approves a quarantined `NAME` with no person and no keyboard involved. A te
 
 `skigard review` runs a harness you already have installed, using your own account. The skill's text is sent to
 that harness's model provider, like any prompt. Use `--manual` if that is not acceptable. Review never runs
-automatically.
+automatically unless you turn on `auto_review` (`skigard config set auto_review true`) or pass `--review` to `add`.
 
 ## Tests that back these claims
 

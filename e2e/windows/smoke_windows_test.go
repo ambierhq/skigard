@@ -66,7 +66,7 @@ func TestPublishedSmoke(t *testing.T) {
 
 	t.Run("add local path lands in the split layout", func(t *testing.T) {
 		r.mustRun("init")
-		out := r.mustRun("add", skill)
+		out := r.mustRun("add", skill, "--quarantine-only")
 		if !strings.Contains(out, "hello-skill") {
 			t.Fatalf("add output: %s", out)
 		}
@@ -171,7 +171,7 @@ func TestPublishedSmoke(t *testing.T) {
 		e := append(append([]string{}, r.env...), "GITHUB_TOKEN="+os.Getenv("GITHUB_TOKEN"))
 		rhome := filepath.Join(work, "remote-home")
 		e = append(e, "SKIGARD_HOME="+rhome)
-		code, out := r.run(e, "add", "github:ambierhq/skigard/examples/hello-skill")
+		code, out := r.run(e, "add", "github:ambierhq/skigard/examples/hello-skill", "--quarantine-only")
 		if code != 0 {
 			t.Fatalf("remote add exit %d: %s", code, out)
 		}

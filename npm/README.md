@@ -1,7 +1,7 @@
 # skigard
 
-Lockfile and review gate for agent skills: fetch to quarantine, scan, advisory agent review, **human** approval,
-hash-pinned lockfile, install into your agent harnesses.
+A safer way to manage agent skills: skigard scans and scores each agent skill from 1 to 10, pins the exact bytes in a lockfile,
+and installs in one command (default mode `auto`, threshold 7); strict mode (`skigard config set mode strict`) asks a human first.
 
 ```sh
 npx skigard version          # also: bunx skigard, pnpm dlx skigard

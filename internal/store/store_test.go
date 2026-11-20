@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/ambierhq/skigard/internal/harness"
@@ -202,5 +203,59 @@ func TestSplitHomeInit(t *testing.T) {
 		t.Fatal(err)
 	} else {
 		unlock()
+	}
+}
+
+func TestSettingsModeThresholdRoundTripAndValidation(t *testing.T) {
+	h := Home{Root: t.TempDir()}
+	m := &Manifest{Version: 1, Settings: Settings{Mode: "strict", Threshold: 9, AutoReview: true}}
+	if err := SaveManifest(h, m); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadManifest(h)
+	if err != nil || got.Settings.Mode != "strict" || got.Settings.Threshold != 9 || !got.Settings.AutoReview {
+		t.Fatalf("%+v %v", got, err)
+	}
+	if d := (Settings{}); d.EffectiveMode() != DefaultMode || d.EffectiveThreshold() != DefaultThreshold {
+		t.Errorf("defaults: %s %d", d.EffectiveMode(), d.EffectiveThreshold())
+	}
+	for _, bad := range []string{"mode = \"yolo\"", "threshold = 11", "threshold = -1"} {
+		os.WriteFile(h.ManifestPath(), []byte("version = 1\n[settings]\n"+bad+"\n"), 0o644)
+		if _, err := LoadManifest(h); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+}
+
+func TestApprovalFieldsRoundTripAndOldLock(t *testing.T) {
+	h := Home{Root: t.TempDir()}
+	l := &Lock{Version: 1, HashVersion: 1}
+	l.Put(LockSkill{Name: "a", ContentHash: "sha256:aa", Approval: ApprovalRec{By: AutoApprover, Mode: ApprovalAuto, Score: 8, Threshold: 7, ScoreVersion: "1"}})
+	if err := l.Save(h); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadLock(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s, _ := got.Get("a"); s.Approval.Mode != "auto" || s.Approval.By != AutoApprover || s.Approval.Score != 8 || s.Approval.Threshold != 7 || s.Approval.ScoreVersion != "1" {
+		t.Fatalf("%+v", s.Approval)
+	}
+	old := "version = 1\nhash_version = 1\n[[skill]]\nname = \"b\"\ncontent_hash = \"sha256:bb\"\n[skill.approval]\nby = \"me\"\nat = \"x\"\n"
+	os.WriteFile(h.LockPath(), []byte(old), 0o644)
+	got, err = LoadLock(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s, _ := got.Get("b"); s.Approval.EffectiveMode() != "human" || s.Approval.Score != 0 {
+		t.Fatalf("%+v", s.Approval)
+	}
+	os.WriteFile(h.LockPath(), []byte(old+"mode = \"yolo\"\n"), 0o644)
+	if _, err := LoadLock(h); err == nil {
+		t.Error("unknown approval mode accepted")
+	}
+	os.WriteFile(h.LockPath(), []byte(strings.Replace(old, `by = "me"`, `by = "skigard (auto)"`, 1)), 0o644)
+	if _, err := LoadLock(h); err == nil {
+		t.Error("the auto approver was accepted for a human approval")
 	}
 }

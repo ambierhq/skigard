@@ -40,14 +40,17 @@ const clean = (s) =>
 
 const lines = [];
 const push = (t, c) => lines.push({ t, c });
-const kind = (l) => (/^(approved|ok:|installed|quarantined)/.test(l) ? "ok" : /^Type the skill name/.test(l) ? "warn" : "out");
+const kind = (l) => (/^(approved|ok:|installed|quarantined)/.test(l) ? "ok" : /^Type \S+ to confirm/.test(l) ? "warn" : "out");
 const add = (text, keep = () => true) => {
   for (const l of clean(text).split("\n")) if (l.trim() && keep(l)) push(l.trimEnd(), kind(l));
 };
 
 const skigard = (args) => run(bin, args);
-push("$ skigard add ./examples/hello-skill", "cmd");
-add(skigard(["add", "./examples/hello-skill"]), (l) => !/^(next:|\s+skigard )/.test(l));
+// `add` installs by default; the landing page shows the fetch-and-scan step on its own (--quarantine-only), which is
+// deterministic: it never prompts, never needs a terminal and does not depend on whether an agent runs it.
+push("$ skigard add ./examples/hello-skill --quarantine-only", "cmd");
+const addOut = skigard(["add", "./examples/hello-skill", "--quarantine-only"]);
+add(addOut, (l) => !/^(next:|\s+skigard )/.test(l));
 
 push("$ skigard approve hello-skill", "cmd");
 const approve = execFileSync("python3", [path.join(repo, "scripts/pty_approve.py"), bin, env.SKIGARD_HOME, "hello-skill", "hello-skill"], { cwd: repo, env, encoding: "utf8" });

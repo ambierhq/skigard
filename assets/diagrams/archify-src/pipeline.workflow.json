@@ -39,8 +39,8 @@
       "lane": "main",
       "col": 1,
       "type": "backend",
-      "label": "Scan",
-      "sublabel": "fixed rules"
+      "label": "Scan + score",
+      "sublabel": "1..10 with reasons"
     },
     {
       "id": "review",
@@ -48,16 +48,16 @@
       "col": 2,
       "type": "external",
       "label": "Agent review",
-      "sublabel": "adds doubt only"
+      "sublabel": "optional, lowers score"
     },
     {
       "id": "approve",
       "lane": "main",
       "col": 3,
       "type": "security",
-      "label": "Human approve",
-      "sublabel": "real terminal",
-      "tag": "agents refused"
+      "label": "Approve",
+      "sublabel": "auto or human",
+      "tag": "agents cannot force"
     },
     {
       "id": "lock",

@@ -29,13 +29,23 @@ by `status` and `verify`. [`skills/review-skill`](../skills/review-skill) in thi
 
 Findings of `low` and `medium` can be accepted with `--accept REASON` (optionally `--accept-expires YYYY-MM-DD`). `high` and `critical` never can.
 
+## What moves a safety score
+
+`skigard add` turns the scan into a score from 1 to 10 (10 = no concern); with the default `auto` mode a skill installs without a prompt only at 7 or above. The score starts at `10 - ceil(risk / 12)` from the scanner's risk number, so every finding costs points, and then:
+
+- any `high` or `critical` finding (verdict `block`) caps it at 3 and is a hard stop: it is never auto-installed;
+- incomplete coverage (binaries, oversized or non-UTF-8 files) caps it at 6, so it never clears a threshold of 7 or more;
+- a reviewer `fail` caps it at 3 (hard stop), and `concerns` takes 2 points off. A review can only lower the score.
+
+So a small, readable skill with no scary text, no binaries and no hidden characters scores 10. A skill that quotes risky patterns will score low, and users will see it held in quarantine with the reasons; that is the system working. The score is a heuristic: do not tune a skill to hit a number.
+
 ## Check before you publish
 
 ```sh
 skigard scan ./my-skill                           # text report
 skigard scan ./my-skill --fail-on medium --fail-on-incomplete
 skigard rules                                     # what is being checked, or see rules.md
-skigard add ./my-skill && skigard show my-skill   # what a user will see
+skigard add ./my-skill --quarantine-only && skigard show my-skill   # what a user will see (no install)
 ```
 
 - Tag releases and tell users to pin a commit. skigard resolves every ref to a SHA and re-reviews on change.

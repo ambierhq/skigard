@@ -5,14 +5,15 @@ sequenceDiagram
   participant Skigard as skigard
   participant Harness as Harness
   Human->>Skigard: add owner/repo
-  Skigard->>Skigard: fetch to quarantine, scan
-  Human->>Skigard: review (optional)
-  Skigard-->>Human: findings, advisory verdict
-  Agent->>Skigard: approve
+  Skigard->>Skigard: fetch to quarantine, scan, score 1-10
+  alt auto mode and score >= threshold
+    Skigard->>Harness: approve, write skigard.lock, install
+  else below threshold or hard stop
+    Skigard-->>Human: warning with reasons, stays in quarantine
+    Human->>Skigard: approve (types at /dev/tty) or add --force-install
+    Skigard->>Harness: write skigard.lock, install
+  end
+  Agent->>Skigard: approve, --force-install, config set
   Skigard--xAgent: refused (needs a real terminal, no --yes)
-  Human->>Skigard: approve (types at /dev/tty)
-  Skigard->>Skigard: write skigard.lock (commit + hash)
-  Human->>Skigard: install
-  Skigard->>Harness: copy approved files
   Harness-->>Agent: skill available
   Note over Human,Harness: verify recomputes hashes, fails on drift

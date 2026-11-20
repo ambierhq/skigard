@@ -301,7 +301,7 @@ func (r *rig) approveInPTY(name, answer string) (uint32, string) {
 		r.t.Fatal(err)
 	}
 	defer s.close()
-	if !s.waitFor("Type the skill name", 30*time.Second) {
+	if !s.waitFor("to confirm, anything else to cancel", 30*time.Second) {
 		_ = syscall.TerminateProcess(s.proc, 98)
 		r.t.Fatalf("no approval prompt appeared on the pseudo console; output so far: %q", s.output())
 	}
@@ -320,7 +320,7 @@ func (r *rig) approveInPTY(name, answer string) (uint32, string) {
 func TestWindowsE2E(t *testing.T) {
 	r := newRig(t)
 	r.mustRun("init")
-	r.mustRun("add", filepath.Join(r.work, "src"), "--all")
+	r.mustRun("add", filepath.Join(r.work, "src"), "--all", "--quarantine-only")
 	if code, _ := r.run(r.env, "scan", "evil", "--fail-on", "high"); code == 0 {
 		t.Fatal("evil should exit non-zero")
 	}

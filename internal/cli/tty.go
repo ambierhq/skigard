@@ -13,7 +13,7 @@ import (
 // noTerminal is the refusal shown when approval has no real terminal. It is
 // shared by every platform so the message does not drift.
 func noTerminal(detail string) error {
-	return util.Policyf("approving needs a real terminal (%s)", detail)
+	return util.Policyf("this needs a real terminal (%s)", detail)
 }
 
 // promptOn shows the summary on the terminal handles the platform file opened
@@ -21,7 +21,7 @@ func noTerminal(detail string) error {
 // device (/dev/tty, CONIN$/CONOUT$), never stdin or stdout.
 func promptOn(in io.Reader, out io.Writer, summary, want string) error {
 	fmt.Fprintln(out, "\n"+summary)
-	fmt.Fprintf(out, "\nType the skill name (%s) to approve, anything else to cancel: ", want)
+	fmt.Fprintf(out, "\nType %s to confirm, anything else to cancel: ", want)
 	line, err := bufio.NewReader(in).ReadString('\n')
 	if err != nil && line == "" {
 		return util.Cancelled("cancelled")

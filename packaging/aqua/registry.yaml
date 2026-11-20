@@ -4,7 +4,7 @@ packages:
   - type: github_release
     repo_owner: ambierhq
     repo_name: skigard
-    description: Lockfile and review gate for agent skills
+    description: A safer way to manage agent skills
     asset: skigard_{{trimV .Version}}_{{.OS}}_{{.Arch}}.{{.Format}}
     format: tar.gz
     overrides:

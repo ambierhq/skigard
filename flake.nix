@@ -1,5 +1,5 @@
 {
-  description = "skigard: lockfile and review gate for agent skills";
+  description = "skigard: a safer way to manage agent skills";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -38,7 +38,7 @@
               --fish <($out/bin/skigard completion fish)
           '';
           meta = {
-            description = "Lockfile and review gate for agent skills";
+            description = "A safer way to manage agent skills";
             homepage = "https://github.com/ambierhq/skigard";
             license = pkgs.lib.licenses.mit;
             mainProgram = "skigard";

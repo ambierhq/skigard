@@ -78,7 +78,7 @@ function quarantined() {
   const env = cleanEnv({ SKIGARD_HOME: home, HOME: path.join(w, "user") });
   fs.mkdirSync(env.HOME);
   execFileSync(binary(), ["init"], { env, stdio: "ignore" });
-  execFileSync(binary(), ["add", path.join(w, "src"), "--all"], { env, stdio: "ignore" });
+  execFileSync(binary(), ["add", path.join(w, "src"), "--all", "--quarantine-only"], { env, stdio: "ignore" });
   return { home, env };
 }
 

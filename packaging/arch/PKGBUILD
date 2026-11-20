@@ -4,7 +4,7 @@
 pkgname=skigard
 pkgver=0.1.0
 pkgrel=1
-pkgdesc='Lockfile and review gate for agent skills'
+pkgdesc='A safer way to manage agent skills'
 arch=('x86_64' 'aarch64')
 url='https://github.com/ambierhq/skigard'
 license=('MIT')

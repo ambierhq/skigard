@@ -24,7 +24,7 @@ h2 = re.sub(r'height="\d+"', f'height="{H}"', h2)
 h2 = re.sub(r'style="[^"]*"', '', h2)
 h2 = re.sub(r'data-reader-fit="[^"]*"', '', h2)
 s = s.replace(head, h2, 1)
-DESC = '<desc id="archify-diagram-description">skigard add, quarantine, scan, agent review, human approve, skigard.lock, install; update loops back to quarantine and verify checks drift.</desc>'
+DESC = '<desc id="archify-diagram-description">skigard add, quarantine, scan and score, agent review, approve (automatic above the threshold, otherwise a human), skigard.lock, install; update loops back to quarantine and verify checks drift.</desc>'
 s = re.sub(r'<desc id="archify-diagram-description">[^<]*</desc>', DESC, s)
 css = f'''
 svg [data-node-id] > rect:not(.c-mask) {{ fill: {P["node"]} !important; stroke: {P["stroke"]} !important; stroke-width: 1.25px; }}

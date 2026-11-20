@@ -217,6 +217,7 @@ func TestAcceptMediumFindings(t *testing.T) {
 
 func TestUpdateFlow(t *testing.T) {
 	a, _ := newApp(t)
+	setSettings(t, a, store.Settings{Mode: "strict"}) // the human-review path; auto mode is covered in autoadd_test.go
 	src := t.TempDir()
 	writeSkill(t, src, "alpha", nil)
 	addLocal(t, a, src, AddOpts{Skill: "alpha"})
@@ -524,6 +525,7 @@ func TestAddFromGitHubAndUpdateByCommit(t *testing.T) {
 	}))
 	defer srv.Close()
 	a, _ := newApp(t)
+	setSettings(t, a, store.Settings{Mode: "strict"})
 	a.Fetcher = &source.Fetcher{APIBase: srv.URL, CodeloadBase: srv.URL, Client: srv.Client(), Limits: safefs.DefaultLimits()}
 	qs, err := a.Add(context.Background(), "github:o/r/skills/gh", AddOpts{})
 	if err != nil {

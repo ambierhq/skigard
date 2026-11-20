@@ -7,8 +7,37 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **BREAKING: `skigard add` now installs by default in `auto` mode.** Scripts and agents that relied on `add` only fetching and scanning will now
+  get a skill installed if it clears the threshold. Use `add --quarantine-only` for the old behaviour, or `skigard config set mode strict` to
+  require a human first. It fetches to quarantine, scans, scores the skill from 1 to 10 (10 = no concern) with reasons, and in the
+  default `auto` mode approves and installs it if the score is at or above the threshold (default 7) and there is no hard stop. Otherwise it stays in
+  quarantine with a warning and the commands to continue. The old behaviour (fetch and scan only) is `add --quarantine-only`. `review`, `approve`,
+  `reject` and `install` work unchanged.
+- skigard is now described as "A safer way to manage agent skills": it scans and scores each skill from 1 to 10, pins the exact bytes in a
+  lockfile and installs in one command. It no longer claims that "nothing reaches your agents until a human approves"; a human still approves in
+  `strict` mode and for any skill below the threshold. It never claims to prove a skill safe.
+- Automatic approvals record `by = "skigard (auto)"` instead of the OS user; `mode = "auto"` is unchanged. That value is reserved and a lock that uses it with another mode fails to load.
+- `update` in `auto` mode installs a changed skill only if it scores at or above the threshold, has no hard stop and does not score lower than the
+  approved version; otherwise it goes back to quarantine with the diff. `strict` mode is unchanged.
 - Docs and site: install status, pinned versions (`v0.1.2`), provenance wording and test coverage statements brought in line with what is verified (winget #484914 and nixpkgs #590787 are in review; Windows is CI-tested only; the Linux sandboxed review was not run by hand). No code change.
 - Release workflow: the winget job updates our open PR while the package is not in microsoft/winget-pkgs yet, instead of opening a second one.
+
+### Fixed
+
+- `skigard add SRC --name X` with a name that does not match the skill no longer prints `"X" was approved but installing failed: <nil>` before the real error.
+
+### Added
+
+- `add` flags `--mode strict|auto`, `--threshold N`, `--review`, `--force-install` and `--quarantine-only`.
+- `skigard config get|set mode|threshold|auto_review` (`skigard.toml` `[settings]`). `set` of `mode` and `threshold` needs a human terminal.
+- Safety score with tiers `ok`, `caution` and `blocked`, and hard stops (scanner `block`, reviewer `fail`) that are never auto-installed. `ScoreVersion` is recorded in the lock.
+- Lock approvals record `mode` (`human`, `auto`, `forced`), `score`, `threshold` and `score_version`. Older locks read as `human`; the lock `version` stays 1.
+- `skigard verify --require-human` fails if any approval is `auto` or `forced`. `list`, `show` and `status` show mode and score.
+
+### Security
+
+- Inside a detected agent, `--force-install` and `config set mode|threshold` are refused, and `--mode`/`--threshold` can only be stricter than the stored setting.
+  `approve` is unchanged (terminal only, no bypass). Detection is best effort (environment and ancestor processes). In `auto` mode an agent that runs `add` can install skills that clear your threshold; this is recorded as `mode = "auto"`. Set `mode` to `strict` to prevent it. See the [threat model](docs/threat-model.md).
 
 ## [0.1.2] - 2026-11-20
 
@@ -52,5 +81,6 @@ publisher step (a templating error in the token settings, fixed in #26), so the 
   winget step timed out; the Homebrew formula was pushed by hand too. The workflow now does both in separate jobs.
 - The `v0.1.1` build provenance attestations were added after the release (`gh attestation verify ... --repo ambierhq/skigard` works). Checksums are signed with cosign.
 
-[Unreleased]: https://github.com/ambierhq/skigard/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/ambierhq/skigard/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/ambierhq/skigard/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/ambierhq/skigard/releases/tag/v0.1.1

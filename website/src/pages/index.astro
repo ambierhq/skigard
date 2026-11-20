@@ -12,8 +12,8 @@ import harnesses from "../data/harnesses.json";
 import { software, faq, breadcrumbs, harnessCount } from "../lib/seo";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-const title = "skigard: a lockfile and review gate for agent skills";
-const description = `skigard quarantines, scans and pins agent skills. A human approves the exact bytes before skigard installs them into any of ${harnessCount} agent harnesses, including Claude Code, Pi, Codex and Cursor.`;
+const title = "skigard: a safer way to manage agent skills for Claude Code, Codex and Cursor";
+const description = `skigard is a safer way to manage agent skills (Claude Code, Codex, Cursor and more). One command fetches a skill to quarantine, scans it, scores it from 1 to 10, pins the exact bytes and installs it into ${harnessCount} agent harnesses, including Claude Code, Pi, Codex and Cursor, if it clears your threshold. Strict mode needs a human first. A score is not a safety proof.`;
 const canonical = "https://ambierhq.com/skigard/";
 const og = "https://ambierhq.com/skigard/og.png";
 const verified = harnesses.filter((h) => h.verified);
@@ -29,16 +29,17 @@ const crumbs = breadcrumbs([
 ]);
 const cfToken = import.meta.env.CF_WEB_ANALYTICS_TOKEN;
 const steps = [
-  ["Add", "Fetch the skill into a private quarantine. Nothing from it is executed."],
+  ["Add", "One command. Fetch the skill into a private quarantine. Nothing from it is executed."],
   ["Scan", "Deterministic rules and capability chains. High and critical findings block."],
   ["Review", "Optionally ask an agent you already use. It can only add doubt, never remove a finding."],
-  ["Approve", "A human types the skill name at a real terminal. There is no --yes and no stdin or environment path."],
-  ["Lock", "The approval is pinned to a content hash in skigard.lock. Commit it."],
+  ["Score", "A safety score from 1 to 10, always with its reasons. Scanner blocks and failing reviews are hard stops."],
+  ["Decide", "Auto mode installs at or above your threshold. Strict mode always asks you in a real terminal. Below the threshold the skill stays in quarantine until a human approves it, or forces the install, at a terminal."],
+  ["Lock", "The decision is pinned to a content hash in skigard.lock, with its mode (human, auto or forced). Commit it."],
   ["Install", "Link into every harness skigard finds. Drift is caught by verify."],
 ];
 const features = [
-  ["Approval needs a human at a terminal", "No --yes, no stdin or environment path, and skigard refuses inside the agent harnesses it can detect. A process that creates its own pseudo-terminal can still type the answer, so the gate stops accidents and ordinary prompt injection, not a determined agent. Signed approvals are planned."],
-  ["Hash-pinned lockfile", "Source, commit, content hash, scan, review and approver, for every skill."],
+  ["Approval needs a human at a terminal", "No --yes, no stdin or environment path, and skigard refuses approve, forced installs and mode changes inside the agent harnesses it can detect. A process that creates its own pseudo-terminal can still type the answer, so the gate stops accidents and ordinary prompt injection, not a determined agent. In auto mode an agent's add can install skills that clear your threshold. Signed approvals are planned."],
+  ["Hash-pinned lockfile", "Source, commit, content hash, scan, review, score and approval mode, for every skill."],
   ["Hostile-input safe", "Archives are extracted through os.Root. Links, devices and bombs are refused."],
   ["Sandboxed reviewer", "Tools off, empty directory, scrubbed environment, OS sandbox on macOS and Linux."],
   ["Drift detection", "verify fails when the store, the installs or the marketplace change."],
@@ -64,7 +65,7 @@ const features = [
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={og} />
-    <meta property="og:image:alt" content="skigard: a lockfile and review gate for agent skills" />
+    <meta property="og:image:alt" content="skigard: a safer way to manage agent skills for Claude Code, Codex and Cursor" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
@@ -89,8 +90,8 @@ const features = [
     <main>
       <section class="hero wrap">
         <div>
-          <h1 class="display">A lockfile and review gate for agent skills.</h1>
-          <p class="lede">Skills installed through skigard are scanned, shown to a human and pinned to the exact bytes that person approved.</p>
+          <h1 class="display">A safer way to manage agent skills.</h1>
+          <p class="lede">One command scans, scores (1 to 10), pins and installs a skill. Auto mode installs what clears your threshold; strict mode makes a human approve those exact bytes first. A score is a recommendation, not a proof of safety.</p>
           <InstallTabs />
         </div>
         <Terminal />
@@ -103,7 +104,7 @@ const features = [
 
       <section class="wrap block" id="how">
         <h2 class="display">How it works</h2>
-        <img class="pipeline" src={`${base}/diagrams/pipeline-dark.svg`} width="880" height="252" alt="skigard pipeline: add to quarantine, scan, agent review, human approve in a real terminal, skigard.lock, install; update loops back to quarantine and verify checks drift from the lock" />
+        <img class="pipeline" src={`${base}/diagrams/pipeline-dark.svg`} width="880" height="252" alt="skigard pipeline: add to quarantine, scan, agent review, safety score, auto-install above the threshold or human approve in a real terminal, skigard.lock, install; update loops back to quarantine and verify checks drift from the lock" />
         <ol class="steps">
           {steps.map(([h, t]) => <li><h3>{h}</h3><p>{t}</p></li>)}
         </ol>
@@ -111,7 +112,7 @@ const features = [
 
       <section class="wrap block" id="demo">
         <h2 class="display">See it work</h2>
-        <p>An approve attempt from inside an agent harness is refused. A human approves in a real terminal. Tampering after approval makes <code>verify</code> fail. About 80 seconds, no sound.</p>
+        <p>An approve attempt from inside an agent harness is refused. A human approves in a real terminal (strict mode, or a skill held below your threshold). Tampering after approval makes <code>verify</code> fail. About 90 seconds, no sound.</p>
         <video controls preload="none" playsinline poster={`${base}/media/poster.png`} width="1280" height="720" aria-label="skigard demo: scan blocks a malicious-looking skill, an agent is refused at approve, a human approves, verify fails after tampering">
           <source src={`${base}/media/demo.webm`} type="video/webm" />
           <source src={`${base}/media/demo.mp4`} type="video/mp4" />
@@ -137,7 +138,8 @@ const features = [
       <section class="wrap block" id="limits">
         <h2 class="display">Honest limits</h2>
         <ul class="limits">
-          <li>The scanner is heuristic and an agent review can be fooled. <strong>A pass is not a safety certificate.</strong> Read the skill, especially bundled scripts.</li>
+          <li>The scanner is heuristic and an agent review can be fooled. <strong>A pass or a score of 10 is not a safety certificate.</strong> Read the skill, especially bundled scripts, or use strict mode.</li>
+          <li>In auto mode an agent that runs <code>skigard add</code> can install skills that clear your threshold. The lock records it as <code>mode = auto</code> and <code>verify --require-human</code> fails on it. Agents cannot approve, force an install or change the mode or threshold.</li>
           <li>Approval is a terminal prompt, not a signature. A process that creates its own pseudo-terminal can type the answer; skigard only refuses inside harnesses it can detect. Signed approvals are planned.</li>
           <li>Someone who can already write to your home as you can do anything. skigard does not defend against that.</li>
           <li>Automated review is disabled on Windows (it has no sandbox); use <code>review --manual</code>.</li>
