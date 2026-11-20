@@ -9,7 +9,7 @@ irm https://ambierhq.com/skigard/install.ps1 | iex
 ```
 
 Installs the latest release to `%LOCALAPPDATA%\Programs\skigard` (or the directory in `SKIGARD_INSTALL_DIR`) after checking `checksums.txt`, and adds it
-to your user `PATH`. Open a new terminal afterwards. Pin a version with `$env:SKIGARD_VERSION = "v0.1.2"` first.
+to your user `PATH`. Open a new terminal afterwards. Pin a version with `$env:SKIGARD_VERSION = "v0.2.0"` first.
 
 ## winget (pending review)
 
