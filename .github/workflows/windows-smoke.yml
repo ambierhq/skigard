@@ -12,7 +12,7 @@ on:
         type: string
   schedule:
     - cron: "17 5 * * 1"
-  workflow_run:
+  workflow_run:  # zizmor: ignore[dangerous-triggers] read-only token, no secrets, no PR code is checked out or run; resolve only reacts to tag pushes
     workflows: [release]
     types: [completed]
 permissions: {}
