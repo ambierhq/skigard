@@ -153,7 +153,7 @@ Layout, formats and the Windows split are in [concepts](docs/concepts.md), [lock
 - run: skigard verify --strict        # with SKIGARD_HOME=./.skigard committed to the repository
 ```
 
-See the [CI guide](docs/ci.md) and [`examples/verify-workflow.yml`](examples/verify-workflow.yml). A reusable `skigard-action` is coming.
+See the [CI guide](docs/ci.md) and [`examples/verify-workflow.yml`](examples/verify-workflow.yml). A reusable [`skigard-action`](https://github.com/ambierhq/skigard-action) (`v1`) wraps `skigard verify` for GitHub Actions.
 
 ## Supported harnesses
 
@@ -235,7 +235,6 @@ Releases are signed (cosign, keyless), come with SBOMs, and CI is pinned and har
 ## Roadmap
 
 - Install channels still to land: npm, winget (in review) and the mise registry.
-- `skigard-action`, a reusable GitHub Action for `verify`.
 - `skigard find` (#28): search skills.sh or a catalog (discovery is the main thing skigard lacks today).
 - An importer for `skills-lock.json` (#29) from vercel-labs/skills.
 - Verify more harnesses (each one needs a person to confirm its skills directory).
