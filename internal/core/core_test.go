@@ -40,6 +40,7 @@ func newApp(t *testing.T) (*App, string) {
 		Exists:   func(p string) bool { _, err := os.Stat(p); return err == nil },
 	}
 	a.User = "tester"
+	a.AgentAncestor = nil // tests must behave the same inside and outside an agent
 	a.Fetcher = source.NewFetcher()
 	return a, userHome
 }

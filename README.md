@@ -39,7 +39,7 @@ skigard puts a gate in front of that: **fetch to quarantine, scan, optional agen
 | `git clone` or copy a skill straight into `~/.claude/skills` | Fetched as an archive into a private quarantine, never executed |
 | Whatever is on the branch today | Pinned to a commit and a SHA-256 content hash in `skigard.lock` |
 | You skim it, maybe | A deterministic scan, an optional agent review, and a diff against what you approved before |
-| An agent can install more skills | Only a human at a terminal can approve: no `--yes`, and agents are refused |
+| An agent can install more skills | Approval needs a human at a terminal: no `--yes`, no stdin or env path, and known agent harnesses are refused (best effort) |
 | A skill changes silently on update | Changes go back to quarantine and need a new approval |
 | Each agent has its own skills folder | Installs once into every detected harness (Claude Code, Pi, Codex, Cursor, Gemini CLI, OpenCode and about 70 more) |
 | No way to notice drift | `skigard verify` fails CI if the lock, the store or the installs change |
@@ -69,7 +69,7 @@ flowchart TD
 </p>
 
 - **One static binary**, no runtime, no telemetry, one dependency (a TOML parser).
-- **Agents cannot approve.** `approve` reads the terminal device only, has no `--yes`, and refuses inside a detected agent harness.
+- **Agents cannot approve.** `approve` reads the terminal device only, has no `--yes`, and refuses when it detects an agent harness in its environment or among its ancestor processes. Best effort, evadable by re-parenting (double fork / daemonize), not a security boundary.
 - **Reproducible.** `skigard.lock` records source, commit, content hash, scan result, review and approver. Commit it.
 - **Portable.** The content hash is identical on Linux, macOS and Windows.
 
@@ -189,7 +189,7 @@ No. It is a second opinion that can only raise concern. It is optional, and noth
 
 <details><summary><b>Why can't my agent approve skills?</b></summary>
 
-An injected agent installing more skills is the threat. `approve` reads the terminal device only, has no `--yes` or env bypass, and refuses inside agent harnesses.
+An injected agent installing more skills is the threat. `approve` reads the terminal device only, has no `--yes` or env bypass, and refuses under agent harnesses on a best-effort basis (evadable by re-parenting; not a security boundary).
 </details>
 
 <details><summary><b>Does it phone home?</b></summary>

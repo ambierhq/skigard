@@ -17,15 +17,15 @@
 # (see README credits) and then written down independently. Please send a PR to
 # fix or verify any entry.
 harness = [
-  { id = "claude-code", name = "Claude Code", project = ".claude/skills", global = "~/.claude/skills", env_home = "CLAUDE_CONFIG_DIR", env_sub = "skills", bins = ["claude"], env = ["CLAUDECODE"], verified = true },
+  { id = "claude-code", name = "Claude Code", project = ".claude/skills", global = "~/.claude/skills", env_home = "CLAUDE_CONFIG_DIR", env_sub = "skills", bins = ["claude"], env = ["CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT"], verified = true },
   { id = "pi", name = "Pi", project = ".agents/skills", global = "~/.agents/skills", bins = ["pi"], dirs = ["~/.pi"], env = ["PI_CODING_AGENT"], verified = true },
   { id = "omp", name = "Oh My Pi", project = ".agents/skills", global = "~/.agents/skills", bins = ["omp"], dirs = ["~/.omp"], verified = true },
-  { id = "codex", name = "Codex", project = ".agents/skills", global = "~/.agents/skills", env_home = "CODEX_HOME", env_sub = "skills", bins = ["codex"], dirs = ["~/.codex"] },
+  { id = "codex", name = "Codex", project = ".agents/skills", global = "~/.agents/skills", env_home = "CODEX_HOME", env_sub = "skills", bins = ["codex"], dirs = ["~/.codex"], env = ["CODEX_SANDBOX", "CODEX_THREAD_ID"] },
   { id = "gemini-cli", name = "Gemini CLI", project = ".agents/skills", global = "~/.gemini/skills", bins = ["gemini"], env = ["GEMINI_CLI"] },
   { id = "opencode", name = "OpenCode", project = ".agents/skills", global = "{config}/opencode/skills", bins = ["opencode"], env = ["OPENCODE"] },
   { id = "cursor", name = "Cursor", project = ".agents/skills", global = "~/.cursor/skills", bins = ["cursor-agent"], apps = ["/Applications/Cursor.app"], env = ["CURSOR_AGENT"] },
   { id = "github-copilot", name = "GitHub Copilot", project = ".agents/skills", global = "~/.copilot/skills", bins = ["copilot"] },
-  { id = "amp", name = "Amp", project = ".agents/skills", global = "{config}/agents/skills", bins = ["amp"], dirs = ["{config}/amp"] },
+  { id = "amp", name = "Amp", project = ".agents/skills", global = "{config}/agents/skills", bins = ["amp"], dirs = ["{config}/amp"], env = ["AMP_CURRENT_THREAD_ID"] },
   { id = "replit", name = "Replit", project = ".agents/skills", global = "{config}/agents/skills", dirs = ["{config}/replit"] },
   { id = "universal", name = "Universal (.agents)", project = ".agents/skills", global = "{config}/agents/skills", dirs = ["{config}/agents"] },
   { id = "cline", name = "Cline", project = ".agents/skills", global = "~/.agents/skills", bins = ["cline"], dirs = ["~/.cline"] },
@@ -58,7 +58,7 @@ harness = [
   { id = "devin", name = "Devin", project = ".devin/skills", global = "{config}/devin/skills", bins = ["devin"] },
   { id = "eve", name = "Eve", project = "agent/skills", global = "", dirs = [] },
   { id = "forgecode", name = "ForgeCode", project = ".forge/skills", global = "~/.forge/skills", bins = ["forge"] },
-  { id = "goose", name = "Goose", project = ".goose/skills", global = "{config}/goose/skills", bins = ["goose"] },
+  { id = "goose", name = "Goose", project = ".goose/skills", global = "{config}/goose/skills", bins = ["goose"], env = ["GOOSE_TERMINAL"] },
   { id = "grok", name = "Grok CLI", project = ".grok/skills", global = "~/.grok/skills", env_home = "GROK_HOME", env_sub = "skills", bins = ["grok"] },
   { id = "hermes-agent", name = "Hermes Agent", project = ".hermes/skills", global = "~/.hermes/skills", env_home = "HERMES_HOME", env_sub = "skills", bins = ["hermes"] },
   { id = "inference-sh", name = "inference.sh", project = ".inferencesh/skills", global = "~/.inferencesh/skills" },

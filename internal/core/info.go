@@ -201,7 +201,7 @@ func (a *App) Doctor() []Check {
 	} else {
 		add("reviewer", "pass", fmt.Sprintf("%d verified reviewer(s) available", usable), "")
 	}
-	if _, in := harness.InAgent(a.Env.Getenv); in {
+	if _, in := a.runningUnderAgent(); in {
 		add("agent-env", "warn", "running inside an agent: approve will refuse here", "approve from a normal terminal")
 	}
 	// harness dirs: broken links into our store

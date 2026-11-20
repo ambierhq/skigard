@@ -29,6 +29,9 @@ type App struct {
 	Version       string
 	User          string
 	RefuseInAgent bool // approve refuses when an agent harness is detected
+	// AgentAncestor reports an agent harness among this process's ancestors
+	// (best effort, see harness.AgentAncestor). Nil disables the check.
+	AgentAncestor func() (string, bool)
 }
 
 // New builds an App for the real machine.
@@ -41,6 +44,7 @@ func New(home store.Home, version string, out, errw io.Writer) *App {
 		Home: home, Env: harness.RealEnv(), Fetcher: source.NewFetcher(),
 		Runner: review.Runner{Environ: os.Environ()},
 		Out:    out, Err: errw, Version: version, User: u, RefuseInAgent: true,
+		AgentAncestor: realAgentAncestor,
 	}
 }
 
@@ -136,4 +140,12 @@ func ctxOrBackground(ctx context.Context) context.Context {
 		return context.Background()
 	}
 	return ctx
+}
+
+func realAgentAncestor() (string, bool) {
+	reg, err := harness.Registry(nil)
+	if err != nil {
+		return "", false
+	}
+	return harness.AgentAncestor(reg, harness.SystemProcTable, os.Getppid(), harness.MaxAncestry)
 }

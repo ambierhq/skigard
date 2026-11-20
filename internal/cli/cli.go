@@ -18,6 +18,10 @@ import (
 	"github.com/ambierhq/skigard/internal/util"
 )
 
+// testAppHook is set only from tests (unexported, so no flag or env can reach
+// it). It must never touch the confirmation path.
+var testAppHook func(*core.App)
+
 // Version is set at build time with -ldflags "-X .../internal/cli.Version=...".
 var Version = "dev"
 
@@ -145,6 +149,9 @@ func (c *ctx) open() error {
 		return err
 	}
 	c.app = core.New(h, Version, c.out, c.errw)
+	if testAppHook != nil {
+		testAppHook(c.app)
+	}
 	return nil
 }
 
