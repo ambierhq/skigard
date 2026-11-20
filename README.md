@@ -41,7 +41,7 @@ skigard puts a gate in front of that: **fetch to quarantine, scan, optional agen
 | You skim it, maybe | A deterministic scan, an optional agent review, and a diff against what you approved before |
 | An agent can install more skills | Approval needs a human at a terminal: no `--yes`, no stdin path, and agents it can detect are refused |
 | A skill changes silently on update | Changes go back to quarantine and need a new approval |
-| Each agent has its own skills folder | Installs once into every detected harness (Claude Code, Pi, Codex, Cursor, Gemini CLI, OpenCode and 72 more) |
+| Each agent has its own skills folder | Installs once into every detected harness (Claude Code, Pi, Codex, Cursor, Gemini CLI, OpenCode and 72 more of the 78 in the registry; only 3 are verified) |
 | No way to notice drift | `skigard verify` fails CI if the lock, the store or the installs change |
 
 <picture>
@@ -67,20 +67,20 @@ skigard puts a gate in front of that: **fetch to quarantine, scan, optional agen
 
 ## Install
 
-`v0.1.1` is the latest release ([GitHub Releases](https://github.com/ambierhq/skigard/releases)). Status of each channel:
+`v0.1.2` is the latest release ([GitHub Releases](https://github.com/ambierhq/skigard/releases)). Status of each channel:
 
 | Channel | Command | Status |
 |---|---|---|
-| Go | `go install github.com/ambierhq/skigard/cmd/skigard@latest` | live |
+| Go | `go install github.com/ambierhq/skigard/cmd/skigard@latest` | live (`go install ...@v0.1.2` prints `skigard 0.1.2`) |
 | Shell installer (macOS, Linux) | `curl -fsSL https://ambierhq.com/skigard/install.sh \| sh` | live |
-| PowerShell (Windows) | `irm https://ambierhq.com/skigard/install.ps1 \| iex` | live (tested in CI on `windows-latest`) |
+| PowerShell (Windows) | `irm https://ambierhq.com/skigard/install.ps1 \| iex` | live (tested in CI on `windows-latest`; not tested by hand on Windows) |
 | GitHub Releases | archives, `.deb`, `.rpm`, `.apk`, `.pkg.tar.zst`, checksums, SBOMs, cosign signatures | live |
 | Homebrew | `brew install ambierhq/tap/skigard` | live |
-| winget | `winget install Ambier.Skigard` | submitted, pending Microsoft review ([winget-pkgs#484409](https://github.com/microsoft/winget-pkgs/pull/484409)) |
-| Scoop | `scoop bucket add ambierhq https://github.com/ambierhq/scoop-bucket && scoop install skigard` | live, not yet tested on Windows |
-| mise | `mise use -g github:ambierhq/skigard` | live (the short name `skigard` needs a registry entry, not submitted) |
-| Nix | `nix run github:ambierhq/skigard` | flake builds in CI; not tested by hand |
-| npx / npm | `npx skigard` or `npm i -g skigard` | available (v0.1.1) |
+| winget | `winget install Ambier.Skigard` | submitted, in review at Microsoft ([winget-pkgs#484914](https://github.com/microsoft/winget-pkgs/pull/484914)); not installable yet |
+| Scoop | `scoop bucket add ambierhq https://github.com/ambierhq/scoop-bucket && scoop install skigard` | live (the bucket is updated by the release workflow); not tested by hand on Windows |
+| mise | `mise use -g github:ambierhq/skigard` | live (`github:` backend, checked with v0.1.2; the short name `skigard` needs a registry entry, not submitted) |
+| Nix | `nix run github:ambierhq/skigard` | the flake builds in CI (Linux and macOS), not tested by hand. A nixpkgs package (`pkgs.skigard`) is submitted and in review ([nixpkgs#590787](https://github.com/NixOS/nixpkgs/pull/590787)); it does not exist yet |
+| npx / npm | `npx skigard` or `npm i -g skigard` | available (v0.1.2, published by the release workflow with npm provenance) |
 | apt, dnf, pacman repositories | not offered. Install the `.deb`, `.rpm` or `.pkg.tar.zst` attached to a GitHub Release (see [Linux](docs/install/linux.md)) | not offered |
 
 Per-system pages: [macOS](docs/install/macos.md) · [Linux](docs/install/linux.md) · [Windows](docs/install/windows.md) ·
@@ -94,6 +94,9 @@ Per-system pages: [macOS](docs/install/macos.md) · [Linux](docs/install/linux.m
 | Linux | amd64, arm64 | yes (`/dev/tty`) | yes (bubblewrap or Landlock) | symlinks (or `--copy`) |
 | macOS | amd64, arm64 | yes (`/dev/tty`) | yes (Seatbelt) | symlinks (or `--copy`) |
 | Windows 10/11 | amd64, arm64 | yes (console, `CONIN$`) | no, use `review --manual` or WSL | copies |
+
+How much of this was tested by hand: macOS (arm64) end to end, including the Seatbelt-sandboxed review. Linux (Ubuntu 26.04 x86_64, Landlock, no
+bubblewrap): the installer, the `.deb`, the quick start and `approve` through a pty by hand; the OS-sandboxed `review` was **not** run there. Windows is covered by CI only (tests, the installer, an `approve` test through a ConPTY), not tested by hand. macOS amd64 and Linux arm64 are cross-compiled in CI and not tested by hand.
 
 ## Quick start
 
@@ -160,7 +163,7 @@ Layout, formats and the Windows split are in [concepts](docs/concepts.md), [lock
 ## CI usage
 
 ```yaml
-- run: curl -fsSL https://github.com/ambierhq/skigard/releases/download/v0.1.1/install.sh | SKIGARD_VERSION=v0.1.1 sh
+- run: curl -fsSL https://github.com/ambierhq/skigard/releases/download/v0.1.2/install.sh | SKIGARD_VERSION=v0.1.2 sh
 - run: skigard verify --strict        # with SKIGARD_HOME=./.skigard committed to the repository
 ```
 
@@ -248,16 +251,16 @@ No. Scan, approve, lock and verify need no agent. Review does.
 ## Security
 
 Report vulnerabilities privately; see [SECURITY.md](SECURITY.md). What skigard promises, and what it does not, is in the [threat model](docs/threat-model.md).
-Releases are signed (cosign, keyless), come with SBOMs, and CI is pinned and hardened (CodeQL, govulncheck, dependency review, OpenSSF Scorecard).
+Releases are signed (cosign, keyless), come with SBOMs and GitHub build attestations (npm packages carry npm provenance), and CI is pinned and hardened (CodeQL, govulncheck, dependency review, OpenSSF Scorecard).
 
 ## Roadmap
 
-- Install channels still to land: winget (in review) and the mise registry.
+- Install channels still to land: winget (in review, #484914), nixpkgs (in review, #590787) and the mise registry.
 - `skigard find` (#28): search skills.sh or a catalog (discovery is the main thing skigard lacks today).
 - An importer for `skills-lock.json` (#29) from vercel-labs/skills.
 - Verify more harnesses (each one needs a person to confirm its skills directory).
 - Automated review on Windows, once the reviewer CLIs have been verified there.
-- Signed approvals (approver key in the OS keychain or a passkey, signature stored in `skigard.lock`, checked by `verify --strict`), and Windows code signing.
+- Signed approvals (approver key in the OS keychain or a passkey, signature stored in `skigard.lock`, checked by `verify --strict`).
 
 Ideas and votes: [Discussions](https://github.com/ambierhq/skigard/discussions). Changes so far: [CHANGELOG.md](CHANGELOG.md).
 

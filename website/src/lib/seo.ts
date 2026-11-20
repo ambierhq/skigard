@@ -33,6 +33,6 @@ export const faq: { q: string; a: string }[] = [
   { q: "Is a passing scan a safety certificate?", a: "No. The scanner is heuristic and an agent review can be fooled. The review can only raise concern, never lower a scanner finding. Read the skill, especially bundled scripts." },
   { q: "Which agents does it support?", a: `${harnessCount} agent harnesses are in the registry, including Claude Code, Pi, Codex, Cursor, Gemini CLI and OpenCode. Entries marked verified were checked against the harness itself; others need --include-unverified.` },
   { q: "What does the lockfile pin?", a: "skigard.lock records the source, commit, a versioned content hash of the approved bytes, the scan result, the review and the approver. skigard verify fails when the store, the installs or the generated marketplace drift." },
-  { q: "Does it work on Windows?", a: "Yes, including approve, which reads the console. Automated agent review is disabled on Windows; use review --manual." },
+  { q: "Does it work on Windows?", a: "Yes, including approve, which reads the console. Windows is covered by CI and has not been tested by hand on a real machine yet; the binary is not code-signed, so SmartScreen may warn. Automated agent review is disabled on Windows; use review --manual." },
   { q: "What is the licence?", a: "MIT. skigard is a project by Ambier Oy, Finland." },
 ];

@@ -15,7 +15,7 @@ const tabs: { id: string; label: string; cmd: string; note?: string }[] = [
   { id: "windows", label: "Windows", cmd: "irm https://ambierhq.com/skigard/install.ps1 | iex" },
   { id: "npx", label: "npx", cmd: "npx skigard detect" },
   { id: "brew", label: "brew", cmd: "brew install ambierhq/tap/skigard" },
-  { id: "nix", label: "go / nix", cmd: "go install github.com/ambierhq/skigard/cmd/skigard@latest" },
+  { id: "go", label: "go", cmd: "go install github.com/ambierhq/skigard/cmd/skigard@latest" },
 ];
 ---
 <div class="tabs">
@@ -69,7 +69,7 @@ const tabs: { id: string; label: string; cmd: string; note?: string }[] = [
   .copy:hover { border-color: var(--ambier-accent); }
   #tab-macos:checked ~ .panel-macos, #tab-linux:checked ~ .panel-linux, #tab-windows:checked ~ .panel-windows,
   #tab-npx:checked ~ .panel-npx,
-  #tab-brew:checked ~ .panel-brew, #tab-nix:checked ~ .panel-nix { display: block; }
+  #tab-brew:checked ~ .panel-brew, #tab-go:checked ~ .panel-go { display: block; }
   .fine { font-size: 0.85rem; color: var(--ambier-fg-dim); margin: 0.75rem 0 0; }
   .fine a { color: var(--ambier-accent); }
 </style>
