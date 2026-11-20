@@ -131,7 +131,7 @@ async function llms(docs, harnesses) {
   const verified = harnesses.filter((h) => h.verified).map((h) => h.name).join(", ");
   const index = `# skigard
 
-> A lockfile and review gate for agent skills. skigard fetches skills (folders with a SKILL.md) into quarantine, scans them, optionally has an agent you already use review them, makes a human approve the exact bytes in a real terminal, pins the approval to a content hash in a lockfile, and installs them into the agent harnesses it detects. A project by Ambier Oy, Finland. MIT licensed, Go, one static binary, no telemetry. Runs on macOS, Linux and Windows.
+> A lockfile and review gate for agent skills. skigard fetches skills (folders with a SKILL.md) into quarantine, scans them, optionally has an agent you already use review them, makes a human approve the exact bytes in a real terminal, pins the approval to a content hash in a lockfile, and installs them into the agent harnesses it detects (${harnesses.length} in the registry). A project by Ambier Oy, Finland. MIT licensed, Go, one static binary, no telemetry. Runs on macOS, Linux and Windows.
 
 Approval needs a human at a terminal: \`approve\` reads the controlling terminal and has no --yes flag, stdin or environment path, but a process that creates its own pseudo-terminal can still type the answer (signed approvals are planned). The scanner is heuristic and an agent review can be fooled, so a pass is not a safety certificate.
 

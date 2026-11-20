@@ -9,11 +9,11 @@ import display from "../fonts/newsreader-latin-wght-normal.woff2?url";
 import ui400 from "../fonts/ibm-plex-sans-latin-400-normal.woff2?url";
 import ui600 from "../fonts/ibm-plex-sans-latin-600-normal.woff2?url";
 import harnesses from "../data/harnesses.json";
-import { software, faq, breadcrumbs } from "../lib/seo";
+import { software, faq, breadcrumbs, harnessCount } from "../lib/seo";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const title = "skigard: a lockfile and review gate for agent skills";
-const description = "skigard quarantines, scans and pins agent skills. A human approves the exact bytes before skigard installs them into Claude Code, Pi, Codex, Cursor and 70+ more.";
+const description = `skigard quarantines, scans and pins agent skills. A human approves the exact bytes before skigard installs them into any of ${harnessCount} agent harnesses, including Claude Code, Pi, Codex and Cursor.`;
 const canonical = "https://ambierhq.com/skigard/";
 const og = "https://ambierhq.com/skigard/og.png";
 const verified = harnesses.filter((h) => h.verified);

@@ -1,18 +1,7 @@
 ---
 // CSS-only tabs (radio inputs); the copy button is the only script on the page.
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { latestVersion } from "../lib/version";
 
-// Latest released version, read from CHANGELOG.md at build time so the small print cannot go stale.
-const FALLBACK_VERSION = "0.1.1";
-function latestVersion(): string {
-  try {
-    const log = readFileSync(resolve(process.cwd(), "../CHANGELOG.md"), "utf8");
-    return log.match(/^## \[(\d+\.\d+\.\d+)\]/m)?.[1] ?? FALLBACK_VERSION;
-  } catch {
-    return FALLBACK_VERSION;
-  }
-}
 const version = latestVersion();
 
 const tabs: { id: string; label: string; cmd: string; note?: string }[] = [

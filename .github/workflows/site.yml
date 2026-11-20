@@ -2,9 +2,9 @@ name: site
 on:
   push:
     branches: [main]
-    paths: ["website/**", "docs/**", "README.md", "internal/harness/registry.toml", "assets/brand/**", ".github/workflows/site.yml"]
+    paths: ["website/**", "docs/**", "README.md", "internal/harness/registry.toml", "assets/brand/**", "examples/**", "cmd/**", "internal/**", "scripts/pty_approve.py", ".github/workflows/site.yml"]
   pull_request:
-    paths: ["website/**", "docs/**", "README.md", "internal/harness/registry.toml", "assets/brand/**", ".github/workflows/site.yml"]
+    paths: ["website/**", "docs/**", "README.md", "internal/harness/registry.toml", "assets/brand/**", "examples/**", "cmd/**", "internal/**", "scripts/pty_approve.py", ".github/workflows/site.yml"]
   workflow_dispatch:
 permissions: {}
 concurrency:
@@ -24,7 +24,13 @@ jobs:
           node-version: "26.13.1"
           cache: npm
           cache-dependency-path: website/package-lock.json
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+          cache: false
       - run: npm ci --ignore-scripts
+      - name: Landing-page terminal matches the real binary (examples/hello-skill, no network)
+        run: npm run capture -- --check
       - run: npm run build
       - run: npm run check:links
       - name: No horizontal overflow (320-1280 px)

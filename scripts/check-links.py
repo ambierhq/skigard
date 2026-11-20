@@ -51,6 +51,8 @@ def main():
         for target in LINK.findall(text) + HTML.findall(text):
             if re.match(r"^(https?:|mailto:|data:)", target):
                 continue
+            if target.startswith("/skigard/"):
+                continue  # site-absolute URL (website/src/content/docs/guides); website `npm run check:links` verifies them on the built site
             ref, _, frag = target.partition("#")
             dest = path if ref == "" else os.path.normpath(os.path.join(os.path.dirname(path), ref))
             rel = os.path.relpath(path, ROOT)

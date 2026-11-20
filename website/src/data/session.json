@@ -1,0 +1,93 @@
+{
+  "version": "dev+a1f41b7",
+  "lines": [
+    {
+      "t": "$ skigard add ./examples/hello-skill",
+      "c": "cmd"
+    },
+    {
+      "t": "quarantined \"hello-skill\" from <repo>/examples/hello-skill",
+      "c": "ok"
+    },
+    {
+      "t": "scan: PASS  coverage: complete  risk: 0/100  (1 files, 0 scripts)",
+      "c": "out"
+    },
+    {
+      "t": "content hash: sha256:9f4c343fd0b879a849dec0ea4a46a36598f5380af5dfd76ae68b0f2bfc352531",
+      "c": "out"
+    },
+    {
+      "t": "note: the scanner is heuristic. A pass is not a safety certificate.",
+      "c": "out"
+    },
+    {
+      "t": "$ skigard approve hello-skill",
+      "c": "cmd"
+    },
+    {
+      "t": "Approve skill \"hello-skill\"",
+      "c": "out"
+    },
+    {
+      "t": "  source:  <repo>/examples/hello-skill",
+      "c": "out"
+    },
+    {
+      "t": "  hash:    sha256:9f4c343fd0b879a849dec0ea4a46a36598f5380af5dfd76ae68b0f2bfc352531",
+      "c": "out"
+    },
+    {
+      "t": "scan: PASS  coverage: complete  risk: 0/100  (1 files, 0 scripts)",
+      "c": "out"
+    },
+    {
+      "t": "review: none (run `skigard review` first for a second opinion)",
+      "c": "out"
+    },
+    {
+      "t": "changes:",
+      "c": "out"
+    },
+    {
+      "t": "  +++ added: SKILL.md",
+      "c": "out"
+    },
+    {
+      "t": "  … (file contents shown here, trimmed)",
+      "c": "out"
+    },
+    {
+      "t": "Type the skill name (hello-skill) to approve, anything else to cancel: hello-skill",
+      "c": "warn"
+    },
+    {
+      "t": "approved \"hello-skill\" (9f4c343fd0b8)",
+      "c": "ok"
+    },
+    {
+      "t": "$ skigard install hello-skill",
+      "c": "cmd"
+    },
+    {
+      "t": "installed hello-skill -> ~/.agents/skills/hello-skill (symlink; pi, omp)",
+      "c": "ok"
+    },
+    {
+      "t": "installed hello-skill -> ~/.claude/skills/hello-skill (symlink; claude-code)",
+      "c": "ok"
+    },
+    {
+      "t": "$ skigard verify",
+      "c": "cmd"
+    },
+    {
+      "t": "info  hello-skill: no agent review recorded",
+      "c": "out"
+    },
+    {
+      "t": "ok: lock, store, installs and marketplace agree",
+      "c": "ok"
+    }
+  ]
+}
