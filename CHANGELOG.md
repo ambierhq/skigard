@@ -5,8 +5,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-20
+
 ### Added
 
+- Best-effort agent detection: `approve` also refuses when an ancestor process is a known agent harness (by binary name or environment marker), which catches the `script`/pty one-liner even when the agent variable was stripped. The refusal no longer names the variable. It is evadable by re-parenting (documented in the threat model).
 - npm packages published: `skigard` and the six `@ambierhq/skigard-<os>-<cpu>` packages (`npx skigard`, `npm i -g skigard`).
 
 ### Changed
