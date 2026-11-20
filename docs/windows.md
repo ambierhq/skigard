@@ -91,3 +91,25 @@ Symlinks and junctions in a local source are rejected, and symlinks in archives 
 
 Two skigard processes use the same home safely: mutating commands take an exclusive `LockFileEx` lock on
 `state\.lock`, retry for up to ten seconds, then fail with "another skigard process is using ...".
+
+## How this is tested
+
+There is no Windows machine behind skigard, so Windows is tested in CI, in two ways.
+
+- **Every pull request** (`ci.yml`): the unit tests and cross-compile on `windows-latest`, and `e2e/windows`, which builds
+  skigard from source and drives `approve` through a real pseudo console (ConPTY).
+- **The published release** ([`windows-smoke.yml`](../.github/workflows/windows-smoke.yml)): weekly, after every release
+  and on demand (`gh workflow run windows-smoke.yml -f version=0.1.2`), it uses the artifacts a user gets, on
+  `windows-latest` (amd64) and `windows-11-arm` (arm64):
+  `irm https://ambierhq.com/skigard/install.ps1 | iex` in Windows PowerShell 5.1 and PowerShell 7 (PATH in a new
+  process, version, idempotent re-run), Scoop (`bucket add`, `install`, `uninstall`), the release zip (SHA-256 against
+  `checksums.txt`, `cosign verify-blob`, `gh attestation verify`), the quick start with a real console
+  (`e2e/windows`, `TestPublishedSmoke`: wrong answer cancels with exit 3, right answer approves, `verify --strict`,
+  `install`, the split `%APPDATA%` / `%LOCALAPPDATA%` layout, and `approve` refused under `CLAUDECODE=1` and under a
+  process named `claude.exe`), `npx skigard@VERSION` (skipped when that version is not on npm yet), and the Linux build
+  inside WSL.
+
+This workflow is advisory: it is not a required check, and a green run does not mean a person has used skigard
+on Windows. What it cannot cover: the Scoop install runs as the runner's administrator account (Scoop needs
+`-RunAsAdmin` there), SmartScreen and Defender prompts do not appear on runners, and the Windows reviewer sandbox does
+not exist (review is disabled, above).

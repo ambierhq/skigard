@@ -34,7 +34,8 @@ in `assets/demo/`, a GIF for the README, MP4/WebM for the site, a poster and fou
   `go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12` before changing a workflow.
 - Required checks on `main`: `test (ubuntu-latest|macos-latest|windows-latest)`, `cross-compile (windows/amd64|windows/arm64)`,
   `editorconfig`, `fuzz`. Do not rename these jobs. Other workflows (`govulncheck`, `codeql`, `scorecard`,
-  `dependency-review`, `workflow-lint`, `installers`, `links`, `fuzz-nightly`) are advisory.
+  `dependency-review`, `workflow-lint`, `installers`, `links`, `fuzz-nightly`, `windows-smoke`) are advisory. `windows-smoke` tests the
+  *published* release on Windows runners (weekly, after a release, or `gh workflow run windows-smoke.yml -f version=X`); see `docs/windows.md`.
 - Releases are tag-driven: a maintainer pushes `vX.Y.Z` and `.github/workflows/release.yml` runs GoReleaser (archives,
   packages, SBOMs, cosign signatures, provenance attestation). PRs that touch packaging get a snapshot
   dry run. `scripts/install.sh` and `scripts/install.ps1` are tested against a snapshot in the `installers` workflow.

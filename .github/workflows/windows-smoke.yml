@@ -1,0 +1,184 @@
+name: windows-smoke
+# Smoke test of the PUBLISHED release on real Windows runners: the PowerShell installer, Scoop, the release zip
+# (checksum, cosign, attestation), the quick start in a real console (ConPTY), npx, and the Linux build in WSL.
+# Advisory: this is not a required check and nothing here gates a merge. See docs/windows.md.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release to test (0.1.2, v0.1.2) or "latest"'
+        required: false
+        default: latest
+        type: string
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_run:
+    workflows: [release]
+    types: [completed]
+permissions: {}
+concurrency:
+  group: windows-smoke-${{ github.event.workflow_run.id || github.run_id }}
+  cancel-in-progress: false
+env:
+  # Not a secret: lets `gh` read releases and attestations of this public repository.
+  GH_REPO: ambierhq/skigard
+jobs:
+  resolve:
+    # A release workflow run for a pull request is only a snapshot dry run; only tag pushes publish.
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') }}
+    permissions: {contents: read}
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      latest: ${{ steps.v.outputs.latest }}
+      pinned: ${{ steps.v.outputs.pinned }}
+    steps:
+      - id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          latest=$(gh release view --json tagName --jq .tagName)
+          latest=${latest#v}
+          version=$latest; pinned=false
+          if [ -n "$INPUT_VERSION" ] && [ "$INPUT_VERSION" != latest ]; then
+            case "$INPUT_VERSION" in *[!0-9A-Za-z.+_v-]*) echo "invalid version" >&2; exit 1 ;; esac
+            version=${INPUT_VERSION#v}; pinned=true
+            gh release view "v$version" --json tagName --jq .tagName
+          fi
+          echo "testing $version (latest is $latest, pinned=$pinned)"
+          {
+            echo "version=$version"
+            echo "latest=$latest"
+            echo "pinned=$pinned"
+          } >> "$GITHUB_OUTPUT"
+  installer:
+    needs: resolve
+    permissions: {contents: read}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # windows-11-arm is a hosted runner for public repositories.
+        os: [windows-latest, windows-11-arm]
+        shell: [powershell, pwsh]
+    runs-on: ${{ matrix.os }}
+    name: installer (${{ matrix.os }}, ${{ matrix.shell }})
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - name: installer in Windows PowerShell 5.1
+        if: ${{ matrix.shell == 'powershell' }}
+        shell: powershell
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+          LATEST: ${{ needs.resolve.outputs.latest }}
+          PINNED: ${{ needs.resolve.outputs.pinned }}
+        run: |
+          $p = @{ Task = 'installer'; Version = $env:VERSION; Latest = $env:LATEST }
+          if ($env:PINNED -eq 'true') { $p.Pinned = $true }
+          & ./scripts/windows-smoke.ps1 @p
+      - name: installer in PowerShell 7
+        if: ${{ matrix.shell == 'pwsh' }}
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+          LATEST: ${{ needs.resolve.outputs.latest }}
+          PINNED: ${{ needs.resolve.outputs.pinned }}
+        run: |
+          $p = @{ Task = 'installer'; Version = $env:VERSION; Latest = $env:LATEST }
+          if ($env:PINNED -eq 'true') { $p.Pinned = $true }
+          & ./scripts/windows-smoke.ps1 @p
+  scoop:
+    needs: resolve
+    permissions: {contents: read}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    name: scoop (${{ matrix.os }})
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - shell: pwsh
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+          LATEST: ${{ needs.resolve.outputs.latest }}
+        run: ./scripts/windows-smoke.ps1 -Task scoop -Version $env:VERSION -Latest $env:LATEST
+  zip:
+    needs: resolve
+    permissions: {contents: read}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    name: zip, cosign, attestation (${{ matrix.os }})
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - shell: pwsh
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/windows-smoke.ps1 -Task zip -Version $env:VERSION
+  quickstart:
+    needs: resolve
+    permissions: {contents: read}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    name: quick start in ConPTY (${{ matrix.os }})
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with: {go-version-file: go.mod, cache: false}
+      - shell: pwsh
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+          # Used by skigard itself to fetch github:ambierhq/skigard/examples/hello-skill.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ./scripts/windows-smoke.ps1 -Task quickstart -Version $env:VERSION
+  npm:
+    needs: resolve
+    permissions: {contents: read}
+    timeout-minutes: 10
+    runs-on: windows-latest
+    name: npx (windows-latest)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - shell: pwsh
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: ./scripts/windows-smoke.ps1 -Task npm -Version $env:VERSION
+  wsl:
+    needs: resolve
+    permissions: {contents: read}
+    timeout-minutes: 20
+    runs-on: windows-latest
+    name: WSL Ubuntu (windows-latest)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: Vampire/setup-wsl@4c48163d9f981914dd8caa0fc335fe19cca5bff4 # v7.2.0
+        with:
+          distribution: Ubuntu-24.04
+          additional-packages: curl ca-certificates python3
+      - name: quick start inside WSL
+        shell: wsl-bash {0}
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+          LATEST: ${{ needs.resolve.outputs.latest }}
+          PINNED: ${{ needs.resolve.outputs.pinned }}
+        run: |
+          expected=$LATEST; [ "$PINNED" = true ] && expected=$VERSION
+          sh scripts/wsl-smoke.sh "$VERSION" "$PINNED" "$expected"
