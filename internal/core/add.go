@@ -315,6 +315,7 @@ func (a *App) updateOne(ctx context.Context, man *store.Manifest, ls *store.Lock
 		return fail("%s", note)
 	}
 	r.Changed, r.Report = true, q.Report
+	r.Safety = scan.Score(q.Report, "").At(man.Settings.EffectiveThreshold())
 	r.Note = "changed upstream; review with: skigard diff " + ls.Name
 	if fork || dirty {
 		r.LocalChanges = true

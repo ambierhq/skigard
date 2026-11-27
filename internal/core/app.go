@@ -16,6 +16,7 @@ import (
 	"github.com/ambierhq/skigard/internal/scan"
 	"github.com/ambierhq/skigard/internal/source"
 	"github.com/ambierhq/skigard/internal/store"
+	"github.com/ambierhq/skigard/internal/term"
 	"github.com/ambierhq/skigard/internal/util"
 )
 
@@ -31,6 +32,8 @@ type App struct {
 	Version       string
 	User          string
 	RefuseInAgent bool // approve refuses when an agent harness is detected
+	// Style colours the approval screen; the zero value is plain text.
+	Style term.Style
 	// AgentAncestor reports an agent harness among this process's ancestors
 	// (best effort, see harness.AgentAncestor). Nil disables the check.
 	AgentAncestor func() (string, bool)

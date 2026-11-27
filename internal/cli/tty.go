@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/ambierhq/skigard/internal/term"
 	"github.com/ambierhq/skigard/internal/util"
 )
 
@@ -20,8 +21,12 @@ func noTerminal(detail string) error {
 // and requires the human to type want. in and out are always the console
 // device (/dev/tty, CONIN$/CONOUT$), never stdin or stdout.
 func promptOn(in io.Reader, out io.Writer, summary, want string) error {
-	fmt.Fprintln(out, "\n"+summary)
-	fmt.Fprintf(out, "\nType %s to confirm, anything else to cancel: ", want)
+	st := term.Style{}
+	if f, ok := out.(*os.File); ok {
+		st = term.Style{On: term.Enabled(f, os.Getenv)}
+	}
+	fmt.Fprintln(out, "\n"+strings.TrimRight(summary, "\n"))
+	fmt.Fprintf(out, "\nType %s to confirm, anything else to cancel: ", st.Bold(want))
 	line, err := bufio.NewReader(in).ReadString('\n')
 	if err != nil && line == "" {
 		return util.Cancelled("cancelled")

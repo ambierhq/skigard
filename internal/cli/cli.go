@@ -200,6 +200,7 @@ func (c *ctx) open() error {
 		return err
 	}
 	c.app = core.New(h, Version, c.out, c.errw)
+	c.app.Style = c.style(false)
 	if !c.json && c.errw == io.Writer(os.Stderr) && term.StderrIsTerminal(os.Getenv) {
 		c.app.ReviewProgress = c.reviewProgress
 	}

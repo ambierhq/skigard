@@ -226,10 +226,10 @@ func printOutcomes(c *ctx, ocs []core.AddOutcome) error {
 		if o.Review != nil {
 			c.printf("review: %s %s\n", verdictStyle(st, o.Review.Verdict), st.Dim("(advisory)"))
 		}
-		c.printf("\n%s %s %s\n", st.Bold("safety score:"), scoreStyle(st, fmt.Sprintf("%d/10", o.Score)), st.Dim(fmt.Sprintf("(higher is safer; %s; threshold %d; mode %s)", o.Tier, o.Safety.Threshold, o.Mode)))
-		for _, r := range o.Reasons {
-			c.printf("  %s %s\n", st.Dim("-"), util.Clean(r))
-		}
+		c.printf("\n")
+		sf := o.Safety
+		sf.Score, sf.Reasons = o.Score, o.Reasons
+		scan.WriteScore(c.out, st, sf, o.Mode)
 		switch o.Decision {
 		case core.DecisionInstalled, core.DecisionForced:
 			word := "approved and installed"
@@ -243,14 +243,22 @@ func printOutcomes(c *ctx, ocs []core.AddOutcome) error {
 				c.printf("  %s %s %s %s %s\n", st.Green("installed"), st.Bold(g.Name), st.Dim("->"), g.Path, st.Dim("("+g.Mode+"; "+strings.Join(g.Harnesses, ", ")+")"))
 			}
 		case core.DecisionWarned:
-			c.printf("%s %q was NOT installed; it is still in quarantine.\n", st.Badge("33", "WARNING"), o.Name)
-			c.printf("%s skigard diff %s\n      skigard review %s   (optional)\n      skigard approve %s  (in a real terminal)\n      skigard install %s\n      or: skigard add ... --force-install (human terminal only)\n", st.Dim("next:"), o.Name, o.Name, o.Name, o.Name)
+			c.printf("%s %q was NOT installed; it is still in quarantine.\n", st.Tag("33", "WARNING"), o.Name)
+			c.nextSteps("", "",
+				"skigard diff "+o.Name,
+				"skigard review "+o.Name+"   (optional)",
+				"skigard approve "+o.Name+"  (in a real terminal)",
+				"skigard install "+o.Name,
+				"or: skigard add ... --force-install (human terminal only)")
 		case core.DecisionNeedsApproval:
 			c.printf("%s %q is in quarantine and waiting for a human.\n", st.Yellow("●"), o.Name)
 			if o.Err != nil {
 				c.printf("  (%s)\n", util.Clean(o.Err.Error()))
 			}
-			c.printf("next: skigard review %s   (optional)\n      skigard approve %s  (in a real terminal)\n      skigard install %s\n", o.Name, o.Name, o.Name)
+			c.nextSteps("", "",
+				"skigard review "+o.Name+"   (optional)",
+				"skigard approve "+o.Name+"  (in a real terminal)",
+				"skigard install "+o.Name)
 		default:
 			c.printf("%q was approved but installing failed: %s\n", o.Name, util.Clean(errText(o.Err)))
 		}
@@ -527,15 +535,7 @@ func printReviewStyled(c *ctx, st term.Style, name string, rec *review.Record) {
 	c.printf("\n%s skigard approve %s\n", st.Dim("next:"), name)
 }
 
-func verdictStyle(st term.Style, v string) string {
-	switch strings.ToLower(v) {
-	case "pass":
-		return st.Badge("32", "PASS")
-	case "fail":
-		return st.Badge("31", "FAIL")
-	}
-	return st.Badge("33", strings.ToUpper(util.Clean(v)))
-}
+func verdictStyle(st term.Style, v string) string { return st.Verdict(util.Clean(v)) }
 
 func sevLabelPad(st term.Style, sev string) string {
 	return sevStyle(st, fmt.Sprintf("%-8s", sev))
@@ -860,19 +860,39 @@ func cmdUpdate(c *ctx, args []string) error {
 	if len(rs) == 0 {
 		c.printf("nothing is approved yet\n")
 	}
+	st := c.style(false)
 	for _, r := range rs {
-		c.printf("%s: %s\n", r.Name, util.Clean(r.Note))
+		c.printf("%s: %s\n", st.Bold(util.Clean(r.Name)), util.Clean(r.Note))
 		if r.Changed && r.Report != nil {
-			c.printf("  new commit: %s\n", r.NewSHA)
-			scan.WriteText(c.out, r.Report)
-			if r.Safety.Score > 0 {
-				c.printf("  safety score: %s (%s; threshold %d)\n", scoreStyle(c.style(false), fmt.Sprintf("%d/10", r.Safety.Score)), r.Safety.Tier, r.Safety.Threshold)
+			if r.NewSHA != "" {
+				c.printf("  new commit: %s\n", r.NewSHA)
 			}
+			c.printf("\n")
+			c.writeScan(r.Report)
+			if r.Safety.Score > 0 {
+				c.printf("\n")
+				scan.WriteScore(c.out, st, r.Safety, "")
+			}
+			c.printf("\n")
 			if r.Applied {
-				c.printf("  approved automatically (recorded in the lock as mode = auto)\n")
+				c.printf("%s approved automatically (recorded in the lock as mode = auto)\n\n", st.Green("✔"))
 				continue
 			}
-			c.printf("  left in quarantine. next: skigard diff %s; skigard review %s; skigard approve %s\n", r.Name, r.Name, r.Name)
+			if r.LocalChanges {
+				c.printf("%s %q is in quarantine; it differs from your local copy.\n", st.Yellow("●"), r.Name)
+				c.nextSteps("", "",
+					fmt.Sprintf("skigard diff %s   (your copy vs new upstream)", r.Name),
+					fmt.Sprintf("skigard merge %s --pick   (keep your edits; or --with HARNESS [--note TEXT])", r.Name),
+					fmt.Sprintf("skigard approve %s  (in a real terminal; takes upstream wholesale and drops your edits)", r.Name))
+				c.printf("\n")
+				continue
+			}
+			c.printf("%s %q is in quarantine.\n", st.Yellow("●"), r.Name)
+			c.nextSteps("", "",
+				fmt.Sprintf("skigard diff %s", r.Name),
+				fmt.Sprintf("skigard review %s   (optional)", r.Name),
+				fmt.Sprintf("skigard approve %s  (in a real terminal)", r.Name))
+			c.printf("\n")
 		}
 	}
 	return nil
@@ -1099,18 +1119,7 @@ func sevStyle(st term.Style, sev string) string {
 }
 
 // scoreStyle colours "N/10" by the same bands as the safety tiers.
-func scoreStyle(st term.Style, cell string) string {
-	n, err := strconv.Atoi(strings.TrimSuffix(cell, "/10"))
-	switch {
-	case err != nil:
-		return st.Dim(cell)
-	case n >= 7:
-		return st.Green(cell)
-	case n >= 4:
-		return st.Yellow(cell)
-	}
-	return st.Red(cell)
-}
+func scoreStyle(st term.Style, cell string) string { return st.Score(cell) }
 
 func dash(s string) string {
 	if s == "" {

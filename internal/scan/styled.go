@@ -185,3 +185,16 @@ func severitySummary(counts map[Severity]int, s term.Style) string {
 	}
 	return s.Dim(strings.Join(parts, " · "))
 }
+
+// WriteScore prints the safety score line and its reasons, the same way for add, update and
+// approve. mode is the approval mode shown after the threshold; "" leaves it out.
+func WriteScore(w io.Writer, s term.Style, sf Safety, mode string) {
+	detail := fmt.Sprintf("higher is safer; %s; threshold %d", sf.Tier, sf.Threshold)
+	if mode != "" {
+		detail += "; mode " + mode
+	}
+	fmt.Fprintf(w, "%s %s %s\n", s.Bold("safety score:"), s.Score(fmt.Sprintf("%d/10", sf.Score)), s.Dim("("+detail+")"))
+	for _, r := range sf.Reasons {
+		fmt.Fprintf(w, "  %s %s\n", s.Dim("-"), util.Clean(r))
+	}
+}

@@ -14,6 +14,7 @@ import (
 	"github.com/ambierhq/skigard/internal/scan"
 	"github.com/ambierhq/skigard/internal/skill"
 	"github.com/ambierhq/skigard/internal/store"
+	"github.com/ambierhq/skigard/internal/term"
 	"github.com/ambierhq/skigard/internal/util"
 )
 
@@ -271,64 +272,109 @@ func nameMismatch(m *skill.Meta, name string) []string {
 	return nil
 }
 
-func (a *App) summary(meta *store.Meta, rep *scan.Report, rev *review.Record, stale bool, d comparison, prev *store.LockSkill, why []string, o ApproveOpts, sf scan.Safety) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "Approve skill %q\n", meta.Name)
-	fmt.Fprintf(&b, "  source:  %s\n", util.Clean(meta.Source))
-	if meta.Commit != "" {
-		fmt.Fprintf(&b, "  commit:  %s\n", meta.Commit)
+// summary is the approval screen. It is plain text unless a.Style is on; every section is
+// separated by exactly one blank line and the text has no trailing newline.
+func (a *App) summary(meta *store.Meta, rep *scan.Report, rev *review.Record, stale bool, cmp comparison, prev *store.LockSkill, why []string, o ApproveOpts, sf scan.Safety) string {
+	st := a.Style
+	var sections []string
+	add := func(t string) { sections = append(sections, strings.TrimRight(t, "\n")) }
+
+	rows := []term.KV{
+		{Key: "source", Value: util.Clean(meta.Source)},
+		{Key: "commit", Value: util.Clean(meta.Commit)},
+		{Key: "hash", Value: meta.ContentHash},
 	}
-	fmt.Fprintf(&b, "  hash:    %s\n", meta.ContentHash)
 	if prev != nil {
-		fmt.Fprintf(&b, "  replaces approved version %s\n", hash.Short(prev.ContentHash, 12))
-	}
-	if prev != nil && isFork(meta) {
-		fmt.Fprintf(&b, "LOCAL FORK  your edited copy of an approved skill; baseline upstream %s, recorded as mode local\n", hash.Short(meta.UpstreamHash, 12))
-	} else if prev != nil && (prev.UpstreamHash != "" || a.hasLocalEdits(prev)) {
-		b.WriteString("WARNING  approving replaces your local edits to this skill with the new upstream version\n")
-	}
-	if d.None {
-		b.WriteString("NO COMPARISON  this is your in-place edit of an approved skill and the original upstream could not be rebuilt (see `skigard adopt`); read every file in quarantine before you approve\n")
+		rows = append(rows, term.KV{Key: "replaces", Value: "approved version " + hash.Short(prev.ContentHash, 12)})
 	}
 	if n := mergeNote(meta); n != "" {
-		fmt.Fprintf(&b, "  merge:   %s\n", util.Clean(n))
+		rows = append(rows, term.KV{Key: "merge", Value: util.Clean(n)})
 	}
+	add(st.Bold(fmt.Sprintf("Approve skill %q", util.Clean(meta.Name))) + "\n\n" + term.KVBlock(st, "  ", rows))
+
 	if meta.MergeMode == MergeAgent {
-		b.WriteString("WARNING  the merge agent's output is untrusted; read the diff against skills/ below\n")
+		add(st.Tag("33", "WARNING") + "  the merge agent's output is untrusted\n  read the diff against skills/ below")
 	}
-	scan.WriteText(&b, rep)
-	fmt.Fprintf(&b, "safety score: %d/10 (%s; threshold %d): %s\n", sf.Score, sf.Tier, sf.Threshold, strings.Join(sf.Reasons, "; "))
-	switch {
-	case rev != nil:
-		fmt.Fprintf(&b, "review (%s, advisory): %s, coverage %s\n  %s\n", util.Clean(rev.Reviewer), strings.ToUpper(rev.Verdict), rev.Coverage, util.Clean(rev.Summary))
-		fmt.Fprintf(&b, "  isolation: %s\n", isolationLine(rev))
-		for _, f := range rev.Findings {
-			fmt.Fprintf(&b, "    [%s] %s:%d %s\n", f.Severity, util.Clean(f.File), f.Line, util.Clean(f.Why))
+	if prev != nil {
+		switch {
+		case isFork(meta):
+			add(st.Tag("33", "LOCAL FORK") + "  your edited copy of an approved skill\n" + term.KVBlock(st, "  ", []term.KV{
+				{Key: "baseline", Value: "upstream " + hash.Short(meta.UpstreamHash, 12)},
+				{Key: "recorded", Value: "as mode local"},
+			}))
+		case prev.UpstreamHash != "" || a.hasLocalEdits(prev):
+			add(st.Tag("33", "WARNING") + "  approving replaces your local edits to this skill with the new upstream version")
 		}
-	case stale:
-		b.WriteString("review: a review exists but is for different content (ignored)\n")
-	default:
-		b.WriteString("review: none (run `skigard review` first for a second opinion)\n")
 	}
+
+	// The header already shows the hash; do not print it a second time in the scan block.
+	r := *rep
+	if r.Fingerprint == meta.ContentHash {
+		r.Fingerprint = ""
+	}
+	var sb strings.Builder
+	opt := scan.RenderOptions{Width: term.Width(os.Stdout) - 2} // the block is indented by two
+	if st.On {
+		scan.WriteStyledOpts(&sb, &r, st, opt)
+	} else {
+		scan.WriteTextOpts(&sb, &r, opt)
+	}
+	add(term.Indent(sb.String(), "  "))
+
+	var scoreB strings.Builder
+	mode := store.ApprovalHuman
+	if isFork(meta) {
+		mode = store.ApprovalLocal
+	}
+	scan.WriteScore(&scoreB, st, sf, mode)
+	add(scoreB.String())
+
+	add(a.reviewBlock(rev, stale))
+
 	if len(why) > 0 {
-		fmt.Fprintf(&b, "OVERRIDE: %s\n  reason given: %s\n", strings.Join(why, "; "), util.Clean(o.Reason))
+		add(st.Tag("31", "OVERRIDE") + "  " + strings.Join(why, "; ") + "\n" + term.KVBlock(st, "  ", []term.KV{{Key: "reason", Value: util.Clean(o.Reason)}}))
 	}
 	if o.Accept != "" {
-		fmt.Fprintf(&b, "accepting current low/medium findings: %s\n", util.Clean(o.Accept))
+		add(st.Tag("33", "ACCEPTING") + "  current low/medium findings\n" + term.KVBlock(st, "  ", []term.KV{{Key: "reason", Value: util.Clean(o.Accept)}}))
 	}
-	if d.Text != "" {
-		lines := strings.Split(strings.TrimRight(d.Text, "\n"), "\n")
+
+	switch {
+	case cmp.None:
+		add(st.Tag("33", "NO COMPARISON") + "  this is your in-place edit of an approved skill and the original upstream could not be rebuilt (see `skigard adopt`)\n  there is no diff to read: read every file in quarantine before you approve")
+	case cmp.Text == "":
+		add(st.Bold("changes") + "  " + st.Dim(cmp.Phrase()) + "\n  none")
+	default:
+		lines := strings.Split(strings.TrimRight(cmp.Text, "\n"), "\n")
 		const max = 300
-		fmt.Fprintf(&b, "changes  %s\n", d.Phrase())
-		for i, l := range lines {
-			if i >= max {
-				fmt.Fprintf(&b, "  ... %d more lines (run `skigard diff %s`)\n", len(lines)-max, meta.Name)
-				break
-			}
-			b.WriteString("  " + l + "\n")
+		more := ""
+		if len(lines) > max {
+			more = fmt.Sprintf("\n  ... %d more lines (run `skigard diff %s`)", len(lines)-max, util.Clean(meta.Name))
+			lines = lines[:max]
 		}
+		add(st.Bold("changes") + "  " + st.Dim(cmp.Phrase()) + "\n" + term.Indent(term.Diff(st, strings.Join(lines, "\n")+"\n"), "  ") + strings.TrimLeft(more, "\n"))
 	}
-	return b.String()
+	return strings.Join(sections, "\n\n")
+}
+
+// reviewBlock renders the review part of the approval screen.
+func (a *App) reviewBlock(rev *review.Record, stale bool) string {
+	st := a.Style
+	switch {
+	case rev != nil:
+		var b strings.Builder
+		fmt.Fprintf(&b, "review: %s %s\n", st.Verdict(util.Clean(rev.Verdict)), st.Dim(fmt.Sprintf("(%s, advisory; coverage %s)", util.Clean(rev.Reviewer), rev.Coverage)))
+		if rev.Summary != "" {
+			b.WriteString(term.Wrap(util.Clean(rev.Summary), 88, "  ") + "\n")
+		}
+		b.WriteString(term.KVBlock(st, "  ", []term.KV{{Key: "isolation", Value: isolationLine(rev)}}))
+		for _, f := range rev.Findings {
+			fmt.Fprintf(&b, "  [%s] %s:%d %s\n", f.Severity, util.Clean(f.File), f.Line, util.Clean(f.Why))
+		}
+		return b.String()
+	case stale:
+		return "review: " + st.Yellow("stale") + " a review exists but is for different content (ignored)"
+	}
+	return "review: " + st.Dim("none") + " (run `skigard review` first for a second opinion)"
 }
 
 // comparison is what an approval or `diff` compares a quarantined skill with.

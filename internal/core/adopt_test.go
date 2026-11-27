@@ -117,3 +117,119 @@ func TestApprovedAdoptWithSameContentIsNotAFork(t *testing.T) {
 		t.Error("identical content counted as a fork")
 	}
 }
+
+func TestSummaryWarnsWhenReplacingLocalEdits(t *testing.T) {
+	a, src := approvedStrict(t)
+	editLocal(t, a, "mine\n")
+	rewriteSkill(src, "alpha", "upstream change\n")
+	var summary string
+	rs, err := a.Update(context.Background(), []string{"alpha"})
+	if err != nil || !rs[0].LocalChanges {
+		t.Fatalf("%+v %v", rs, err)
+	}
+	_, err = a.Approve("alpha", ApproveOpts{Confirm: func(s, w string) error { summary = s; return nil }})
+	if err != nil || !strings.Contains(summary, "replaces your local edits") {
+		t.Fatalf("%v\n%s", err, summary)
+	}
+}
+
+func TestUpdateOutcomesWithLocalEdits(t *testing.T) {
+	update := func(a *App) UpdateResult {
+		rs, err := a.Update(context.Background(), []string{"alpha"})
+		if err != nil || len(rs) != 1 {
+			t.Fatalf("%+v %v", rs, err)
+		}
+		return rs[0]
+	}
+	t.Run("unchanged clean", func(t *testing.T) {
+		a, _ := approvedStrict(t)
+		if r := update(a); r.Changed || r.Note != "up to date" || r.LocalChanges {
+			t.Fatalf("%+v", r)
+		}
+	})
+	t.Run("unchanged with unadopted edits", func(t *testing.T) {
+		a, _ := approvedStrict(t)
+		editLocal(t, a, "mine\n")
+		r := update(a)
+		if r.Changed || r.Note != "up to date; local edits are not adopted, run: skigard adopt alpha" || inQuarantine(a, "alpha") {
+			t.Fatalf("%+v", r)
+		}
+	})
+	t.Run("unchanged fork", func(t *testing.T) {
+		a, _ := approvedStrict(t)
+		editLocal(t, a, "mine\n")
+		adoptAndApprove(t, a)
+		if r := update(a); r.Changed || r.Note != "up to date (local fork)" || inQuarantine(a, "alpha") {
+			t.Fatalf("%+v", r)
+		}
+		editLocal(t, a, "again\n")
+		if r := update(a); r.Changed || !strings.HasSuffix(r.Note, "run: skigard adopt alpha") || !strings.HasPrefix(r.Note, "up to date (local fork); ") {
+			t.Fatalf("%+v", r)
+		}
+	})
+	t.Run("changed upstream with fork", func(t *testing.T) {
+		a, src := approvedStrict(t)
+		editLocal(t, a, "mine\n")
+		adoptAndApprove(t, a)
+		rewriteSkill(src, "alpha", "upstream change\n")
+		r := update(a)
+		if !r.Changed || !r.LocalChanges || r.Applied || !inQuarantine(a, "alpha") || !strings.Contains(r.Note, "you have local changes") {
+			t.Fatalf("%+v", r)
+		}
+		d, _ := a.Diff("alpha")
+		if !strings.Contains(d, "upstream change") || !strings.Contains(d, "mine") {
+			t.Fatalf("diff should be local vs new upstream:\n%s", d)
+		}
+		// Taking upstream wholesale drops the fork.
+		ls := adoptAndApprove2(t, a)
+		if ls.UpstreamHash != "" || ls.Approval.Mode != store.ApprovalHuman {
+			t.Fatalf("%+v", ls)
+		}
+	})
+	t.Run("auto mode never applies over local edits", func(t *testing.T) {
+		a, userHome := newApp(t)
+		customHarness(t, a, userHome)
+		src := t.TempDir()
+		writeSkill(t, src, "alpha", nil)
+		addInstall(t, a, src, AddInstallOpts{Add: AddOpts{Skill: "alpha"}})
+		editLocal(t, a, "mine\n")
+		rewriteSkill(src, "alpha", "clean upstream change\n")
+		r := update(a)
+		if !r.Changed || r.Applied || !r.LocalChanges || !inQuarantine(a, "alpha") {
+			t.Fatalf("dirty: %+v", r)
+		}
+		if b, _ := os.ReadFile(filepath.Join(a.Home.SkillDir("alpha"), "SKILL.md")); !strings.Contains(string(b), "mine") {
+			t.Error("local edits were replaced")
+		}
+		// And a fork, too.
+		a.Reject("alpha")
+		if _, err := a.Adopt(context.Background(), "alpha"); err != nil {
+			t.Fatal(err)
+		}
+		adoptAndApprove2(t, a)
+		r = update(a)
+		if !r.Changed || r.Applied || !r.LocalChanges || lockEntry(t, a, "alpha").UpstreamHash == "" {
+			t.Fatalf("fork: %+v", r)
+		}
+	})
+}
+
+func TestSummaryLocalForkAndAgentMergeLines(t *testing.T) {
+	a, _ := approvedStrict(t)
+	editLocal(t, a, "mine\n")
+	if _, err := a.Adopt(context.Background(), "alpha"); err != nil {
+		t.Fatal(err)
+	}
+	var summary string
+	if _, err := a.Approve("alpha", ApproveOpts{Confirm: func(s, w string) error { summary = s; return nil }}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(summary, "\n  replaces  approved version ") || !strings.Contains(summary, "\nLOCAL FORK  your edited copy of an approved skill\n  baseline  upstream ") ||
+		!strings.Contains(summary, "\n  recorded  as mode local\n") {
+		t.Fatalf("%s", summary)
+	}
+	m := &store.Meta{MergeMode: MergeAgent, MergedBy: "pi", MergeIsolation: "seatbelt"}
+	if got := mergeNote(m); got != "merged by agent pi (isolation seatbelt)" {
+		t.Errorf("mergeNote %q", got)
+	}
+}

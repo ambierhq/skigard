@@ -22,6 +22,15 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The `approve` screen (also shown by a strict-mode `add`) is laid out like `add`: a bold title and an aligned key/value header (`source`, `commit`, `hash`, `replaces`, `merge`), one blank line
+  between sections and before the prompt (it used to have none between sections and two after), the scan block indented and printed once (the hash was repeated), the `safety score:` line and
+  `-` reasons exactly as `add` prints them (with `mode human` or `local`), and coloured badges (`LOCAL FORK`, `WARNING`, `OVERRIDE`, `NO COMPARISON`, the review verdict) on a terminal. The local-fork
+  sentence became a short block with `baseline` and `recorded` rows. `diff` and `approve` now share one "comparing X with Y" phrase (a new skill says every file is shown as added). `adopt` says
+  "finalized your edit of" for an `edit` working copy and keeps "staged your local edits of" for an in-place edit. `update` prints the score for a held-back change, and `add` colours its next-step
+  hints like every other command. `scripts/pty_view.py` runs any command in a coloured pty for checking output.
+- `adopt`, `merge` and `update` now print in the same style as `add`: the scan report is styled on a terminal, a blank line precedes a dim, aligned `next:` block, and `update` shows the
+  `safety score:` line in the `add` format. `update` no longer prints an empty `new commit:` for local sources. `merge --with` writes its progress notes to stderr so `--json` stays clean,
+  and the approval screen splits the long agent-merge note into two lines.
 - `-h` and `--help` now work on every command and subcommand, including groups (`plugin`, `marketplace`, `harness`, `allow`, `lock`, `config`, `review`) and `version`.
   Help goes to stdout with exit 0 (it used to go to stderr for flag-based commands) and never reads, locks or creates the home. A bare group prints a usage error
   (exit 2) that points at `-h`; `skigard help CMD [SUB]` works; group subcommands live in one table that feeds usage, completion and `docs/commands.md`.

@@ -121,3 +121,23 @@ func TestElapsed(t *testing.T) {
 		}
 	}
 }
+
+func TestBlocks(t *testing.T) {
+	plain, on := Style{}, Style{On: true}
+	if plain.Tag("33", "WARNING") != "WARNING" || plain.Verdict("concerns") != "CONCERNS" {
+		t.Error("plain tags carry padding or escapes")
+	}
+	if !strings.Contains(on.Tag("33", "WARNING"), "\x1b[") || !strings.Contains(on.Verdict("pass"), "PASS") {
+		t.Error("styled tags lack escapes")
+	}
+	got := KVBlock(plain, "  ", []KV{{"source", "a"}, {"commit", ""}, {"replaces", "b"}})
+	if got != "  source    a\n  replaces  b\n" {
+		t.Errorf("KVBlock %q", got)
+	}
+	if got := Indent("a\n\nb\n", "  "); got != "  a\n\n  b\n" {
+		t.Errorf("Indent %q", got)
+	}
+	if plain.Score("9/10") != "9/10" || on.Score("9/10") == "9/10" {
+		t.Error("Score")
+	}
+}
