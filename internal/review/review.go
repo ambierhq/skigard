@@ -335,14 +335,6 @@ func Templates() []Template {
 				}
 				return a
 			}, Note: "run end to end on the development machine"},
-		{ID: "gemini-cli", Bin: "gemini", Verified: false, SystemInStdin: true, ConfigPaths: []string{".gemini", ".config/gemini"}, EnvPrefixes: []string{"GEMINI_", "GOOGLE_"},
-			Args: func(_, model string) []string {
-				a := []string{"-p", "", "--approval-mode", "plan"}
-				if model != "" {
-					a = append(a, "--model", model)
-				}
-				return a
-			}, Note: "flags taken from public docs; not run here"},
 	}
 }
 

@@ -522,7 +522,7 @@ func pickReviewer(c *ctx, rv []core.Reviewer) (string, error) {
 		}
 	}
 	if len(usable) == 0 {
-		return "", util.Errf("no harness that can review headlessly was found (claude-code, pi, omp, gemini-cli). Use --manual, or install one")
+		return "", util.Errf("no harness that can review headlessly was found (claude-code, pi, omp). Use --manual, or install one")
 	}
 	if !stdinIsTerminal() {
 		var ids []string

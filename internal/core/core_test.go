@@ -423,7 +423,7 @@ func TestReviewWithFakeHarness(t *testing.T) {
 		t.Fatalf("%+v", rec)
 	}
 	if _, err := a.Review(context.Background(), "alpha", ReviewOpts{Harness: "gemini-cli"}); err == nil {
-		t.Error("unverified reviewer allowed without flag")
+		t.Error("harness without a reviewer template accepted")
 	}
 	if _, err := a.Review(context.Background(), "alpha", ReviewOpts{Harness: "cursor"}); err == nil {
 		t.Error("harness without a template accepted")

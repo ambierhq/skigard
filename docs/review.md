@@ -19,7 +19,6 @@ skigard review record NAME --verdict pass|concerns|fail --summary "..."   # stor
 | `pi` | verified, run end to end | `pi -p --no-tools --no-extensions --no-skills --no-mcp --no-session --no-context-files --no-prompt-templates --system-prompt ...` |
 | `omp` | verified, run end to end | `omp -p --no-tools --no-extensions --no-skills --no-rules --no-context-files --no-session --no-lsp --system-prompt ...` |
 | `claude-code` | verified, run end to end under Seatbelt on macOS | `claude -p --output-format text --tools "" --allowed-tools "" --permission-mode dontAsk --strict-mcp-config --setting-sources= --disable-slash-commands --no-session-persistence --system-prompt ...` |
-| `gemini-cli` | unverified, needs `--allow-unverified` | `gemini -p "" --approval-mode plan` with the system prompt on stdin |
 | `codex` | not supported | its read-only sandbox still lets commands read host files, so a tool-less run cannot be guaranteed |
 
 **Windows:** automated review is disabled and fails closed; use `--manual`. See [windows.md](windows.md).
@@ -54,7 +53,6 @@ Per-harness needs (what the allowlist contains beyond the system):
 - `pi`: its install tree, `~/.pi` read-only, and creating/removing `*.lock` entries in `~/.pi/agent`. Run end to end under Seatbelt.
 - `omp`: its install tree, `~/.omp` and `~/.config/omp` read-only, plus **write** access to `~/.omp/logs`, `natives`, `run`, `cache` and its `agent/*.db*` sqlite files (it writes them even for a one-shot run). Run end to end under Seatbelt. Reads of other tools' config (for example `~/.claude`) are denied.
 - `claude-code`: `~/.claude`, `~/.claude.json`, `~/.config/claude` and `~/.config/anthropic` (its login and profile) read-only, plus creating/removing `*.lock` entries in `~/.config/anthropic`. Its scratch directory is redirected into the work dir with `CLAUDE_CODE_TMPDIR` (it ignores `TMPDIR` and otherwise writes `/tmp/claude-<uid>`). Run end to end under Seatbelt on macOS. The login is not refreshed inside the sandbox: if your token has expired, run `claude` once outside it.
-- `gemini-cli`: unverified.
 
 Known gaps: macOS mach services are not restricted; the harness can read its own credentials (it must authenticate)
 and talk to its provider on 443; HTTP proxies on other ports do not work under the sandbox. The sandbox is defence in depth: the

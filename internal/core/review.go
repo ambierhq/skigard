@@ -91,7 +91,7 @@ func (a *App) Review(ctx context.Context, name string, o ReviewOpts) (*review.Re
 	}
 	t, ok := review.TemplateFor(o.Harness)
 	if !ok {
-		return nil, util.Errf("%q cannot run reviews headlessly yet. Supported: claude-code, pi, omp, gemini-cli. Or use --manual", o.Harness)
+		return nil, util.Errf("%q cannot run reviews headlessly yet. Supported: claude-code, pi, omp. Or use --manual", o.Harness)
 	}
 	if !t.Verified && !o.AllowUnverified {
 		return nil, util.Errf("the %s reviewer template is unverified (%s); pass --allow-unverified to use it anyway", t.ID, t.Note)

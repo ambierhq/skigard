@@ -264,7 +264,7 @@ func TestSandboxUnavailableNeedsPolicyOnlyFlag(t *testing.T) {
 	if err != nil || iso.Mode != IsoPolicyOnly {
 		t.Fatalf("verified template with the flag should run policy-only: %v %+v", err, iso)
 	}
-	unverified, _ := TemplateFor("gemini-cli")
+	unverified := Template{ID: "unverified-test", Bin: "x", Verified: false, Args: func(_, _ string) []string { return nil }}
 	_, _, err = Runner{Environ: env, BinOverride: bin, noSandboxForTest: true, AllowPolicyOnly: true}.Run(context.Background(), unverified, "", in)
 	if err == nil || !strings.Contains(err.Error(), "unverified") {
 		t.Fatalf("an unverified template must not run policy-only, got %v", err)
