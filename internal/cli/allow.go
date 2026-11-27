@@ -8,14 +8,13 @@ import (
 )
 
 func cmdAllow(c *ctx, args []string) error {
-	usage := "usage: skigard allow add SOURCE|SKILL RULE... --reason R | allow list | allow remove SOURCE [RULE...]"
-	if len(args) == 0 {
-		return util.Errf("%s", usage)
+	sub, args, err := c.verb("allow", args)
+	if err != nil {
+		return err
 	}
-	sub := args[0]
 	fs := c.flags("allow " + sub)
 	reason := fs.String("reason", "", "why these rules are fine for this source (required with add)")
-	pos, err := parse(fs, args[1:])
+	pos, err := parse(fs, args)
 	if err != nil {
 		return err
 	}
@@ -77,5 +76,5 @@ func cmdAllow(c *ctx, args []string) error {
 		}))
 		return nil
 	}
-	return util.Errf("%s", usage)
+	return util.Errf("unknown allow command %q", sub) // unreachable: verb() validated it
 }

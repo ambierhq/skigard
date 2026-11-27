@@ -2,7 +2,7 @@
 
 # Command reference
 
-Usage: `skigard COMMAND [ARGS]`. Flags may come before or after positional arguments, and both `-flag` and `--flag` work.
+Usage: `skigard COMMAND [ARGS]`. Flags may come before or after positional arguments, and both `-flag` and `--flag` work. Every command and subcommand accepts `-h` or `--help`, which prints its usage to stdout and exits 0 without reading or changing your home.
 
 ## Flags every command takes
 
@@ -127,6 +127,10 @@ Have an agent harness review a quarantined skill (advisory).
 skigard review NAME [--harness ID | --manual]
 ```
 
+| Subcommand | Description |
+|---|---|
+| `record NAME --verdict V --summary S` | record a manual review (advisory) |
+
 | Flag | Description |
 |---|---|
 | `--allow-policy-only` | if no OS sandbox works here, run a verified reviewer isolated by policy only (advisory review; has no effect on approval) |
@@ -230,6 +234,11 @@ Read or change mode, threshold, auto_review and review_harness (set of mode/thre
 skigard config get [KEY] | set KEY VALUE
 ```
 
+| Subcommand | Description |
+|---|---|
+| `get [KEY]` | print one setting, or all of them (keys: mode, threshold, auto_review, review_harness) |
+| `set KEY VALUE` | change a setting (mode and threshold: human terminal only) |
+
 ## skigard verify
 
 Check lock, store, installs and marketplace (CI-friendly).
@@ -250,6 +259,10 @@ Upgrade lock entries to hash version 2 (only if the old hash still matches).
 ```
 skigard lock upgrade [NAME...]
 ```
+
+| Subcommand | Description |
+|---|---|
+| `upgrade [NAME...]` | upgrade lock entries to hash version 2 (only if the old hash still matches) |
 
 ## skigard init-ci
 
@@ -321,6 +334,12 @@ HUMAN ONLY: stop reporting medium/low scanner rules for one source.
 skigard allow add SOURCE|SKILL RULE... --reason R | list | remove SOURCE [RULE...]
 ```
 
+| Subcommand | Description |
+|---|---|
+| `add SOURCE|SKILL RULE... --reason R` | HUMAN ONLY: stop reporting medium/low rules for one source |
+| `list` | list allowed rules |
+| `remove SOURCE [RULE...]` | HUMAN ONLY: remove allowed rules |
+
 ## skigard plugin
 
 Manage plugins (groups of approved skills).
@@ -328,6 +347,15 @@ Manage plugins (groups of approved skills).
 ```
 skigard plugin create|delete|add|remove|show|list
 ```
+
+| Subcommand | Description |
+|---|---|
+| `create NAME [--description D]` | create an empty plugin |
+| `delete NAME` | delete a plugin |
+| `add NAME SKILL...` | add approved skills to a plugin |
+| `remove NAME SKILL...` | remove skills from a plugin |
+| `show NAME` | show a plugin's skills |
+| `list` | list plugins |
 
 ## skigard marketplace
 
@@ -337,6 +365,11 @@ Generate or check the Claude/OMP marketplace.
 skigard marketplace build|check
 ```
 
+| Subcommand | Description |
+|---|---|
+| `build` | write the marketplace/ directory |
+| `check` | report drift between marketplace/ and the approved skills |
+
 ## skigard harness
 
 Inspect or extend the harness registry.
@@ -344,6 +377,11 @@ Inspect or extend the harness registry.
 ```
 skigard harness list|add
 ```
+
+| Subcommand | Description |
+|---|---|
+| `list` | list known harnesses and whether they were detected |
+| `add --id ID [--name N] [--global DIR] [--project DIR] [--bin B]` | add a harness to skigard.toml |
 
 ## skigard rules
 

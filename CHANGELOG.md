@@ -5,6 +5,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `-h` and `--help` now work on every command and subcommand, including groups (`plugin`, `marketplace`, `harness`, `allow`, `lock`, `config`, `review`) and `version`.
+  Help goes to stdout with exit 0 (it used to go to stderr for flag-based commands) and never reads, locks or creates the home. A bare group prints a usage error
+  (exit 2) that points at `-h`; `skigard help CMD [SUB]` works; group subcommands live in one table that feeds usage, completion and `docs/commands.md`.
+
 ## [0.3.0] - 2026-11-27
 
 ### Changed

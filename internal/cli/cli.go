@@ -79,9 +79,12 @@ func init() {
 
 // Run executes skigard and returns the process exit code.
 func Run(args []string, stdout, stderr io.Writer) int {
-	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
+	if len(args) == 0 || isHelp(args[0]) || (args[0] == "help" && len(args) == 1) {
 		usage(stdout)
 		return util.ExitOK
+	}
+	if args[0] == "help" { // `skigard help CMD [SUB]` is `skigard CMD [SUB] -h`
+		return Run(append(append([]string{}, args[1:]...), "-h"), stdout, stderr)
 	}
 	if args[0] == "-v" || args[0] == "--version" {
 		fmt.Fprintln(stdout, "skigard", Version)
@@ -120,16 +123,56 @@ func usage(w io.Writer) {
 	}
 	fmt.Fprintln(w, "\nTypical flow:  add (fetch, scan, score, install if it clears your threshold)")
 	fmt.Fprintln(w, "Step by step:  add --quarantine-only -> review -> approve (in a real terminal) -> install")
-	fmt.Fprintln(w, "Run `skigard COMMAND -h` for a command's flags. Home: $SKIGARD_HOME or ~/.config/skigard.")
+	fmt.Fprintln(w, "Run `skigard COMMAND -h` (or `skigard help COMMAND`) for a command's flags and subcommands. Home: $SKIGARD_HOME or ~/.config/skigard.")
 }
 
 // flags creates a FlagSet with the flags every command shares.
 func (c *ctx) flags(name string) *flag.FlagSet {
 	fs := flag.NewFlagSet("skigard "+name, flag.ContinueOnError)
-	fs.SetOutput(c.errw)
+	// -h/--help prints usage to stdout; a parse error prints the message and
+	// the usage to stderr. flag writes the error before it calls Usage.
+	failed := false
+	fs.SetOutput(&errSink{w: c.errw, seen: &failed})
+	fs.Usage = func() {
+		w := c.out
+		if failed {
+			w = c.errw
+		}
+		c.flagUsage(fs, w)
+	}
 	fs.StringVar(&c.home, "home", "", "skigard home directory (default $SKIGARD_HOME, ~/.config/skigard, or %APPDATA%\\skigard on Windows)")
 	fs.BoolVar(&c.json, "json", false, "machine-readable output")
 	return fs
+}
+
+// errSink records that flag reported a parse error.
+type errSink struct {
+	w    io.Writer
+	seen *bool
+}
+
+func (e *errSink) Write(p []byte) (int, error) {
+	*e.seen = true
+	return e.w.Write(p)
+}
+
+// flagUsage prints a command's usage line, summary and flags (with the
+// subcommand list for a group) to w.
+func (c *ctx) flagUsage(fs *flag.FlagSet, w io.Writer) {
+	line, summary := usageFor(fs.Name())
+	fmt.Fprintf(w, "Usage: %s\n\n", line)
+	if summary != "" {
+		fmt.Fprintf(w, "%s.\n\n", capitalise(summary))
+	}
+	fmt.Fprintln(w, "Flags:")
+	out := fs.Output()
+	fs.SetOutput(w)
+	fs.PrintDefaults()
+	fs.SetOutput(out)
+	if name := strings.TrimPrefix(fs.Name(), "skigard "); groups[name] != nil {
+		fmt.Fprintln(w)
+		c.groupUsage(w, name)
+	}
 }
 
 // parse allows flags and positional arguments in any order.

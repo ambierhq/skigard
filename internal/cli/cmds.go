@@ -19,6 +19,9 @@ import (
 )
 
 func cmdVersion(c *ctx, args []string) error {
+	if _, err := parse(c.flags("version"), args); err != nil {
+		return err
+	}
 	c.printf("skigard %s\n", Version)
 	return nil
 }
@@ -267,14 +270,25 @@ func errText(err error) string {
 }
 
 func cmdConfig(c *ctx, args []string) error {
-	fs := c.flags("config")
+	name := "config"
+	for _, a := range args { // name the verb so `config set -h` shows its usage
+		if !strings.HasPrefix(a, "-") {
+			if a == "get" || a == "set" {
+				name += " " + a
+			}
+			break
+		}
+	}
+	fs := c.flags(name)
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
 	}
-	usage := "config get [KEY] | config set KEY VALUE   (keys: " + strings.Join(core.ConfigKeys, ", ") + ")"
 	if len(pos) == 0 {
-		return util.Errf("usage: skigard %s", usage)
+		return util.Errf("usage: skigard config %s (see `skigard config -h`)", verbList("config"))
+	}
+	if pos[0] != "get" && pos[0] != "set" {
+		return util.Errf("unknown config command %q (see `skigard config -h`)", pos[0])
 	}
 	if err := c.open(); err != nil {
 		return err
@@ -324,7 +338,7 @@ func cmdConfig(c *ctx, args []string) error {
 		c.printf("%s: %s -> %s\n", pos[1], old, pos[2])
 		return nil
 	}
-	return util.Errf("usage: skigard %s", usage)
+	return util.Errf("unknown config command %q", pos[0]) // unreachable: validated above
 }
 
 func cmdScan(c *ctx, args []string) error {
@@ -395,7 +409,7 @@ func cmdScan(c *ctx, args []string) error {
 }
 
 func cmdReview(c *ctx, args []string) error {
-	if len(args) > 0 && args[0] == "record" {
+	if len(args) > 0 && args[0] == groups["review"][0].name {
 		return cmdReviewRecord(c, args[1:])
 	}
 	fs := c.flags("review")
@@ -1096,13 +1110,13 @@ func cmdStats(c *ctx, args []string) error {
 }
 
 func cmdPlugin(c *ctx, args []string) error {
-	if len(args) == 0 {
-		return util.Errf("usage: skigard plugin create|delete|add|remove|show|list ...")
+	sub, args, err := c.verb("plugin", args)
+	if err != nil {
+		return err
 	}
-	sub := args[0]
 	fs := c.flags("plugin " + sub)
 	desc := fs.String("description", "", "plugin description (create)")
-	pos, err := parse(fs, args[1:])
+	pos, err := parse(fs, args)
 	if err != nil {
 		return err
 	}
@@ -1182,21 +1196,22 @@ func cmdPlugin(c *ctx, args []string) error {
 		}))
 		return nil
 	}
-	return util.Errf("unknown plugin command %q", sub)
+	return util.Errf("unknown plugin command %q", sub) // unreachable: verb() validated it
 }
 
 func cmdMarketplace(c *ctx, args []string) error {
-	if len(args) == 0 {
-		return util.Errf("usage: skigard marketplace build|check")
+	sub, args, err := c.verb("marketplace", args)
+	if err != nil {
+		return err
 	}
-	fs := c.flags("marketplace " + args[0])
-	if _, err := parse(fs, args[1:]); err != nil {
+	fs := c.flags("marketplace " + sub)
+	if _, err := parse(fs, args); err != nil {
 		return err
 	}
 	if err := c.open(); err != nil {
 		return err
 	}
-	switch args[0] {
+	switch sub {
 	case "build":
 		if err := c.app.MarketplaceBuild(); err != nil {
 			return err
@@ -1217,22 +1232,21 @@ func cmdMarketplace(c *ctx, args []string) error {
 		c.printf("marketplace is up to date\n")
 		return nil
 	}
-	return util.Errf("unknown marketplace command %q", args[0])
+	return util.Errf("unknown marketplace command %q", sub)
 }
 
 func cmdHarness(c *ctx, args []string) error {
-	if len(args) == 0 {
-		return util.Errf("usage: skigard harness list|add")
+	sub, args, err := c.verb("harness", args)
+	if err != nil {
+		return err
 	}
-	sub := args[0]
 	fs := c.flags("harness " + sub)
 	id := fs.String("id", "", "harness id (add)")
 	name := fs.String("name", "", "display name (add)")
 	global := fs.String("global", "", "user-scope skills dir, e.g. ~/.mytool/skills (add)")
 	project := fs.String("project", "", "project-scope skills dir, e.g. .mytool/skills (add)")
 	bin := fs.String("bin", "", "executable name used for detection (add)")
-	pos, err := parse(fs, args[1:])
-	_ = pos
+	_, err = parse(fs, args)
 	if err != nil {
 		return err
 	}
@@ -1364,11 +1378,12 @@ func cmdMigrate(c *ctx, args []string) error {
 }
 
 func cmdLock(c *ctx, args []string) error {
-	if len(args) == 0 || args[0] != "upgrade" {
-		return util.Errf("usage: skigard lock upgrade [NAME...]")
+	_, args, err := c.verb("lock", args)
+	if err != nil {
+		return err
 	}
 	fs := c.flags("lock upgrade")
-	pos, err := parse(fs, args[1:])
+	pos, err := parse(fs, args)
 	if err != nil {
 		return err
 	}
