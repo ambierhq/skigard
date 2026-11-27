@@ -14,8 +14,8 @@ binaries, `.deb/.rpm/.pkg.tar.zst`, `install.sh` and `install.ps1` are GitHub re
 
 ## Release-time checklist (what the owner enables, in order)
 
-1. Done: `v0.2.0` is released (the release workflow builds everything, signs it, attests it and uploads `install.sh` / `install.ps1` as assets). The Homebrew tap and Scoop bucket are updated by the release workflow. winget is submitted ([winget-pkgs#484914](https://github.com/microsoft/winget-pkgs/pull/484914), `v0.1.1`'s #484409 was closed as superseded): `winget install Ambier.Skigard` does not work until it is merged. There is no Docker image.
-2. Done: npm. `skigard` and the six `@ambierhq/skigard-*` packages are at 0.2.0, published by the release workflow through npm trusted publishing with provenance (0.1.1 was published by hand, without provenance).
+1. Done: `v0.3.0` is released (the release workflow builds everything, signs it, attests it and uploads `install.sh` / `install.ps1` as assets). The Homebrew tap and Scoop bucket are updated by the release workflow. winget is submitted ([winget-pkgs#484914](https://github.com/microsoft/winget-pkgs/pull/484914), `v0.1.1`'s #484409 was closed as superseded): `winget install Ambier.Skigard` does not work until it is merged. There is no Docker image.
+2. Done: npm. `skigard` and the six `@ambierhq/skigard-*` packages are at 0.3.0, published by the release workflow through npm trusted publishing with provenance (0.1.1 was published by hand, without provenance).
 3. Done: `ambierhq.com/skigard/install.{sh,ps1}` redirect to `releases/latest/download/install.{sh,ps1}` (site Worker).
 4. Not planned for now: the registry PRs below. `skigard-action` has its `v1` tag.
 

@@ -26,11 +26,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4          # pin to a full commit SHA in your own repository
         with: {persist-credentials: false}
-      - run: curl -fsSL https://github.com/ambierhq/skigard/releases/download/v0.2.0/install.sh | SKIGARD_VERSION=v0.2.0 sh
+      - run: curl -fsSL https://github.com/ambierhq/skigard/releases/download/v0.3.0/install.sh | SKIGARD_VERSION=v0.3.0 sh
       - run: skigard verify --strict
 ```
 
-A copy lives in [`examples/verify-workflow.yml`](../examples/verify-workflow.yml). The installer is taken from the release and pinned with `SKIGARD_VERSION=v0.2.0`, so
+A copy lives in [`examples/verify-workflow.yml`](../examples/verify-workflow.yml). The installer is taken from the release and pinned with `SKIGARD_VERSION=v0.3.0`, so
 a CI run cannot change behaviour under you; never pipe the installer from `main`.
 
 `--strict` also fails on warnings, such as an approval that used `--override` or a review that did not pass. Without it, only errors fail.
@@ -70,7 +70,7 @@ A skill that talks about secrets or `curl | sh` in its text will be flagged; see
   with: {persist-credentials: false}
 - uses: ambierhq/skigard-action@<full-commit-sha>
   with:
-    version: 0.2.0
+    version: 0.3.0
     sha256: <archive checksum from the release's checksums.txt>   # optional: pins the exact bytes
     verify-signature: true                                        # optional: cosign-verify checksums.txt (needs cosign on the runner, see below)
 ```
