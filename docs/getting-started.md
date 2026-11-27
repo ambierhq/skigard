@@ -67,7 +67,7 @@ This takes about a minute and ends with a skill pinned in your lockfile and inst
    skigard verify
    ```
 
-   `verify` re-checks the lockfile, the approved store, the installs and the marketplace. It exits 1 on any drift. Run it in [CI](ci.md).
+   `verify` re-checks the lockfile, the approved store, the installs and, if you built one, the marketplace. It exits 1 on any drift. Run it in [CI](ci.md).
 
 ## Where things are
 

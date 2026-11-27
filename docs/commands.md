@@ -35,8 +35,8 @@ Usage: `skigard COMMAND [ARGS]`. Flags may come before or after positional argum
 - [`install`](#skigard-install): install approved skills into harnesses
 - [`uninstall`](#skigard-uninstall): remove skills installed by skigard
 - [`sync`](#skigard-sync): install every approved skill into the default harnesses
-- [`config`](#skigard-config): read or change mode, threshold, auto_review and review_harness (set of mode/threshold is human only)
-- [`verify`](#skigard-verify): check lock, store, installs and marketplace (CI-friendly)
+- [`config`](#skigard-config): read or change mode, threshold, auto_review, review_harness and marketplace (set of mode/threshold is human only)
+- [`verify`](#skigard-verify): check lock, store, installs and marketplace if built (CI-friendly)
 - [`lock`](#skigard-lock): upgrade lock entries to hash version 2 (only if the old hash still matches)
 - [`init-ci`](#skigard-init-ci): write a GitHub workflow that runs skigard verify
 - [`list`](#skigard-list): list approved and quarantined skills
@@ -46,7 +46,7 @@ Usage: `skigard COMMAND [ARGS]`. Flags may come before or after positional argum
 - [`stats`](#skigard-stats): estimate the context cost of approved skills
 - [`allow`](#skigard-allow): HUMAN ONLY: stop reporting medium/low scanner rules for one source
 - [`plugin`](#skigard-plugin): manage plugins (groups of approved skills)
-- [`marketplace`](#skigard-marketplace): generate or check the Claude/OMP marketplace
+- [`marketplace`](#skigard-marketplace): optional: build or check a Claude/OMP marketplace for publishing plugins
 - [`harness`](#skigard-harness): inspect or extend the harness registry
 - [`rules`](#skigard-rules): list scanner rules
 - [`migrate`](#skigard-migrate): import approved skills from an skm repository
@@ -228,7 +228,7 @@ skigard sync
 
 ## skigard config
 
-Read or change mode, threshold, auto_review and review_harness (set of mode/threshold is human only).
+Read or change mode, threshold, auto_review, review_harness and marketplace (set of mode/threshold is human only).
 
 ```
 skigard config get [KEY] | set KEY VALUE
@@ -236,12 +236,12 @@ skigard config get [KEY] | set KEY VALUE
 
 | Subcommand | Description |
 |---|---|
-| `get [KEY]` | print one setting, or all of them (keys: mode, threshold, auto_review, review_harness) |
+| `get [KEY]` | print one setting, or all of them (keys: mode, threshold, auto_review, review_harness, marketplace) |
 | `set KEY VALUE` | change a setting (mode and threshold: human terminal only) |
 
 ## skigard verify
 
-Check lock, store, installs and marketplace (CI-friendly).
+Check lock, store, installs and marketplace if built (CI-friendly).
 
 ```
 skigard verify [--strict] [--require-human]
@@ -359,7 +359,7 @@ skigard plugin create|delete|add|remove|show|list
 
 ## skigard marketplace
 
-Generate or check the Claude/OMP marketplace.
+Optional: build or check a Claude/OMP marketplace for publishing plugins.
 
 ```
 skigard marketplace build|check

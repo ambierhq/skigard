@@ -162,6 +162,7 @@ Settings live in the `[settings]` table of `skigard.toml` and are read and chang
 |---|---|---|---|
 | `mode` | `auto`, `strict` | `auto` | `auto` installs at or above the threshold; `strict` always asks a human |
 | `threshold` | `1` to `10` | `7` | minimum safety score for an automatic install |
+| `marketplace` | `true`, `false` | `false` | keep `marketplace/` rebuilt after every approval and plugin change, and make `verify` require it (`config set marketplace true` builds it now; `false` leaves the directory) |
 | `auto_review` | `true`, `false` | `true` | run the agent review on every `add` and `update` with the saved `review_harness`, else the first detected verified reviewer (sends the skill to a model provider) |
 | `review_harness` | `auto` or a harness id (`claude-code`, `pi`, `omp`, ...) | `auto` | the reviewer: `auto` uses the first detected, verified one; `config get review_harness` shows what would run |
 
@@ -187,13 +188,13 @@ Per run, `add` takes `--mode`, `--threshold`, `--review`, `--quarantine-only` an
 | `diff NAME` | quarantined vs approved |
 | `approve NAME [--override --reason R] [--accept R]` | **human only** (records `mode = "human"`) |
 | `allow add SOURCE\|SKILL RULE... --reason R`, `allow list`, `allow remove SOURCE [RULE...]` | **human only**: stop reporting medium/low scanner rules for one source; high and critical are never hidden |
-| `config get\|set mode\|threshold\|auto_review\|review_harness` | read or change settings; `set` of `mode`/`threshold` is human only |
+| `config get\|set mode\|threshold\|auto_review\|review_harness\|marketplace` | read or change settings; `set` of `mode`/`threshold` is human only |
 | `reject NAME` | delete from quarantine |
 | `update [NAME...]` | re-fetch approved skills; changes go to quarantine |
 | `install NAME... [--to IDS] [--scope user\|project] [--copy]`, `uninstall`, `sync` | put approved skills into harnesses, remove them, or install everything approved |
-| `verify [--strict] [--require-human]` | lock, store, installs and marketplace agree (exit 1 if not); `--require-human` also fails on any `auto` or `forced` approval |
+| `verify [--strict] [--require-human]` | lock, store, installs and marketplace (if built) agree (exit 1 if not); `--require-human` also fails on any `auto` or `forced` approval |
 | `list`, `show [--plain]`, `status`, `doctor`, `stats --tokens` | inspect (`list`, `show` and `status` show approval mode and score; `show` renders the Markdown on a terminal, `--plain` prints it raw) |
-| `plugin ...`, `marketplace build\|check` | group skills; generate a Claude Code / OMP marketplace |
+| `plugin ...`, `marketplace build\|check` | group skills; optionally generate a Claude Code / OMP marketplace to publish them |
 | `harness list\|add`, `rules` | the harness registry and the scanner rules |
 | `lock upgrade` | move older lock entries to hash v2, only where the old hash still matches |
 | `completion bash\|zsh\|fish\|powershell`, `migrate --from-skm PATH` | shell completions; import from the predecessor tool |

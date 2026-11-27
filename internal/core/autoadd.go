@@ -265,6 +265,7 @@ func (a *App) decide(ctx context.Context, q *Quarantined, man *store.Manifest, m
 	if _, err := a.promote(meta, dir, rep, rev, approval, lock); err != nil {
 		return oc, err
 	}
+	a.syncMarketplace(nil)
 	oc.Decision = DecisionApprovedOnly
 	inst, notes, err := a.install(iopts)
 	oc.Installed, oc.Notes = inst, notes
@@ -316,6 +317,7 @@ func (a *App) updateAuto(ctx context.Context, man *store.Manifest, ls *store.Loc
 		if lerr == nil {
 			ap := store.ApprovalRec{By: store.AutoApprover, At: util.Now(), Mode: store.ApprovalAuto, Score: sf.Score, Threshold: th, ScoreVersion: sf.Version}
 			if _, lerr = a.promote(meta, dir, q.Report, rev, ap, lock); lerr == nil {
+				a.syncMarketplace(man)
 				r.Applied = true
 				r.Note = fmt.Sprintf("updated and approved automatically (score %d/10, threshold %d); copy installs need `skigard sync`", sf.Score, th)
 				return

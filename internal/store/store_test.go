@@ -260,3 +260,31 @@ func TestApprovalFieldsRoundTripAndOldLock(t *testing.T) {
 		t.Error("the auto approver was accepted for a human approval")
 	}
 }
+func TestSettingsMarketplace(t *testing.T) {
+	h := Home{Root: t.TempDir()}
+	load := func(body string) (*Manifest, error) {
+		os.WriteFile(h.ManifestPath(), []byte("version = 1\n[settings]\n"+body), 0o644)
+		return LoadManifest(h)
+	}
+	for body, want := range map[string]bool{"": false, "marketplace = true\n": true, "marketplace = false\n": false} {
+		m, err := load(body)
+		if err != nil || m.Settings.EffectiveMarketplace() != want {
+			t.Errorf("%q: %v %v", body, m, err)
+		}
+	}
+	if m, _ := load(""); m.Settings.Marketplace != nil {
+		t.Error("unset must stay nil")
+	}
+	for _, bad := range []string{"marketplace = \"yes\"\n", "marketplace = 1\n"} {
+		if _, err := load(bad); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+	on := true
+	if err := SaveManifest(h, &Manifest{Version: 1, Settings: Settings{Marketplace: &on}}); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := LoadManifest(h); err != nil || !got.Settings.EffectiveMarketplace() {
+		t.Fatalf("%+v %v", got, err)
+	}
+}

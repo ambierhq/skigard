@@ -336,6 +336,13 @@ func cmdConfig(c *ctx, args []string) error {
 			return err
 		}
 		c.printf("%s: %s -> %s\n", pos[1], old, pos[2])
+		if pos[1] == "marketplace" {
+			if v, _ := strconv.ParseBool(pos[2]); v {
+				c.printf("marketplace/ built; it is rebuilt after every approval and plugin change, and verify requires it\n")
+			} else {
+				c.printf("marketplace/ was left in place; verify checks it only while it exists\n")
+			}
+		}
 		return nil
 	}
 	return util.Errf("unknown config command %q", pos[0]) // unreachable: validated above

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/ambierhq/skigard/internal/marketplace"
@@ -32,7 +33,11 @@ func (a *App) PluginCreate(name, desc string) error {
 		m.Plugins = map[string]store.Plugin{}
 	}
 	m.Plugins[name] = store.Plugin{Description: desc, Skills: []string{}}
-	return store.SaveManifest(a.Home, m)
+	if err := store.SaveManifest(a.Home, m); err != nil {
+		return err
+	}
+	a.syncMarketplace(m)
+	return nil
 }
 
 // PluginDelete removes a plugin definition.
@@ -50,7 +55,11 @@ func (a *App) PluginDelete(name string) error {
 		return util.Errf("no plugin %q", name)
 	}
 	delete(m.Plugins, name)
-	return store.SaveManifest(a.Home, m)
+	if err := store.SaveManifest(a.Home, m); err != nil {
+		return err
+	}
+	a.syncMarketplace(m)
+	return nil
 }
 
 // PluginAdd adds approved skills to a plugin.
@@ -84,7 +93,11 @@ func (a *App) PluginAdd(name string, skills []string) error {
 	}
 	p.Skills = keys(set)
 	m.Plugins[name] = p
-	return store.SaveManifest(a.Home, m)
+	if err := store.SaveManifest(a.Home, m); err != nil {
+		return err
+	}
+	a.syncMarketplace(m)
+	return nil
 }
 
 // PluginRemove removes skills from a plugin.
@@ -114,7 +127,11 @@ func (a *App) PluginRemove(name string, skills []string) error {
 	}
 	p.Skills = keys(set)
 	m.Plugins[name] = p
-	return store.SaveManifest(a.Home, m)
+	if err := store.SaveManifest(a.Home, m); err != nil {
+		return err
+	}
+	a.syncMarketplace(m)
+	return nil
 }
 
 func keys(m map[string]bool) []string {
@@ -137,6 +154,31 @@ func (a *App) MarketplaceBuild() error {
 }
 
 func (a *App) marketplaceBuild() error { return marketplace.Build(a.Home, a.User) }
+
+// syncMarketplace rebuilds marketplace/ when settings.marketplace is on. The caller holds the
+// home lock and has already saved what changed (an approval, a plugin edit). A failed rebuild
+// never undoes that: it is reported as a warning on a.Err, and verify flags the drift.
+func (a *App) syncMarketplace(man *store.Manifest) {
+	var err error
+	if man == nil {
+		if man, err = store.LoadManifest(a.Home); err != nil {
+			a.warnMarketplace(err)
+			return
+		}
+	}
+	if !man.Settings.EffectiveMarketplace() {
+		return
+	}
+	if err := a.marketplaceBuild(); err != nil {
+		a.warnMarketplace(err)
+	}
+}
+
+func (a *App) warnMarketplace(err error) {
+	if a.Err != nil {
+		fmt.Fprintf(a.Err, "warning: could not rebuild marketplace/: %s; the change itself succeeded. Run: skigard marketplace build (verify reports the drift)\n", util.Clean(err.Error()))
+	}
+}
 
 // MarketplaceCheck reports drift.
 func (a *App) MarketplaceCheck() ([]string, error) { return marketplace.Check(a.Home, a.User) }

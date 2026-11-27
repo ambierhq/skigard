@@ -141,6 +141,7 @@ func (a *App) Approve(name string, o ApproveOpts) (*Approved, error) {
 	if err != nil {
 		return nil, err
 	}
+	a.syncMarketplace(man)
 	return &Approved{Name: name, Hash: meta.ContentHash, Record: recPath, Report: rep}, nil
 }
 

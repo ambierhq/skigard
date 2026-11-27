@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"testing"
 
@@ -61,5 +62,42 @@ func TestConfigSetRefusedInAgent(t *testing.T) {
 	}
 	if called {
 		t.Fatal("the prompt ran inside an agent")
+	}
+}
+
+func TestConfigMarketplace(t *testing.T) {
+	a, _ := newApp(t)
+	src := t.TempDir()
+	writeSkill(t, src, "alpha", nil)
+	approveLocal(t, a, src, "alpha")
+	if v, _ := a.ConfigGet("marketplace"); v != "false" {
+		t.Fatalf("default %q", v)
+	}
+	if _, err := a.ConfigSet("marketplace", "maybe", nil); err == nil {
+		t.Fatal("bad value accepted")
+	}
+	// Needs no human, and works inside an agent like auto_review.
+	inAgent(a)
+	old, err := a.ConfigSet("marketplace", "true", nil)
+	if err != nil || old != "false" {
+		t.Fatalf("%q %v", old, err)
+	}
+	if v, _ := a.ConfigGet("marketplace"); v != "true" {
+		t.Fatalf("got %q", v)
+	}
+	if _, err := os.Stat(a.Home.MarketplaceDir()); err != nil {
+		t.Fatalf("set true must build immediately: %v", err)
+	}
+	if ps, _ := a.Verify(); HasErrors(ps) {
+		t.Fatalf("%+v", ps)
+	}
+	if _, err := a.ConfigSet("marketplace", "false", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(a.Home.MarketplaceDir()); err != nil {
+		t.Fatal("set false must not delete marketplace/")
+	}
+	if v, _ := a.ConfigGet("marketplace"); v != "false" {
+		t.Fatalf("got %q", v)
 	}
 }

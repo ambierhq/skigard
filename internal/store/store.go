@@ -150,6 +150,8 @@ type Settings struct {
 	// AutoReview runs the advisory reviewer during add and update. Nil means on (see EffectiveAutoReview).
 	// Review sends the skill to the model provider of the reviewer harness; set it to false to stop that.
 	AutoReview *bool `toml:"auto_review,omitempty"`
+	// Marketplace keeps marketplace/ in sync automatically and makes verify require it. Nil means off.
+	Marketplace *bool `toml:"marketplace,omitempty"`
 }
 
 // Modes and defaults for Settings.
@@ -190,6 +192,11 @@ func (s Settings) EffectiveThreshold() int {
 // EffectiveAutoReview is AutoReview, or true when unset.
 func (s Settings) EffectiveAutoReview() bool {
 	return s.AutoReview == nil || *s.AutoReview
+}
+
+// EffectiveMarketplace is Marketplace, or false when unset.
+func (s Settings) EffectiveMarketplace() bool {
+	return s.Marketplace != nil && *s.Marketplace
 }
 
 // Validate checks mode and threshold.

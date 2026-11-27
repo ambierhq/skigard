@@ -240,7 +240,7 @@ func (a *App) MigrateSkm(repo string) (*MigrateResult, error) {
 	if err := store.SaveManifest(a.Home, man); err != nil {
 		return res, err
 	}
-	if len(man.Plugins) > 0 {
+	if len(man.Plugins) > 0 || man.Settings.EffectiveMarketplace() {
 		if err := a.marketplaceBuild(); err != nil {
 			return res, util.Errf("migrated, but could not build the marketplace: %v", err)
 		}

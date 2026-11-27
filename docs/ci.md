@@ -2,7 +2,7 @@
 
 Two jobs fit CI, and neither needs an agent or a terminal:
 
-- **`skigard verify`** fails the build when the lockfile, the approved store, the installs or the generated marketplace no longer agree.
+- **`skigard verify`** fails the build when the lockfile, the approved store, the installs or the generated marketplace (when built) no longer agree.
   It catches a skill that changed without a re-approval, an unapproved directory that appeared, or a lock edited by hand.
 - **`skigard scan`** checks a skill you are *writing* (or reviewing in a PR) and can emit SARIF.
 

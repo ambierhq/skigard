@@ -306,7 +306,14 @@ func (a *App) Verify() ([]Problem, error) {
 	if fi, err := os.Stat(a.Home.QuarantineDir()); err == nil && runtime.GOOS != "windows" && fi.Mode().Perm()&0o077 != 0 {
 		add("warn", "quarantine/ is accessible to other users (mode %o)", fi.Mode().Perm())
 	}
-	if len(man.Plugins) > 0 {
+	// The marketplace is opt-in: it is checked only once `marketplace build` has created it.
+	// Installs never read it (they use the lock and approved store), so its absence hides nothing.
+	// With settings.marketplace on it is required instead.
+	_, serr := os.Stat(a.Home.MarketplaceDir())
+	if serr != nil && man.Settings.EffectiveMarketplace() {
+		add("error", "marketplace is enabled in settings but marketplace/ is missing; run: skigard marketplace build")
+	}
+	if serr == nil && (len(man.Plugins) > 0 || man.Settings.EffectiveMarketplace()) {
 		drift, err := marketplace.Check(a.Home, a.User)
 		if err != nil {
 			add("error", "marketplace: %v", err)

@@ -76,7 +76,7 @@ The **mode** decides who acts on the score:
 - `auto` (default, threshold 7): `score >= threshold` with no hard stop is approved and installed with no prompt; otherwise it stays in quarantine with a warning.
 - `--force-install` (any mode): installs regardless, recorded as `mode = "forced"`, human terminal only.
 
-Settings live in `skigard.toml` and are managed with `skigard config get|set mode|threshold|auto_review|review_harness`. `set` of `mode` and `threshold` needs a human terminal.
+Settings live in `skigard.toml` and are managed with `skigard config get|set mode|threshold|auto_review|review_harness|marketplace`. `set` of `mode` and `threshold` needs a human terminal.
 `auto_review` (default on) runs a review during `add` and `update` with `settings.review_harness`, or else the first detected, verified reviewer (nothing is saved). That sends the skill to a model provider; `skigard config set auto_review false` stops it. `review_harness` is `auto` unless you pin one (`config set review_harness pi`; `auto` clears it); `config get review_harness` shows which one would run. If a default review fails to run, `add` does not auto-install the skill and `update` leaves the changed version in quarantine; with no verified reviewer detected, the review is skipped.
 
 **Terminal output.** On a terminal skigard colours its output and tidies it: tables for `list` and `plugin list`, grouped findings for `scan`, rendered Markdown for `show`, and a spinner with the elapsed time on stderr while a reviewer runs. Nothing changes when output goes to a pipe or a file, with `--json`, or with `NO_COLOR` set or `TERM=dumb`; `show --plain` and `scan --plain` force the plain text. Text from a skill is escaped before it is styled.
@@ -107,6 +107,17 @@ An agent product with a skills directory (`~/.claude/skills`, `~/.agents/skills`
 store, or copies with `--copy` (always on Windows, and for `--scope project`). Three harnesses are *verified*; the rest need
 `--include-unverified` until someone confirms the path.
 
+## Plugins and the marketplace
+
+A plugin is a named group of approved skills, installed with `skigard install --plugin NAME`. The marketplace is an optional, generated Claude Code / OMP
+marketplace that exists only to publish plugins. Build it with `skigard marketplace build`; rebuild it after any skill or plugin change. `verify` checks the
+marketplace only once `marketplace/` exists; if you never build it, nothing is checked and nothing is reported. Skills are verified through the lockfile either way.
+
+To keep it in sync automatically, run `skigard config set marketplace true` (the `marketplace` setting, off by default). That builds `marketplace/` now, rebuilds it
+after every approval (human, auto, forced, adopt, merge), plugin change, `lock upgrade` and `migrate`, and makes `verify` require it: a missing `marketplace/` is an error.
+A rebuild that fails never undoes the approval or plugin change; it prints a warning and `verify` reports the drift until you run `skigard marketplace build`.
+`config set marketplace false` stops the automatic rebuilds and leaves `marketplace/` in place (`verify` then checks it only while it exists). No human terminal is needed for either direction, as with `auto_review`.
+
 ## Home
 
 ```
@@ -115,7 +126,7 @@ store, or copies with `--copy` (always on Windows, and for `--scope project`). T
 ├── skigard.lock        approved skills pinned to hashes   (commit)
 ├── skills/<name>/      approved content                    (commit)
 ├── reviews/<name>/     evidence for each approval          (commit)
-├── marketplace/        generated Claude Code / OMP marketplace (commit)
+├── marketplace/        optional generated marketplace, see above (commit)
 ├── quarantine/         UNTRUSTED, mode 0700                (gitignored)
 └── state/              install records, lock file          (gitignored)
 ```

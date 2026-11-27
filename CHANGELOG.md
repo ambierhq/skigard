@@ -5,11 +5,22 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `settings.marketplace` (`skigard config set marketplace true`, default off) keeps `marketplace/` in sync: it is rebuilt automatically after every approval
+  (human, auto, forced, adopt, merge), plugin create/delete/add/remove, `lock upgrade` and `migrate`, and `verify` then requires it (a missing `marketplace/` is an error).
+  A failed rebuild is a warning and never undoes the approval; `verify` flags the drift. `config set marketplace true` builds immediately; `false` leaves the directory.
+
 ### Fixed
 
 - `-h` and `--help` now work on every command and subcommand, including groups (`plugin`, `marketplace`, `harness`, `allow`, `lock`, `config`, `review`) and `version`.
   Help goes to stdout with exit 0 (it used to go to stderr for flag-based commands) and never reads, locks or creates the home. A bare group prints a usage error
   (exit 2) that points at `-h`; `skigard help CMD [SUB]` works; group subcommands live in one table that feeds usage, completion and `docs/commands.md`.
+
+### Changed
+
+- `verify` checks the generated marketplace only when `marketplace/` exists (opt-in via `skigard marketplace build`); a home that uses plugins only for
+  `install --plugin` no longer fails with "marketplace/ is missing". Once built it is enforced as before, and `marketplace check` still reports a missing directory.
 
 ## [0.3.0] - 2026-11-27
 
