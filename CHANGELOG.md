@@ -5,6 +5,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-27
+
 ### Added
 
 - **`skigard adopt NAME` approves automatically like `add` does in auto mode.** It takes `--review`, `--review-harness`, `--mode` and `--threshold` (an agent cannot use a weaker mode or lower threshold than the stored ones), finalizes the edit and then
@@ -26,6 +28,30 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`skigard lock protect [NAME...]`** makes approved skills read-only, and `verify` now warns (`skills/NAME is writable`; a failure under `--strict`) about skills approved before read-only existed.
   It removes write bits only, never touches content, hashes, the lock or installs, and is safe in an agent.
 
+- **Local forks.** `skigard adopt NAME` stages your edits of an approved skill into quarantine (it changes nothing else); `skigard approve NAME` then records the
+  skill with `mode = "local"` and a new `upstream_hash` in the lock (additive, `omitempty`; the lock `version` stays 1 and old locks load unchanged).
+  `verify --require-human` accepts `local` approvals (a human approved them); `status` counts them. `verify` now hints at `adopt` when a skill differs from the lock.
+- `update` knows about local edits: it compares upstream with the pinned baseline, reports `up to date (local fork)` and unadopted edits, and when upstream changed
+  it puts the new version in quarantine for `skigard diff NAME` (your copy against the new upstream) and never auto-approves it, even in `auto` mode
+  (`local_changes` in `--json`). The approval screen warns when approving replaces local edits.
+- **`skigard merge NAME [--pick | --with HARNESS] [--note TEXT]`** brings a new upstream version (from `update`) into your locally edited copy. `--pick` is an interactive hunk
+  picker on `/dev/tty` (default keep mine; humans only). `--with HARNESS` has a verified reviewer-template harness do the merge with the same confinement as `review`
+  (tools and MCP off, empty cwd, scrubbed env, OS sandbox; `--allow-policy-only` as for review) and a strict, hand-parsed output format; invalid output stages nothing. Either way
+  only quarantine changes: the result is scanned, scored and approved by a human like anything else (recorded `local`, with `upstream_hash` from the pristine upstream). The quarantine metadata
+  records `merge_mode`, `merged_by` and `merge_isolation` (additive), shown on the `approve` screen, in `list` and in `show`. `internal/diff` gained a hunk API.
+
+### Changed
+
+- Approved skills are read-only after approval (dirs `0555`, files `0444`, executable files `0555`; not on Windows) so an in-place edit is a deliberate act. This is a deterrent,
+  not a security boundary; the lock hash is. Existing skills become read-only when next approved. `verify` and the marketplace error now point at `adopt` and `edit`. If you delete a home
+  by hand, `chmod -R u+w` its `skills/` first.
+- `verify` checks the generated marketplace only when `marketplace/` exists (opt-in via `skigard marketplace build`); a home that uses plugins only for
+  `install --plugin` no longer fails with "marketplace/ is missing". Once built it is enforced as before, and `marketplace check` still reports a missing directory.
+
+- **Upgrade notes.** A lock that contains `mode = "local"` (written when you approve an edit or a merge) cannot be read by skigard 0.3.0 or older, so upgrade every machine and CI job that shares the home
+  before you approve a local fork. Help output (`-h`/`--help`) now goes to stdout, not stderr. `verify --strict` now also fails on the new `skills/NAME is writable` warning; run `skigard lock protect` once.
+  The unverified `gemini-cli` reviewer template is gone (reviewers are `claude-code`, `pi` and `omp`; Gemini CLI is still an install target).
+
 ### Fixed
 
 - `skigard verify` says "lock, store and installs agree" when no marketplace has been built, and names the marketplace only once `marketplace/` exists.
@@ -42,28 +68,6 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `-h` and `--help` now work on every command and subcommand, including groups (`plugin`, `marketplace`, `harness`, `allow`, `lock`, `config`, `review`) and `version`.
   Help goes to stdout with exit 0 (it used to go to stderr for flag-based commands) and never reads, locks or creates the home. A bare group prints a usage error
   (exit 2) that points at `-h`; `skigard help CMD [SUB]` works; group subcommands live in one table that feeds usage, completion and `docs/commands.md`.
-
-### Changed
-
-- Approved skills are read-only after approval (dirs `0555`, files `0444`, executable files `0555`; not on Windows) so an in-place edit is a deliberate act. This is a deterrent,
-  not a security boundary; the lock hash is. Existing skills become read-only when next approved. `verify` and the marketplace error now point at `adopt` and `edit`. If you delete a home
-  by hand, `chmod -R u+w` its `skills/` first.
-- `verify` checks the generated marketplace only when `marketplace/` exists (opt-in via `skigard marketplace build`); a home that uses plugins only for
-  `install --plugin` no longer fails with "marketplace/ is missing". Once built it is enforced as before, and `marketplace check` still reports a missing directory.
-
-### Added
-
-- **Local forks.** `skigard adopt NAME` stages your edits of an approved skill into quarantine (it changes nothing else); `skigard approve NAME` then records the
-  skill with `mode = "local"` and a new `upstream_hash` in the lock (additive, `omitempty`; the lock `version` stays 1 and old locks load unchanged).
-  `verify --require-human` accepts `local` approvals (a human approved them); `status` counts them. `verify` now hints at `adopt` when a skill differs from the lock.
-- `update` knows about local edits: it compares upstream with the pinned baseline, reports `up to date (local fork)` and unadopted edits, and when upstream changed
-  it puts the new version in quarantine for `skigard diff NAME` (your copy against the new upstream) and never auto-approves it, even in `auto` mode
-  (`local_changes` in `--json`). The approval screen warns when approving replaces local edits.
-- **`skigard merge NAME [--pick | --with HARNESS] [--note TEXT]`** brings a new upstream version (from `update`) into your locally edited copy. `--pick` is an interactive hunk
-  picker on `/dev/tty` (default keep mine; humans only). `--with HARNESS` has a verified reviewer-template harness do the merge with the same confinement as `review`
-  (tools and MCP off, empty cwd, scrubbed env, OS sandbox; `--allow-policy-only` as for review) and a strict, hand-parsed output format; invalid output stages nothing. Either way
-  only quarantine changes: the result is scanned, scored and approved by a human like anything else (recorded `local`, with `upstream_hash` from the pristine upstream). The quarantine metadata
-  records `merge_mode`, `merged_by` and `merge_isolation` (additive), shown on the `approve` screen, in `list` and in `show`. `internal/diff` gained a hunk API.
 
 ## [0.3.0] - 2026-11-27
 
@@ -183,7 +187,8 @@ publisher step (a templating error in the token settings, fixed in #26), so the 
   winget step timed out; the Homebrew formula was pushed by hand too. The workflow now does both in separate jobs.
 - The `v0.1.1` build provenance attestations were added after the release (`gh attestation verify ... --repo ambierhq/skigard` works). Checksums are signed with cosign.
 
-[Unreleased]: https://github.com/ambierhq/skigard/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/ambierhq/skigard/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/ambierhq/skigard/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ambierhq/skigard/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ambierhq/skigard/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/ambierhq/skigard/compare/v0.1.1...v0.1.2
