@@ -26,7 +26,7 @@ checklist, and how [skigard](/skigard/) turns it into a habit.
 skigard add github:owner/repo --skill name --mode strict   # fetch, scan, score, then you confirm in a terminal
 skigard add github:owner/repo --skill name --quarantine-only   # or: fetch and scan only, nothing installed
 skigard scan name                              # deterministic rules, no model involved
-skigard review name                            # optional second opinion, advisory only
+skigard review name                            # second opinion, advisory only (add already runs one by default)
 skigard approve name                           # you read the evidence and type the skill name
 ```
 

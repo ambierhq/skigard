@@ -7,7 +7,7 @@ nothing. Every report carries `safety_claim: not-proven-safe`. The control that 
 
 ## Does an agent review replace reading the skill?
 
-No. Review is a second opinion for the person who approves. It can only add doubt (it never lowers a scanner finding), and it is optional. Read the skill,
+No. Review is a second opinion for the person who approves. It can only add doubt (it never lowers a scanner finding), and it can be turned off (`auto_review false`). Read the skill,
 especially bundled scripts.
 
 ## Why can't my agent approve skills for me?
@@ -22,11 +22,11 @@ To stop it, set the mode to `strict` (an agent's `add` then stays in quarantine)
 ## Does it phone home?
 
 No. There is no telemetry and no update check. skigard talks to GitHub (`api.github.com`, `codeload.github.com`, `github.com`) only when you `add` or `update` a GitHub
-source. If you run `review`, the harness you choose sends the skill to its own model provider; use `--manual` to avoid that.
+source. `review`, which `add` and `update` run by default (`auto_review`), sends the skill to the model provider of the reviewer harness; use `--manual`, or `skigard config set auto_review false`, to avoid that.
 
 ## Which models see my skill?
 
-If you run `skigard review`, pass `--review` to `add`, or leave `auto_review` on (the default) and a reviewer harness is detected: the harness you pick (Pi, Oh My Pi, Claude Code and so on) sends it to whatever provider that harness uses. The scan, approve, lock and verify steps need no
+If you run `skigard review`, pass `--review` to `add`, or leave `auto_review` on (the default) and a reviewer harness is detected: the harness you pick (Pi, Oh My Pi, Claude Code and so on; by default the first detected, verified one, see `review_harness`) sends it to whatever provider that harness uses. The scan, approve, lock and verify steps need no
 model and no network.
 
 ## What happens when a skill updates?
@@ -79,6 +79,11 @@ No. Scan, score, approve, lock and verify work without any agent. Review needs o
 Report the repository to GitHub (Report content). If the skill passes a skigard rule you would expect to catch it, that is not a vulnerability in skigard
 ([SECURITY.md](../SECURITY.md) lists what is in scope): open an issue or a PR with a defanged fixture and, ideally, a new rule (see [CONTRIBUTING.md](../CONTRIBUTING.md)). To report a flaw in skigard
 itself (an agent approving or forcing an install, bypassing the threshold, unreviewed bytes reaching an agent, and so on), use GitHub's "Report a vulnerability" privately.
+
+## Why is my skill flagged, and how do I quiet the noise?
+
+The scanner matches text, not intent, so docs that mention a credential path or `curl | sh` look like code that uses one. Run `skigard scan NAME` to see each finding with its file, line and rule, and `skigard rules` to read what a rule means.
+Risk (0 to 100, higher is riskier) counts each rule once, so repeated lines of one habit do not pile up. For a `medium` or `low` rule that is expected in a source you trust, a human can run `skigard allow add SOURCE RULE... --reason "..."`; it is stored in `skigard.toml` (`[[allow]]`), needs a terminal and typing `allow`, and is refused inside an agent. `high` and `critical` findings can never be allowed; read the skill and use `approve --override --reason` instead. Suppressed findings are still counted in the scan output, and `skigard allow remove` undoes it.
 
 ## Why is my security-review skill (or `archify`) blocked?
 

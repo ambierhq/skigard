@@ -5,6 +5,46 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-27
+
+### Changed
+
+- **BREAKING: `auto_review` is now on by default.** Every `skigard add` and `skigard update` runs the advisory agent review unless you run
+  `skigard config set auto_review false` (or use `add --quarantine-only`), which **sends the skill to the model provider of the reviewer harness**.
+  The reviewer is the saved `review_harness`, else the first detected, verified reviewer (computed on every run, never written to `skigard.toml`).
+  With no verified reviewer installed the review is skipped. Homes that set `auto_review` explicitly keep their choice.
+- **BREAKING: a default review that fails to run blocks the automatic install.** `add` leaves the skill in quarantine (exit 1) and `update` keeps the
+  changed version in quarantine, with `review did not run: ...` among the reasons. Fix the harness, pick another with `config set review_harness`, or turn reviews off.
+- **BREAKING: the risk and score formula changed (`score_version` 2, `ScoreVersion` 2).** The scanner's risk (0 to 100) now counts each rule once, at
+  the weight of its worst finding, plus up to three small bumps for repeats, so many identical lines no longer pile up. Safety scores go up for noisy skills, so skills
+  that stayed in quarantine before can now clear the threshold and install on their own in `auto` mode. Old locks keep their recorded score and version.
+- **BREAKING: scanner rules `2026.4`.** `tool eval "..."` (for example `playwright-cli eval`) is no longer the shell builtin `SKG-EXEC-004`, `npx --no-install`
+  is no longer a package install (`SKG-SUPPLY-001`), and `obj.fetch()` is no longer the global `fetch` (`SKG-NET-002`). Skills that were flagged for these now pass them.
+- Output labels say which way is better: risk is 0 to 100 and **higher is riskier**; the safety score is 1 to 10 and **higher is safer**.
+- On a terminal, output is styled: colour, grouped `scan` findings, Markdown rendering for `show`, styled `review`, `add` outcomes, `diff`, tables for `list` and
+  `plugin list`, and `doctor`, `status` and `verify`. Pipes, files, `--json` and `NO_COLOR` stay plain (new package `internal/term`).
+- `plugin create|add|remove|delete` print a confirmation line; `plugin list` prints a table.
+- claude-code now reviews under the macOS Seatbelt sandbox: its scratch directory is redirected with `CLAUDE_CODE_TMPDIR`, `~/.config/anthropic` is readable and
+  `*.lock` entries can be created there. `docs/review.md` lists the per-harness needs.
+
+### Added
+
+- `skigard allow add|list|remove`: a human-only, per-source allow list for `medium` and `low` scanner rules (`[[allow]]` in `skigard.toml`). It never hides `high` or
+  `critical` rules, is refused inside an agent, needs `allow` typed at the terminal, and suppressed findings stay counted in the scan output.
+- `skigard config get|set review_harness` (`auto` clears the saved choice). `config get auto_review` and `review_harness` show the effective value.
+- `show --plain` and `scan --plain` print the raw text with no colours or rendering.
+- A spinner with the elapsed time on stderr while a reviewer runs (terminals only, not with `--json`).
+
+### Fixed
+
+- Repeated matches of one rule no longer inflate the risk number, so large, repetitive skills are no longer scored down for the same habit many times.
+
+### Security
+
+- `allow` is a human step with the same agent refusal as `approve`; an agent cannot widen what the scanner reports. `approve`, `--force-install` and `config set mode|threshold` are unchanged.
+- Styled output only touches text that has already been escaped with `util.Clean`, so untrusted skill text cannot inject terminal escape sequences.
+- The default review sends the skill to a model provider; see the BREAKING note above and the [threat model](docs/threat-model.md#reviewing-agents-what-leaves-your-machine).
+
 ## [0.2.0] - 2026-11-20
 
 ### Changed
@@ -83,7 +123,8 @@ publisher step (a templating error in the token settings, fixed in #26), so the 
   winget step timed out; the Homebrew formula was pushed by hand too. The workflow now does both in separate jobs.
 - The `v0.1.1` build provenance attestations were added after the release (`gh attestation verify ... --repo ambierhq/skigard` works). Checksums are signed with cosign.
 
-[Unreleased]: https://github.com/ambierhq/skigard/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/ambierhq/skigard/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/ambierhq/skigard/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ambierhq/skigard/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/ambierhq/skigard/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/ambierhq/skigard/releases/tag/v0.1.1

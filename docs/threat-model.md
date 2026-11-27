@@ -6,7 +6,7 @@ Status: 0.1. This is a design contract, not a claim that the software is free of
 
 > Should these exact bytes cross into the directory an agent reads skills from?
 
-skigard is a **recommender**. It provides evidence (a deterministic scan, an optional advisory agent review, a diff),
+skigard is a **recommender**. It provides evidence (a deterministic scan, an advisory agent review (on by default), a diff),
 turns it into a safety score from 1 to 10 with reasons, pins the decision to a content hash, and later detects drift.
 Who decides depends on the mode:
 
@@ -131,6 +131,10 @@ This approves a quarantined `NAME` with no person and no keyboard involved. A te
 `skigard review` runs a harness you already have installed, using your own account. The skill's text is sent to
 that harness's model provider, like any prompt. Use `--manual` if that is not acceptable. Review runs
 automatically only when you run it or leave `auto_review` on (the default; `skigard config set auto_review false` turns it off).
+
+## The allow list
+
+`skigard allow` lets a human stop the scanner reporting `medium` and `low` rules for one source. It is stored in `skigard.toml`, is refused inside a detected agent, needs the word `allow` typed at the terminal, and can never hide a `high` or `critical` rule. Like `approve`, the gate is best effort (see the pseudo-terminal case above). Suppressed findings are still counted in the scan output, so the number is not hidden.
 
 ## Tests that back these claims
 

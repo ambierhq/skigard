@@ -18,7 +18,7 @@ skigard review record NAME --verdict pass|concerns|fail --summary "..."   # stor
 |---|---|---|
 | `pi` | verified, run end to end | `pi -p --no-tools --no-extensions --no-skills --no-mcp --no-session --no-context-files --no-prompt-templates --system-prompt ...` |
 | `omp` | verified, run end to end | `omp -p --no-tools --no-extensions --no-skills --no-rules --no-context-files --no-session --no-lsp --system-prompt ...` |
-| `claude-code` | flags confirmed against `claude --help`; not run end to end (the development machine was not logged in) | `claude -p --output-format text --tools "" --allowed-tools "" --permission-mode dontAsk --strict-mcp-config --setting-sources= --disable-slash-commands --no-session-persistence --system-prompt ...` |
+| `claude-code` | verified, run end to end under Seatbelt on macOS | `claude -p --output-format text --tools "" --allowed-tools "" --permission-mode dontAsk --strict-mcp-config --setting-sources= --disable-slash-commands --no-session-persistence --system-prompt ...` |
 | `gemini-cli` | unverified, needs `--allow-unverified` | `gemini -p "" --approval-mode plan` with the system prompt on stdin |
 | `codex` | not supported | its read-only sandbox still lets commands read host files, so a tool-less run cannot be guaranteed |
 

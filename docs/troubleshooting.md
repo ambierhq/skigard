@@ -21,7 +21,7 @@ At least one approval was written by `add` or `update` in `auto` mode, or by `--
 ## A skill I trust is blocked
 
 The scanner matches text, not intent: a skill that mentions `~/.ssh`, `curl | sh` or "ignore previous instructions" looks like one that does it.
-Read the skill and the finding (`skigard scan NAME`), then `skigard approve NAME --override --reason "..."`. Details in
+Read the skill and the finding (`skigard scan NAME`), then `skigard approve NAME --override --reason "..."`. For repeated `medium` or `low` noise from a source you trust, a human can use `skigard allow add SOURCE RULE... --reason "..."` instead (never for `high` or `critical`). Details in
 [writing safe skills](writing-safe-skills.md).
 
 ## `install` refuses with a hash mismatch
@@ -52,7 +52,8 @@ modified). A skill with executable scripts can only be upgraded on Linux or macO
 - `skigard review --list` shows harnesses that can review headlessly and are installed.
 - Without an OS sandbox, a verified template only runs with `--allow-policy-only` ([review](review.md#what-the-reviewer-sees-and-cannot-do)).
 - On Windows automated review is disabled; use `--manual` and `skigard review record`.
-- Review is optional. Scan, approve, lock and verify work without any agent.
+- A default review that fails to run (`review did not run: ...`) holds the skill back in `auto` mode. Fix the harness, pick another with `skigard config set review_harness ID`, or turn reviews off with `skigard config set auto_review false`. With no verified reviewer installed the review is skipped quietly.
+- Scan, approve, lock and verify work without any agent.
 
 ## `add` fails to fetch
 

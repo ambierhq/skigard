@@ -50,7 +50,7 @@ is a **review**; otherwise **pass**. "Pass" means the rules found nothing, not t
 
 ## Review
 
-Optional and advisory. A harness you already have (Pi, Oh My Pi, Claude Code) is started with tools and MCP off, in an empty directory,
+Advisory, and on by default (`auto_review`). A harness you already have (Pi, Oh My Pi, Claude Code) is started with tools and MCP off, in an empty directory,
 with a scrubbed environment and, on macOS and Linux, inside an OS sandbox. It reads the skill from stdin and writes a verdict. The verdict
 can only raise concern; it never lowers a scanner finding. Details: [review](review.md).
 
@@ -76,8 +76,10 @@ The **mode** decides who acts on the score:
 - `auto` (default, threshold 7): `score >= threshold` with no hard stop is approved and installed with no prompt; otherwise it stays in quarantine with a warning.
 - `--force-install` (any mode): installs regardless, recorded as `mode = "forced"`, human terminal only.
 
-Settings live in `skigard.toml` and are managed with `skigard config get|set mode|threshold|auto_review`. `set` of `mode` and `threshold` needs a human terminal.
-`auto_review` (default on) runs a review during `add` and `update` with `settings.review_harness`, or else the first detected, verified reviewer (nothing is saved). That sends the skill to a model provider; `skigard config set auto_review false` stops it.
+Settings live in `skigard.toml` and are managed with `skigard config get|set mode|threshold|auto_review|review_harness`. `set` of `mode` and `threshold` needs a human terminal.
+`auto_review` (default on) runs a review during `add` and `update` with `settings.review_harness`, or else the first detected, verified reviewer (nothing is saved). That sends the skill to a model provider; `skigard config set auto_review false` stops it. `review_harness` is `auto` unless you pin one (`config set review_harness pi`; `auto` clears it); `config get review_harness` shows which one would run. If a default review fails to run, `add` does not auto-install the skill and `update` leaves the changed version in quarantine; with no verified reviewer detected, the review is skipped.
+
+**Terminal output.** On a terminal skigard colours its output and tidies it: tables for `list` and `plugin list`, grouped findings for `scan`, rendered Markdown for `show`, and a spinner with the elapsed time on stderr while a reviewer runs. Nothing changes when output goes to a pipe or a file, with `--json`, or with `NO_COLOR` set or `TERM=dumb`; `show --plain` and `scan --plain` force the plain text. Text from a skill is escaped before it is styled.
 
 ## Approve
 
