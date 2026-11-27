@@ -31,7 +31,7 @@ Maintainer view (secrets, switches, registry PRs): [packaging/README.md](../../p
 ## Verify what you downloaded
 
 Every release carries `checksums.txt` (SHA-256), a keyless [cosign](https://github.com/sigstore/cosign) signature for it, and an SBOM per archive.
-Build provenance attestations (GitHub) are published for every release since `v0.1.1`; check one with `gh attestation verify skigard_0.3.0_linux_amd64.tar.gz --repo ambierhq/skigard`. The npm packages carry npm provenance (SLSA) from `v0.3.0` on (`v0.1.1` was published by hand, without it).
+Build provenance attestations (GitHub) are published for every release since `v0.1.1`; check one with `gh attestation verify skigard_0.3.0_linux_amd64.tar.gz --repo ambierhq/skigard`. The npm packages carry npm provenance (SLSA) from `v0.2.0` on (`v0.1.1` was published by hand, without it).
 `install.sh` always checks the archive against `checksums.txt`, and also verifies the signature when `cosign` is installed. The installers never use
 `sudo` and install to `~/.local/bin` (override with `SKIGARD_INSTALL_DIR`; pin a release with `SKIGARD_VERSION=v0.3.0`).
 
