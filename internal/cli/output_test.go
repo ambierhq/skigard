@@ -363,3 +363,25 @@ func TestAdoptAndEditHelp(t *testing.T) {
 		}
 	}
 }
+
+// A declined strict prompt is reported once, by the final "skigard: cancelled" line, not
+// again inside the outcome block; other errors still show there.
+func TestNeedsApprovalReportsCancelOnce(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	render := func(err error) string {
+		var b bytes.Buffer
+		c := &ctx{out: &b, errw: &b}
+		o := core.AddOutcome{Name: "demo", Mode: store.ModeStrict, Decision: core.DecisionNeedsApproval, Err: err,
+			Report: &scan.Report{Verdict: "pass", Coverage: "complete"}}
+		if e := printOutcomes(c, []core.AddOutcome{o}); e != nil {
+			t.Fatal(e)
+		}
+		return b.String()
+	}
+	if got := render(util.Cancelled("cancelled: nothing was approved")); strings.Contains(got, "cancelled") {
+		t.Errorf("cancel repeated in the outcome block:\n%s", got)
+	}
+	if got := render(util.Errf("boom")); !strings.Contains(got, "(boom)") {
+		t.Errorf("a non-cancel error should still be shown:\n%s", got)
+	}
+}

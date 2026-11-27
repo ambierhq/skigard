@@ -253,7 +253,8 @@ func printOutcomes(c *ctx, ocs []core.AddOutcome) error {
 				"or: skigard add ... --force-install (human terminal only)")
 		case core.DecisionNeedsApproval:
 			c.printf("%s %q is in quarantine and waiting for a human.\n", st.Yellow("●"), o.Name)
-			if o.Err != nil {
+			// A declined prompt is reported once, by the final "skigard: cancelled" line.
+			if o.Err != nil && util.CodeOf(o.Err) != util.ExitCancelled {
 				c.printf("  (%s)\n", util.Clean(o.Err.Error()))
 			}
 			c.nextSteps("", "",
