@@ -16,6 +16,7 @@ const pages = [
   "/skigard/docs/getting-started/",
   "/skigard/docs/install/",
   "/skigard/guides/review-agent-skills-before-installing/",
+  "/skigard/guides/customize-an-agent-skill/",
 ];
 const shotDir = process.argv.includes("--screenshots") ? process.argv[process.argv.indexOf("--screenshots") + 1] : "";
 const chrome = process.env.CHROME_PATH;

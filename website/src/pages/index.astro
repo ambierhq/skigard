@@ -34,7 +34,7 @@ const steps = [
   ["Review", "An agent you already use reads it with tools off (on by default, one setting turns it off). It can only add doubt, never remove a finding."],
   ["Score", "A safety score from 1 to 10, always with its reasons. Scanner blocks and failing reviews are hard stops."],
   ["Decide", "Auto mode installs at or above your threshold. Strict mode always asks you in a real terminal. Below the threshold the skill stays in quarantine until a human approves it, or forces the install, at a terminal."],
-  ["Lock", "The decision is pinned to a content hash in skigard.lock, with its mode (human, auto or forced). Commit it."],
+  ["Lock", "The decision is pinned to a content hash in skigard.lock, with its mode (human, auto, local or forced). Commit it."],
   ["Install", "Link into every harness skigard finds. Drift is caught by verify."],
 ];
 const features = [
@@ -42,7 +42,8 @@ const features = [
   ["Hash-pinned lockfile", "Source, commit, content hash, scan, review, score and approval mode, for every skill."],
   ["Hostile-input safe", "Archives are extracted through os.Root. Links, devices and bombs are refused."],
   ["Sandboxed reviewer", "Tools off, empty directory, scrubbed environment, OS sandbox on macOS and Linux."],
-  ["Drift detection", "verify fails when the store, the installs or the marketplace change."],
+  ["Local forks that survive updates", "edit, adopt and merge keep your changes to a skill. Updates never overwrite them and merges always need a human."],
+  ["Drift detection", "verify fails when the lock, the store or the installs change, and the marketplace if you enabled it."],
   ["One static binary", "macOS, Linux and Windows. No runtime, no telemetry, one dependency."],
 ];
 ---
@@ -140,6 +141,7 @@ const features = [
         <ul class="limits">
           <li>The scanner is heuristic and an agent review can be fooled. <strong>A pass or a score of 10 is not a safety certificate.</strong> Read the skill, especially bundled scripts, or use strict mode.</li>
           <li>In auto mode an agent that runs <code>skigard add</code> can install skills that clear your threshold. The lock records it as <code>mode = auto</code> and <code>verify --require-human</code> fails on it. Agents cannot approve, force an install or change the mode or threshold.</li>
+          <li>Read-only approved skills are a deterrent, not a boundary: anything running as you can <code>chmod</code> them back. The lock hash is the control.</li>
           <li>Approval is a terminal prompt, not a signature. A process that creates its own pseudo-terminal can type the answer; skigard only refuses inside harnesses it can detect. Signed approvals are planned.</li>
           <li>Someone who can already write to your home as you can do anything. skigard does not defend against that.</li>
           <li>Automated review is disabled on Windows (it has no sandbox); use <code>review --manual</code>.</li>

@@ -60,10 +60,10 @@ const text = clean(rest.join("\n"));
 const keep = [];
 let inChanges = false;
 for (const l of text.split("\n")) {
-  if (/^changes:/.test(l)) { inChanges = true; keep.push(l); continue; }
+  if (/^changes\b/.test(l)) { inChanges = true; keep.push(l); continue; }
   if (inChanges && /^\s+\+\+\+ added:/.test(l)) { keep.push(l, "  … (file contents shown here, trimmed)"); continue; }
   if (inChanges && /^\s+\+/.test(l)) continue;
-  if (/^(evidence:|next:|content hash:|note:)/.test(l)) continue; // the hash and note were shown by add
+  if (/^\s*(evidence:|next:|content hash:|note:)/.test(l)) continue; // the hash and note were shown by add
   if (l.trim()) keep.push(l);
 }
 for (const l of keep) push(l.trimEnd(), kind(l));
@@ -73,6 +73,8 @@ add(skigard(["install", "hello-skill"]), (l) => !/^info /.test(l));
 push("$ skigard verify", "cmd");
 add(skigard(["verify"]));
 
+// Approved skills are read-only (0555/0444), so make the tree writable before removing it.
+try { execFileSync("chmod", ["-R", "u+w", tmp]); } catch { /* Windows: no read-only skills */ }
 await fs.rm(tmp, { recursive: true, force: true });
 const leaked = lines.filter((l) => l.t.includes(repo) || l.t.includes(os.homedir()) || l.t.includes("/var/folders") || l.t.includes(os.userInfo().username));
 if (leaked.length) throw new Error(`session still contains local paths: ${JSON.stringify(leaked)}`);
