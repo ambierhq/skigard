@@ -99,7 +99,10 @@ var lineRules = []rule{
 	{ID: "SKG-EXEC-004", Name: "dynamic-exec", Family: "EXEC", Sev: Medium, Caps: []string{"dynamic_exec"}, DocLow: true,
 		Pre: []string{"eval", "exec", "os.system", "subprocess", "child_process", "__import__", "new&function"},
 		Msg: "dynamic code or process execution",
-		Re:  re(`(^|[^.\w])(eval|exec)\s*\(|\beval\s+["'$]|\bos\.system\b|\bsubprocess\b|child_process|(?-i:\bnew\s+Function\s*\()|__import__|\bexec\.Command\b`)},
+		// The shell builtin `eval "..."` only counts at a command position (line start, after ; & | ( ` { or a quote,
+		// or after sudo/exec/xargs/time/command/builtin/env/then/do/else). `tool eval "..."` is a subcommand of
+		// another program (for example `playwright-cli eval`), not the shell builtin. The call form `eval(` is unchanged.
+		Re: re(`(^|[^.\w])(eval|exec)\s*\(|(^|[;&|(\x60{"']|\$\(|\$\s|\b(sudo|exec|xargs|time|command|builtin|then|do|else|env)\s)\s*(\w+=\S*\s+)*eval\s+["'$]|\bos\.system\b|\bsubprocess\b|child_process|(?-i:\bnew\s+Function\s*\()|__import__|\bexec\.Command\b`)},
 	{ID: "SKG-EXEC-005", Name: "privilege", Family: "EXEC", Sev: Medium, DocLow: true,
 		Pre: []string{"sudo", "chmod", "chown"},
 		Msg: "privilege or permission change",
@@ -139,7 +142,7 @@ var lineRules = []rule{
 	{ID: "SKG-NET-002", Name: "network-lib", Family: "NET", Sev: Medium, Caps: []string{"network_egress"}, DocLow: true,
 		Pre: []string{"requests.", "urllib", "http.client", "httpx", "aiohttp", "fetch(", "xmlhttprequest", "websocket", "socket.", "net/http", "http.get", "http.post"},
 		Msg: "network library",
-		Re:  re(`\b(requests\.(get|post|put|request)|urllib|http\.client|httpx|aiohttp|fetch\(|XMLHttpRequest|WebSocket|socket\.|net/http|http\.(Get|Post))`)},
+		Re:  re(`\b(requests\.(get|post|put|request)|urllib|http\.client|httpx|aiohttp|XMLHttpRequest|WebSocket|socket\.|net/http|http\.(Get|Post))|(^|[^.\w])fetch\(|\b(window|globalThis|self)\.fetch\(`)},
 	{ID: "SKG-PROMPT-001", Name: "instruction-override", Family: "PROMPT", Sev: High,
 		Pre: []string{"ignore", "disregard", "you are now", "override", "forget"},
 		Msg: "tries to override higher-priority instructions",
@@ -180,7 +183,9 @@ var lineRules = []rule{
 	{ID: "SKG-SUPPLY-001", Name: "package-install", Family: "SUPPLY", Sev: Medium, Caps: []string{"supply_chain"}, DocLow: true,
 		Pre: []string{"npm", "pnpm", "yarn", "pip", "brew", "gem", "cargo", "npx", "uvx", "uv ", "go "},
 		Msg: "installs third-party packages",
-		Re:  re(`\b(npm|pnpm|yarn|pip3?|uv|brew|gem|cargo|go)\s+(install|add|i|get)\b|\bnpx\s|\buvx\s|\bpipx\b`)},
+		// `npx --no-install pkg` only runs an already installed package: it is the opposite of an install.
+		Strip: re(`\bnpx\s+(--no-install|--no)\b`),
+		Re:    re(`\b(npm|pnpm|yarn|pip3?|uv|brew|gem|cargo|go)\s+(install|add|i|get)\b|\bnpx\s|\buvx\s|\bpipx\b`)},
 	{ID: "SKG-SUPPLY-002", Name: "remote-instructions", Family: "SUPPLY", Sev: Medium, Caps: []string{"external_instruction"},
 		Pre: []string{"instruction&http", "prompt&http", "skill&http", "rules&http"},
 		Msg: "loads instructions from a remote URL",
@@ -218,6 +223,16 @@ var structural = map[string]struct {
 	"SKG-NET-003":      {"external-url", "NET", Low},
 	"SKG-CHAIN-001":    {"exfiltration-chain", "CHAIN", Critical},
 	"SKG-CHAIN-002":    {"persistent-exec", "CHAIN", High},
+}
+
+// RuleSeverity is the default severity of a rule ID, and whether the rule exists.
+func RuleSeverity(id string) (Severity, bool) {
+	for _, r := range Catalog() {
+		if r[0] == id {
+			return Severity(r[3]), true
+		}
+	}
+	return "", false
 }
 
 // Catalog returns every rule (id, name, family, severity, message) for docs.

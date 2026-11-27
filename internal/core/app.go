@@ -32,6 +32,9 @@ type App struct {
 	// AgentAncestor reports an agent harness among this process's ancestors
 	// (best effort, see harness.AgentAncestor). Nil disables the check.
 	AgentAncestor func() (string, bool)
+	// ReviewProgress, if set, is called before a reviewer runs and returns the
+	// function to call when it finishes. The CLI uses it to show a spinner.
+	ReviewProgress func(skill, harness string) (done func())
 }
 
 // New builds an App for the real machine.
@@ -74,13 +77,15 @@ func (a *App) Detect() ([]harness.Detection, error) {
 
 // ScanOptions builds scan options for the tool version.
 func (a *App) scanOpts(name string, accepted []scan.Accepted, links []string) scan.Options {
-	return scan.Options{ToolVersion: a.Version, Skill: name, Accepted: accepted, SkippedLinks: links}
+	return scan.Options{ToolVersion: a.Version, Skill: name, Accepted: accepted, SkippedLinks: links, AllowRules: a.allowFor(name)}
 }
 
 // Scan scans a skill by name (quarantine first, then approved) or a directory path.
 func (a *App) Scan(target string) (*scan.Report, string, error) {
 	if fi, err := os.Stat(target); err == nil && fi.IsDir() && (strings.ContainsRune(target, filepath.Separator) || strings.HasPrefix(target, ".")) {
-		rep, err := scan.Scan(target, a.scanOpts(filepath.Base(target), nil, nil))
+		o := a.scanOpts(filepath.Base(target), nil, nil)
+		o.AllowRules = nil // a bare directory has no recorded source, so nothing is allowed for it
+		rep, err := scan.Scan(target, o)
 		return rep, target, err
 	}
 	if err := util.CheckName(target); err != nil {

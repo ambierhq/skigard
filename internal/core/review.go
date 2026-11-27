@@ -48,6 +48,25 @@ func (a *App) Reviewers() ([]Reviewer, error) {
 	return out, nil
 }
 
+// DefaultReviewHarness is the reviewer used when none is chosen: the saved
+// settings.review_harness, else the first installed, verified reviewer in
+// registry order. Empty when there is none. It is never written to the settings.
+func (a *App) DefaultReviewHarness(s store.Settings) string {
+	if s.ReviewHarness != "" {
+		return s.ReviewHarness
+	}
+	rv, err := a.Reviewers()
+	if err != nil {
+		return ""
+	}
+	for _, r := range rv {
+		if r.Installed && r.Verified {
+			return r.ID
+		}
+	}
+	return ""
+}
+
 // ReviewOpts selects the reviewer.
 type ReviewOpts struct {
 	Harness         string
@@ -91,6 +110,9 @@ func (a *App) Review(ctx context.Context, name string, o ReviewOpts) (*review.Re
 		r.Environ = os.Environ()
 	}
 	r.AllowPolicyOnly = o.AllowPolicyOnly
+	if a.ReviewProgress != nil {
+		defer a.ReviewProgress(name, t.ID)()
+	}
 	raw, iso, err := r.Run(ctx, t, o.Model, in)
 	if err != nil {
 		return nil, err

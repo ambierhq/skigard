@@ -31,7 +31,7 @@ Findings of `low` and `medium` can be accepted with `--accept REASON` (optionall
 
 ## What moves a safety score
 
-`skigard add` turns the scan into a score from 1 to 10 (10 = no concern); with the default `auto` mode a skill installs without a prompt only at 7 or above. The score starts at `10 - ceil(risk / 12)` from the scanner's risk number, so every finding costs points, and then:
+`skigard add` turns the scan into a score from 1 to 10 (10 = no concern); with the default `auto` mode a skill installs without a prompt only at 7 or above. The score starts at `10 - ceil(risk / 12)` from the scanner's risk number (0 to 100, **higher is riskier**; each rule counts once at its worst severity, with a small bump for many matches), and then:
 
 - any `high` or `critical` finding (verdict `block`) caps it at 3 and is a hard stop: it is never auto-installed;
 - incomplete coverage (binaries, oversized or non-UTF-8 files) caps it at 6, so it never clears a threshold of 7 or more;

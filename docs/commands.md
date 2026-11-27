@@ -44,6 +44,7 @@ Usage: `skigard COMMAND [ARGS]`. Flags may come before or after positional argum
 - [`status`](#skigard-status): summary of this home
 - [`doctor`](#skigard-doctor): check the environment
 - [`stats`](#skigard-stats): estimate the context cost of approved skills
+- [`allow`](#skigard-allow): HUMAN ONLY: stop reporting medium/low scanner rules for one source
 - [`plugin`](#skigard-plugin): manage plugins (groups of approved skills)
 - [`marketplace`](#skigard-marketplace): generate or check the Claude/OMP marketplace
 - [`harness`](#skigard-harness): inspect or extend the harness registry
@@ -116,6 +117,7 @@ skigard scan NAME|PATH [--format text|json|sarif]
 | `--fail-on-incomplete` | exit 4 when scan coverage is incomplete |
 | `--format STRING` | text, json or sarif (default "text") |
 | `--output STRING` | write the report to a file |
+| `--plain` | text format: no colours and no grouping (the default when not on a terminal) |
 
 ## skigard review
 
@@ -279,6 +281,10 @@ Print a skill's SKILL.md and file list.
 skigard show NAME
 ```
 
+| Flag | Description |
+|---|---|
+| `--plain` | print the raw text, with no colours or Markdown rendering |
+
 ## skigard status
 
 Summary of this home.
@@ -306,6 +312,14 @@ skigard stats --tokens
 | Flag | Description |
 |---|---|
 | `--tokens` | estimate token cost of approved skills (default true) |
+
+## skigard allow
+
+HUMAN ONLY: stop reporting medium/low scanner rules for one source.
+
+```
+skigard allow add SOURCE|SKILL RULE... --reason R | list | remove SOURCE [RULE...]
+```
 
 ## skigard plugin
 

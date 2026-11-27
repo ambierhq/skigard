@@ -129,8 +129,8 @@ This approves a quarantined `NAME` with no person and no keyboard involved. A te
 ## Reviewing agents: what leaves your machine
 
 `skigard review` runs a harness you already have installed, using your own account. The skill's text is sent to
-that harness's model provider, like any prompt. Use `--manual` if that is not acceptable. Review never runs
-automatically unless you turn on `auto_review` (`skigard config set auto_review true`) or pass `--review` to `add`.
+that harness's model provider, like any prompt. Use `--manual` if that is not acceptable. Review runs
+automatically only when you run it or leave `auto_review` on (the default; `skigard config set auto_review false` turns it off).
 
 ## Tests that back these claims
 

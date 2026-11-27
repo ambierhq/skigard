@@ -22,6 +22,10 @@ func setSettings(t *testing.T, a *App, s store.Settings) {
 		t.Fatal(err)
 	}
 	man.Settings.Mode, man.Settings.Threshold, man.Settings.AutoReview = s.Mode, s.Threshold, s.AutoReview
+	if man.Settings.AutoReview == nil { // tests opt in to review; the product default is on
+		off := false
+		man.Settings.AutoReview = &off
+	}
 	if err := store.SaveManifest(a.Home, man); err != nil {
 		t.Fatal(err)
 	}
@@ -347,5 +351,27 @@ func TestAddFailureBeforeDecisionIsNotReportedAsApproved(t *testing.T) {
 	}
 	if out[0].Decision != DecisionFailed || out[0].Err == nil {
 		t.Fatalf("%+v", out[0])
+	}
+}
+
+func TestDefaultReviewHarness(t *testing.T) {
+	a, _ := newApp(t)
+	if got := a.DefaultReviewHarness(store.Settings{}); got != "" {
+		t.Fatalf("no harness detected, got %q", got)
+	}
+	a.Env.LookPath = func(bin string) (string, error) {
+		if bin == "pi" {
+			return "/usr/bin/pi", nil
+		}
+		return "", os.ErrNotExist
+	}
+	if got := a.DefaultReviewHarness(store.Settings{}); got != "pi" {
+		t.Fatalf("want the detected verified reviewer, got %q", got)
+	}
+	if got := a.DefaultReviewHarness(store.Settings{ReviewHarness: "omp"}); got != "omp" {
+		t.Fatalf("a saved choice wins, got %q", got)
+	}
+	if !(store.Settings{}).EffectiveAutoReview() {
+		t.Fatal("auto_review defaults to on")
 	}
 }

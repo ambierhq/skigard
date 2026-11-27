@@ -2,7 +2,7 @@
 
 `skigard review NAME` asks an agent harness you already have to read a quarantined skill and say what it thinks.
 It is a second opinion for the human who approves, and an input to the safety score. It is never the decision on its own: it can only lower the score, never raise it.
-It never runs unless you ask: `skigard review NAME`, `skigard add --review`, or `skigard config set auto_review true` (default off), because it sends the skill to a model provider.
+It runs on `skigard add` and `update` by default (`auto_review`), using `settings.review_harness` or else the first detected, verified reviewer. Turn that off with `skigard config set auto_review false`. It sends the skill to a model provider; `--manual` does not.
 
 ## Choosing the reviewer
 
@@ -53,7 +53,7 @@ Per-harness needs (what the allowlist contains beyond the system):
 
 - `pi`: its install tree, `~/.pi` read-only, and creating/removing `*.lock` entries in `~/.pi/agent`. Run end to end under Seatbelt.
 - `omp`: its install tree, `~/.omp` and `~/.config/omp` read-only, plus **write** access to `~/.omp/logs`, `natives`, `run`, `cache` and its `agent/*.db*` sqlite files (it writes them even for a one-shot run). Run end to end under Seatbelt. Reads of other tools' config (for example `~/.claude`) are denied.
-- `claude-code`: `~/.claude`, `~/.claude.json`, `~/.config/claude` read-only. **Not** run under the sandbox (not logged in on the development machine); it may need more.
+- `claude-code`: `~/.claude`, `~/.claude.json`, `~/.config/claude` and `~/.config/anthropic` (its login and profile) read-only, plus creating/removing `*.lock` entries in `~/.config/anthropic`. Its scratch directory is redirected into the work dir with `CLAUDE_CODE_TMPDIR` (it ignores `TMPDIR` and otherwise writes `/tmp/claude-<uid>`). Run end to end under Seatbelt on macOS. The login is not refreshed inside the sandbox: if your token has expired, run `claude` once outside it.
 - `gemini-cli`: unverified.
 
 Known gaps: macOS mach services are not restricted; the harness can read its own credentials (it must authenticate)

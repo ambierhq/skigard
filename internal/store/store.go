@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"slices"
 	"sort"
@@ -146,8 +147,9 @@ type Settings struct {
 	Mode string `toml:"mode,omitempty"`
 	// Threshold is the minimum safety score (1..10) for auto install. 0 means DefaultThreshold.
 	Threshold int `toml:"threshold,omitempty"`
-	// AutoReview runs the advisory reviewer during add. Off by default: review sends the skill to a model provider.
-	AutoReview bool `toml:"auto_review,omitempty"`
+	// AutoReview runs the advisory reviewer during add and update. Nil means on (see EffectiveAutoReview).
+	// Review sends the skill to the model provider of the reviewer harness; set it to false to stop that.
+	AutoReview *bool `toml:"auto_review,omitempty"`
 }
 
 // Modes and defaults for Settings.
@@ -185,6 +187,11 @@ func (s Settings) EffectiveThreshold() int {
 	return s.Threshold
 }
 
+// EffectiveAutoReview is AutoReview, or true when unset.
+func (s Settings) EffectiveAutoReview() bool {
+	return s.AutoReview == nil || *s.AutoReview
+}
+
 // Validate checks mode and threshold.
 func (s Settings) Validate() error {
 	if s.Mode != "" && s.Mode != ModeStrict && s.Mode != ModeAuto {
@@ -208,6 +215,71 @@ type Manifest struct {
 	Settings Settings          `toml:"settings"`
 	Plugins  map[string]Plugin `toml:"plugins,omitempty"`
 	Harness  []harness.Entry   `toml:"harness,omitempty"`
+	// Allow lists scanner rules a human accepted for skills from one source.
+	Allow []AllowRule `toml:"allow,omitempty"`
+}
+
+// AllowRule lets the scanner stay quiet about some medium-or-lower rules for
+// skills that come from Source. It never applies to high or critical findings.
+type AllowRule struct {
+	// Source is a skill source as recorded at add time, or a prefix ending in "/*".
+	Source string   `toml:"source"`
+	Rules  []string `toml:"rules"`
+	Reason string   `toml:"reason"`
+	By     string   `toml:"by,omitempty"`
+	At     string   `toml:"at,omitempty"`
+}
+
+var allowRuleID = regexp.MustCompile(`^SKG-[A-Z]+-[0-9]{3}$`)
+
+// Validate checks an allow entry that came from disk.
+func (a AllowRule) Validate() error {
+	if a.Source == "" || a.Source == "*" || (strings.HasSuffix(a.Source, "*") && !strings.Contains(strings.TrimSuffix(a.Source, "*"), "/")) {
+		return fmt.Errorf("allow: source %q is too broad", util.Clean(a.Source))
+	}
+	if len(a.Rules) == 0 || strings.TrimSpace(a.Reason) == "" {
+		return fmt.Errorf("allow %q: needs rules and a reason", util.Clean(a.Source))
+	}
+	for _, r := range a.Rules {
+		if !allowRuleID.MatchString(r) {
+			return fmt.Errorf("allow %q: bad rule id %q", util.Clean(a.Source), util.Clean(r))
+		}
+	}
+	return nil
+}
+
+// NormalizeSource drops a trailing @ref so an allow entry survives a ref change.
+func NormalizeSource(s string) string {
+	if i := strings.LastIndex(s, "@"); i > strings.LastIndex(s, "/") {
+		return s[:i]
+	}
+	return s
+}
+
+// Matches reports whether source is covered by this entry.
+func (a AllowRule) Matches(source string) bool {
+	src, want := NormalizeSource(source), NormalizeSource(a.Source)
+	if p, ok := strings.CutSuffix(want, "*"); ok {
+		return strings.HasPrefix(src, p)
+	}
+	return src == want
+}
+
+// AllowedRules returns the rules allowed for source, with their reasons.
+func (m *Manifest) AllowedRules(source string) map[string]string {
+	var out map[string]string
+	for _, a := range m.Allow {
+		if !a.Matches(source) {
+			continue
+		}
+		if out == nil {
+			out = map[string]string{}
+		}
+		for _, r := range a.Rules {
+			out[r] = a.Reason
+		}
+	}
+	return out
 }
 
 // LoadManifest reads skigard.toml; a missing file yields defaults.
@@ -225,6 +297,11 @@ func LoadManifest(h Home) (*Manifest, error) {
 	}
 	if err := m.Settings.Validate(); err != nil {
 		return nil, util.Errf("%s: %v", h.ManifestPath(), err)
+	}
+	for _, a := range m.Allow {
+		if err := a.Validate(); err != nil {
+			return nil, util.Errf("%s: %v", h.ManifestPath(), err)
+		}
 	}
 	for pn, p := range m.Plugins {
 		if err := util.CheckName(pn); err != nil {

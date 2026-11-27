@@ -298,13 +298,16 @@ type Template struct {
 	// harness must write to even for a one-shot run, such as a sqlite database
 	// in WAL mode. Each entry widens the sandbox, so keep it minimal.
 	WritePaths []string
-	Note       string
+	// TmpEnv names environment variables that redirect the harness's scratch
+	// directory (it ignores TMPDIR). They are set to the reviewer's empty work dir.
+	TmpEnv []string
+	Note   string
 }
 
 // Templates returns the known reviewer templates.
 func Templates() []Template {
 	return []Template{
-		{ID: "claude-code", Bin: "claude", Verified: true, ConfigPaths: []string{".claude", ".claude.json", ".config/claude"}, EnvPrefixes: []string{"ANTHROPIC_", "CLAUDE_", "AWS_", "GOOGLE_", "CLOUD_ML_", "VERTEX_"},
+		{ID: "claude-code", Bin: "claude", Verified: true, TmpEnv: []string{"CLAUDE_CODE_TMPDIR"}, LockDirs: []string{".config/anthropic"}, ConfigPaths: []string{".claude", ".claude.json", ".config/claude", ".config/anthropic"}, EnvPrefixes: []string{"ANTHROPIC_", "CLAUDE_", "AWS_", "GOOGLE_", "CLOUD_ML_", "VERTEX_"},
 			Args: func(system, model string) []string {
 				a := []string{"-p", "--output-format", "text", "--allowed-tools", "", "--permission-mode", "dontAsk",
 					"--strict-mcp-config", "--setting-sources=", "--disable-slash-commands", "--tools", "",
@@ -438,6 +441,9 @@ func (r Runner) Run(ctx context.Context, t Template, model string, in *Input) (s
 		work = w // sandboxes match real paths
 	}
 	env := append(ScrubEnv(r.Environ, t.EnvPrefixes), "TMPDIR="+work)
+	for _, k := range t.TmpEnv {
+		env = append(env, k+"="+work)
+	}
 	argv := t.Args(SystemPrompt, model)
 	iso := Isolation{Mode: IsoPolicyOnly, Note: "no OS-level filesystem or network isolation"}
 	cmdPath := path

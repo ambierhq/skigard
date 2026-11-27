@@ -26,7 +26,7 @@ source. If you run `review`, the harness you choose sends the skill to its own m
 
 ## Which models see my skill?
 
-Only if you run `skigard review`, pass `--review` to `add`, or turn on `auto_review`: the harness you pick (Pi, Oh My Pi, Claude Code and so on) sends it to whatever provider that harness uses. The scan, approve, lock and verify steps need no
+If you run `skigard review`, pass `--review` to `add`, or leave `auto_review` on (the default) and a reviewer harness is detected: the harness you pick (Pi, Oh My Pi, Claude Code and so on) sends it to whatever provider that harness uses. The scan, approve, lock and verify steps need no
 model and no network.
 
 ## What happens when a skill updates?

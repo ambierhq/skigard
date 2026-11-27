@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/ambierhq/skigard/internal/core"
 	"github.com/ambierhq/skigard/internal/harness"
@@ -15,6 +14,7 @@ import (
 	"github.com/ambierhq/skigard/internal/review"
 	"github.com/ambierhq/skigard/internal/scan"
 	"github.com/ambierhq/skigard/internal/store"
+	"github.com/ambierhq/skigard/internal/term"
 	"github.com/ambierhq/skigard/internal/util"
 )
 
@@ -77,21 +77,27 @@ func cmdDetect(c *ctx, args []string) error {
 		c.printf("no agent harness detected (try --all, or `skigard harness add`)\n")
 		return nil
 	}
-	w := tabwriter.NewWriter(c.out, 0, 2, 2, ' ', 0)
-	fmt.Fprintln(w, "STATUS\tID\tNAME\tVERIFIED\tSKILLS DIR")
+	st := c.style(false)
+	var rows [][]string
 	var unv int
 	for _, d := range shown {
 		v := "yes"
 		if !d.Verified {
 			v, unv = "no", unv+1
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", d.Status, d.ID, d.Name, v, d.GlobalAbs)
+		rows = append(rows, []string{d.Status, d.ID, d.Name, v, d.GlobalAbs})
 	}
-	if err := w.Flush(); err != nil {
-		return err
-	}
+	c.printf("%s", term.Table(st, []string{"STATUS", "ID", "NAME", "VERIFIED", "SKILLS DIR"}, rows, func(_, col int, cell string) string {
+		switch col {
+		case 0, 3:
+			return st.Level(cell)
+		case 1:
+			return st.Bold(cell)
+		}
+		return cell
+	}))
 	if unv > 0 {
-		c.printf("\n%d harness(es) are unverified: listed, but installs need --include-unverified.\n", unv)
+		c.printf("\n%s\n", st.Dim(fmt.Sprintf("%d harness(es) are unverified: listed, but installs need --include-unverified.", unv)))
 	}
 	return nil
 }
@@ -162,7 +168,7 @@ func printQuarantined(c *ctx, qs []*core.Quarantined) error {
 		if q.Meta.Commit != "" {
 			c.printf("  commit: %s\n", q.Meta.Commit)
 		}
-		scan.WriteText(c.out, q.Report)
+		c.writeScan(q.Report)
 		c.printf("\nnext: skigard review %s   (optional)\n      skigard approve %s  (in a real terminal)\n\n", q.Name, q.Name)
 	}
 	return nil
@@ -211,13 +217,14 @@ func printOutcomes(c *ctx, ocs []core.AddOutcome) error {
 			c.printf("%q was not installed; it stopped before a decision was made\n\n", o.Name)
 			continue
 		}
-		scan.WriteText(c.out, o.Report)
+		c.writeScan(o.Report)
+		st := c.style(false)
 		if o.Review != nil {
-			c.printf("review: %s (advisory)\n", strings.ToUpper(o.Review.Verdict))
+			c.printf("review: %s %s\n", verdictStyle(st, o.Review.Verdict), st.Dim("(advisory)"))
 		}
-		c.printf("\nsafety score: %d/10 (%s; threshold %d; mode %s)\n", o.Score, o.Tier, o.Safety.Threshold, o.Mode)
+		c.printf("\n%s %s %s\n", st.Bold("safety score:"), scoreStyle(st, fmt.Sprintf("%d/10", o.Score)), st.Dim(fmt.Sprintf("(higher is safer; %s; threshold %d; mode %s)", o.Tier, o.Safety.Threshold, o.Mode)))
 		for _, r := range o.Reasons {
-			c.printf("  - %s\n", util.Clean(r))
+			c.printf("  %s %s\n", st.Dim("-"), util.Clean(r))
 		}
 		switch o.Decision {
 		case core.DecisionInstalled, core.DecisionForced:
@@ -227,15 +234,15 @@ func printOutcomes(c *ctx, ocs []core.AddOutcome) error {
 			} else if o.Mode == store.ModeAuto {
 				word = "approved automatically and installed (recorded in the lock as mode = auto, by " + store.AutoApprover + ")"
 			}
-			c.printf("%s %q\n", word, o.Name)
+			c.printf("%s %s %q\n", st.Green("✔"), word, o.Name)
 			for _, g := range o.Installed {
-				c.printf("installed %s -> %s (%s; %s)\n", g.Name, g.Path, g.Mode, strings.Join(g.Harnesses, ", "))
+				c.printf("  %s %s %s %s %s\n", st.Green("installed"), st.Bold(g.Name), st.Dim("->"), g.Path, st.Dim("("+g.Mode+"; "+strings.Join(g.Harnesses, ", ")+")"))
 			}
 		case core.DecisionWarned:
-			c.printf("WARNING: %q was NOT installed; it is still in quarantine.\n", o.Name)
-			c.printf("next: skigard diff %s\n      skigard review %s   (optional)\n      skigard approve %s  (in a real terminal)\n      skigard install %s\n      or: skigard add ... --force-install (human terminal only)\n", o.Name, o.Name, o.Name, o.Name)
+			c.printf("%s %q was NOT installed; it is still in quarantine.\n", st.Badge("33", "WARNING"), o.Name)
+			c.printf("%s skigard diff %s\n      skigard review %s   (optional)\n      skigard approve %s  (in a real terminal)\n      skigard install %s\n      or: skigard add ... --force-install (human terminal only)\n", st.Dim("next:"), o.Name, o.Name, o.Name, o.Name)
 		case core.DecisionNeedsApproval:
-			c.printf("%q is in quarantine and waiting for a human.\n", o.Name)
+			c.printf("%s %q is in quarantine and waiting for a human.\n", st.Yellow("●"), o.Name)
 			if o.Err != nil {
 				c.printf("  (%s)\n", util.Clean(o.Err.Error()))
 			}
@@ -244,7 +251,7 @@ func printOutcomes(c *ctx, ocs []core.AddOutcome) error {
 			c.printf("%q was approved but installing failed: %s\n", o.Name, util.Clean(errText(o.Err)))
 		}
 		for _, n := range o.Notes {
-			c.printf("note: %s\n", n)
+			c.printf("%s %s\n", st.Yellow("note:"), n)
 		}
 		c.printf("\n")
 	}
@@ -293,7 +300,16 @@ func cmdConfig(c *ctx, args []string) error {
 			if len(pos) > 1 {
 				c.printf("%s\n", vals[k])
 			} else {
-				c.printf("%s = %s\n", k, vals[k])
+				note := ""
+				if k == "review_harness" {
+					switch man, err := store.LoadManifest(c.app.Home); {
+					case vals[k] == "":
+						vals[k], note = "(none detected)", ""
+					case err == nil && man.Settings.ReviewHarness == "":
+						note = " (default: first detected reviewer)"
+					}
+				}
+				c.printf("%s = %s%s\n", k, vals[k], note)
 			}
 		}
 		return nil
@@ -317,6 +333,7 @@ func cmdScan(c *ctx, args []string) error {
 	failOn := fs.String("fail-on", "high", "exit 1 at this severity or above: low, medium, high, critical, none")
 	incomplete := fs.Bool("fail-on-incomplete", false, "exit 4 when scan coverage is incomplete")
 	out := fs.String("output", "", "write the report to a file")
+	plain := fs.Bool("plain", false, "text format: no colours and no grouping (the default when not on a terminal)")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
@@ -345,7 +362,11 @@ func cmdScan(c *ctx, args []string) error {
 	}
 	switch *format {
 	case "text":
-		scan.WriteText(w, rep)
+		if st := c.style(*plain); st.On && *out == "" {
+			scan.WriteStyled(w, rep, st)
+		} else {
+			scan.WriteText(w, rep)
+		}
 	case "json":
 		err = scan.WriteJSON(w, rep)
 	case "sarif":
@@ -425,7 +446,7 @@ func cmdReview(c *ctx, args []string) error {
 		if err != nil {
 			return err
 		}
-		id = man.Settings.ReviewHarness
+		id = c.app.DefaultReviewHarness(man.Settings)
 	}
 	if id == "" {
 		if id, err = pickReviewer(c, rv); err != nil {
@@ -444,6 +465,10 @@ func cmdReview(c *ctx, args []string) error {
 	if c.json {
 		return c.printJSON(rec)
 	}
+	if st := c.style(false); st.On {
+		printReviewStyled(c, st, name, rec)
+		return nil
+	}
 	c.printf("review verdict: %s (coverage %s, advisory, isolation %s)\n  %s\n", strings.ToUpper(rec.Verdict), rec.Coverage, rec.Isolation, util.Clean(rec.Summary))
 	for _, f := range rec.Findings {
 		c.printf("  [%s] %s:%d %s\n", f.Severity, util.Clean(f.File), f.Line, util.Clean(f.Why))
@@ -453,6 +478,40 @@ func cmdReview(c *ctx, args []string) error {
 	}
 	c.printf("next: skigard approve %s\n", name)
 	return nil
+}
+
+func printReviewStyled(c *ctx, st term.Style, name string, rec *review.Record) {
+	c.printf("\n%s  %s  %s\n", st.Bold(util.Clean(name)), st.Bold("review"), verdictStyle(st, rec.Verdict))
+	c.printf("%s %s   %s %s   %s\n\n", st.Dim("coverage"), rec.Coverage, st.Dim("isolation"), rec.Isolation, st.Dim("advisory: it can only raise concern"))
+	c.printf("%s\n", term.Wrap(util.Clean(rec.Summary), 88, "  "))
+	if len(rec.Findings) > 0 {
+		c.printf("\n%s  %s\n", st.Bold("FINDINGS"), st.Dim(fmt.Sprint(len(rec.Findings))))
+	}
+	for _, f := range rec.Findings {
+		loc := util.Clean(f.File)
+		if f.Line > 0 {
+			loc += fmt.Sprintf(":%d", f.Line)
+		}
+		c.printf("\n  %s %s\n%s\n", sevLabelPad(st, f.Severity), st.Cyan(loc), term.Wrap(util.Clean(f.Why), 84, "    "))
+	}
+	if rec.Dropped > 0 {
+		c.printf("\n  %s\n", st.Dim(fmt.Sprintf("(%d finding(s) dropped: their quotes were not found in the files)", rec.Dropped)))
+	}
+	c.printf("\n%s skigard approve %s\n", st.Dim("next:"), name)
+}
+
+func verdictStyle(st term.Style, v string) string {
+	switch strings.ToLower(v) {
+	case "pass":
+		return st.Badge("32", "PASS")
+	case "fail":
+		return st.Badge("31", "FAIL")
+	}
+	return st.Badge("33", strings.ToUpper(util.Clean(v)))
+}
+
+func sevLabelPad(st term.Style, sev string) string {
+	return sevStyle(st, fmt.Sprintf("%-8s", sev))
 }
 
 func pickReviewer(c *ctx, rv []core.Reviewer) (string, error) {
@@ -542,7 +601,7 @@ func cmdDiff(c *ctx, args []string) error {
 	if d == "" {
 		d = "no differences from the approved version\n"
 	}
-	c.printf("%s", d)
+	c.printf("%s", term.Diff(c.style(false), d))
 	return nil
 }
 
@@ -566,7 +625,8 @@ func cmdApprove(c *ctx, args []string) error {
 	if err != nil {
 		return err
 	}
-	c.printf("approved %q (%s)\nevidence: %s\nnext: skigard install %s\n", res.Name, hash.Short(res.Hash, 12), res.Record, res.Name)
+	st := c.style(false)
+	c.printf("%s approved %q (%s)\n%s %s\n%s skigard install %s\n", st.Green("✔"), res.Name, hash.Short(res.Hash, 12), st.Dim("evidence:"), res.Record, st.Dim("next:"), res.Name)
 	return nil
 }
 
@@ -585,7 +645,7 @@ func cmdReject(c *ctx, args []string) error {
 	if err := c.app.Reject(pos[0]); err != nil {
 		return err
 	}
-	c.printf("removed %q from quarantine\n", pos[0])
+	c.printf("%s removed %q from quarantine\n", c.style(false).Green("✔"), pos[0])
 	return nil
 }
 
@@ -614,7 +674,7 @@ func cmdUpdate(c *ctx, args []string) error {
 			c.printf("  new commit: %s\n", r.NewSHA)
 			scan.WriteText(c.out, r.Report)
 			if r.Safety.Score > 0 {
-				c.printf("  safety score: %d/10 (%s; threshold %d)\n", r.Safety.Score, r.Safety.Tier, r.Safety.Threshold)
+				c.printf("  safety score: %s (%s; threshold %d)\n", scoreStyle(c.style(false), fmt.Sprintf("%d/10", r.Safety.Score)), r.Safety.Tier, r.Safety.Threshold)
 			}
 			if r.Applied {
 				c.printf("  approved automatically (recorded in the lock as mode = auto)\n")
@@ -642,11 +702,12 @@ func printInstalled(c *ctx, got []core.Installed, notes []string) error {
 	if c.json {
 		return c.printJSON(map[string]any{"installed": got, "notes": notes})
 	}
+	st := c.style(false)
 	for _, g := range got {
-		c.printf("installed %s -> %s (%s; %s)\n", g.Name, g.Path, g.Mode, strings.Join(g.Harnesses, ", "))
+		c.printf("%s installed %s %s %s %s\n", st.Green("✔"), st.Bold(g.Name), st.Dim("->"), g.Path, st.Dim("("+g.Mode+"; "+strings.Join(g.Harnesses, ", ")+")"))
 	}
 	for _, n := range notes {
-		c.printf("note: %s\n", n)
+		c.printf("%s %s\n", st.Yellow("note:"), n)
 	}
 	return nil
 }
@@ -739,6 +800,7 @@ func cmdVerify(c *ctx, args []string) error {
 			}
 		}
 	}
+	st := c.style(false)
 	bad := core.HasErrors(ps)
 	if *strict {
 		for _, p := range ps {
@@ -756,10 +818,10 @@ func cmdVerify(c *ctx, args []string) error {
 		}
 	} else {
 		for _, p := range ps {
-			c.printf("%-5s %s\n", p.Level, util.Clean(p.Msg))
+			c.printf("%s %s\n", st.Level(fmt.Sprintf("%-5s", p.Level)), util.Clean(p.Msg))
 		}
 		if !bad {
-			c.printf("ok: lock, store, installs and marketplace agree\n")
+			c.printf("%s lock, store, installs and marketplace agree\n", st.Green("✔ ok"))
 		}
 	}
 	if bad {
@@ -790,8 +852,8 @@ func cmdList(c *ctx, args []string) error {
 		c.printf("no skills yet. Start with: skigard add SOURCE\n")
 		return nil
 	}
-	w := tabwriter.NewWriter(c.out, 0, 2, 2, ' ', 0)
-	fmt.Fprintln(w, "NAME\tSTATE\tMODE\tSCORE\tSCAN\tREVIEW\tHASH\tSOURCE")
+	st := c.style(false)
+	var rows [][]string
 	for _, e := range es {
 		flags := ""
 		if e.Override {
@@ -804,9 +866,54 @@ func cmdList(c *ctx, args []string) error {
 		if e.Score > 0 {
 			score = fmt.Sprintf("%d/10", e.Score)
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s%s\n", e.Name, e.State, dash(e.Mode), score, dash(e.Scan), dash(e.Review), hash.Short(e.Hash, 8), util.Clean(e.Source), flags)
+		rows = append(rows, []string{e.Name, e.State, dash(e.Mode), score, dash(e.Scan), dash(e.Review), hash.Short(e.Hash, 8), util.Clean(e.Source) + flags})
 	}
-	return w.Flush()
+	c.printf("%s", term.Table(st, []string{"NAME", "STATE", "MODE", "SCORE", "SCAN", "REVIEW", "HASH", "SOURCE"}, rows, func(_, col int, cell string) string {
+		switch col {
+		case 0:
+			return st.Bold(cell)
+		case 1, 2, 4, 5:
+			return st.Level(cell)
+		case 3:
+			return scoreStyle(st, cell)
+		case 6:
+			return st.Dim(cell)
+		}
+		return strings.NewReplacer("[override]", st.Yellow("[override]"), "[DRIFT]", st.Red("[DRIFT]")).Replace(cell)
+	}))
+	return nil
+}
+
+// confirmed prints a one-line success message after an otherwise silent command succeeded.
+func confirmed(c *ctx, err error, format string, args ...any) error {
+	if err == nil && !c.json {
+		c.printf("%s %s\n", c.style(false).Green("✔"), fmt.Sprintf(format, args...))
+	}
+	return err
+}
+
+func sevStyle(st term.Style, sev string) string {
+	switch sev {
+	case "critical", "high":
+		return st.Red(sev)
+	case "medium":
+		return st.Yellow(sev)
+	}
+	return st.Dim(sev)
+}
+
+// scoreStyle colours "N/10" by the same bands as the safety tiers.
+func scoreStyle(st term.Style, cell string) string {
+	n, err := strconv.Atoi(strings.TrimSuffix(cell, "/10"))
+	switch {
+	case err != nil:
+		return st.Dim(cell)
+	case n >= 7:
+		return st.Green(cell)
+	case n >= 4:
+		return st.Yellow(cell)
+	}
+	return st.Red(cell)
 }
 
 func dash(s string) string {
@@ -818,6 +925,7 @@ func dash(s string) string {
 
 func cmdShow(c *ctx, args []string) error {
 	fs := c.flags("show")
+	plain := fs.Bool("plain", false, "print the raw text, with no colours or Markdown rendering")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
@@ -828,11 +936,22 @@ func cmdShow(c *ctx, args []string) error {
 	if err := c.open(); err != nil {
 		return err
 	}
-	s, err := c.app.Show(pos[0])
+	st := c.style(*plain)
+	if !st.On {
+		s, err := c.app.Show(pos[0])
+		if err != nil {
+			return err
+		}
+		c.printf("%s", s)
+		return nil
+	}
+	d, err := c.app.ShowDoc(pos[0])
 	if err != nil {
 		return err
 	}
-	c.printf("%s", s)
+	c.printf("%s  %s\n", st.Bold(d.Name), st.Dim(d.State))
+	c.printf("%s %s\n\n", st.Dim("files"), strings.Join(d.Files, st.Dim(" · ")))
+	c.printf("%s", term.Markdown(d.Body, st))
 	return nil
 }
 
@@ -874,14 +993,25 @@ func cmdStatus(c *ctx, args []string) error {
 	if c.json {
 		return c.printJSON(map[string]any{"home": c.app.Home.Root, "approved": appr, "quarantined": quar, "overrides": over, "approved_by": modes, "errors": errs, "problems": ps})
 	}
-	c.printf("home:        %s\napproved:    %d (%d with override)\n", c.app.Home.Root, appr, over)
+	st := c.style(false)
+	c.printf("%s %s\n%s %s (%d with override)\n", st.Dim("home:       "), c.app.Home.Root, st.Dim("approved:   "), st.Green(strconv.Itoa(appr)), over)
 	if appr > 0 {
-		c.printf("  by mode:   %d human, %d auto, %d forced\n", modes[store.ApprovalHuman], modes[store.ApprovalAuto], modes[store.ApprovalForced])
+		c.printf("%s %d human, %d auto, %d forced\n", st.Dim("  by mode:  "), modes[store.ApprovalHuman], modes[store.ApprovalAuto], modes[store.ApprovalForced])
 	}
-	c.printf("quarantined: %d\nproblems:    %d error(s)\n", quar, errs)
+	qs := strconv.Itoa(quar)
+	if quar > 0 {
+		qs = st.Yellow(qs)
+	}
+	es2 := fmt.Sprintf("%d error(s)", errs)
+	if errs > 0 {
+		es2 = st.Red(es2)
+	} else {
+		es2 = st.Green(es2)
+	}
+	c.printf("%s %s\n%s %s\n", st.Dim("quarantined:"), qs, st.Dim("problems:   "), es2)
 	for _, p := range ps {
 		if p.Level != "info" {
-			c.printf("  %-5s %s\n", p.Level, util.Clean(p.Msg))
+			c.printf("  %s %s\n", st.Level(fmt.Sprintf("%-5s", p.Level)), util.Clean(p.Msg))
 		}
 	}
 	return nil
@@ -896,6 +1026,7 @@ func cmdDoctor(c *ctx, args []string) error {
 		return err
 	}
 	cs := c.app.Doctor()
+	st := c.style(false)
 	failed := false
 	if c.json {
 		if err := c.printJSON(cs); err != nil {
@@ -909,9 +1040,13 @@ func cmdDoctor(c *ctx, args []string) error {
 		if c.json {
 			continue
 		}
-		c.printf("%-5s %-10s %s\n", ch.Status, ch.Name, util.Clean(ch.Message))
+		mark := map[string]string{"pass": "✔", "warn": "!", "fail": "✘"}[ch.Status]
+		if mark == "" || !st.On {
+			mark = ch.Status
+		}
+		c.printf("%s %s %s\n", st.Level(fmt.Sprintf("%-5s", mark)), st.Bold(fmt.Sprintf("%-10s", ch.Name)), util.Clean(ch.Message))
 		if ch.Fix != "" && ch.Status != "pass" {
-			c.printf("      fix: %s\n", ch.Fix)
+			c.printf("      %s %s\n", st.Dim("fix:"), ch.Fix)
 		}
 	}
 	if failed {
@@ -941,18 +1076,22 @@ func cmdStats(c *ctx, args []string) error {
 		return c.printJSON(rows)
 	}
 	var res, body int
-	w := tabwriter.NewWriter(c.out, 0, 2, 2, ' ', 0)
-	fmt.Fprintln(w, "SKILL\tRESIDENT (~tokens in every prompt)\tBODY (~tokens when it fires)")
+	st := c.style(false)
+	var trs [][]string
 	for _, r := range rows {
-		fmt.Fprintf(w, "%s\t~%d\t~%d\n", r.Name, r.Resident, r.Body)
+		trs = append(trs, []string{r.Name, fmt.Sprintf("~%d", r.Resident), fmt.Sprintf("~%d", r.Body)})
 		res += r.Resident
 		body += r.Body
 	}
-	fmt.Fprintf(w, "TOTAL\t~%d\t~%d\n", res, body)
-	if err := w.Flush(); err != nil {
-		return err
-	}
-	c.printf("estimates assume ~4 characters per token\n")
+	trs = append(trs, []string{"TOTAL", fmt.Sprintf("~%d", res), fmt.Sprintf("~%d", body)})
+	last := len(trs) - 1
+	c.printf("%s", term.Table(st, []string{"SKILL", "RESIDENT (~tokens in every prompt)", "BODY (~tokens when it fires)"}, trs, func(row, _ int, cell string) string {
+		if row == last {
+			return st.Bold(cell)
+		}
+		return cell
+	}))
+	c.printf("%s\n", st.Dim("estimates assume ~4 characters per token"))
 	return nil
 }
 
@@ -976,22 +1115,22 @@ func cmdPlugin(c *ctx, args []string) error {
 		if err := needArgs(pos, 1, "plugin create NAME [--description D]"); err != nil {
 			return err
 		}
-		return a.PluginCreate(pos[0], *desc)
+		return confirmed(c, a.PluginCreate(pos[0], *desc), "created plugin %q", pos[0])
 	case "delete":
 		if err := needArgs(pos, 1, "plugin delete NAME"); err != nil {
 			return err
 		}
-		return a.PluginDelete(pos[0])
+		return confirmed(c, a.PluginDelete(pos[0]), "deleted plugin %q", pos[0])
 	case "add":
 		if err := needArgs(pos, 2, "plugin add NAME SKILL..."); err != nil {
 			return err
 		}
-		return a.PluginAdd(pos[0], pos[1:])
+		return confirmed(c, a.PluginAdd(pos[0], pos[1:]), "added %s to plugin %q", strings.Join(pos[1:], ", "), pos[0])
 	case "remove":
 		if err := needArgs(pos, 2, "plugin remove NAME SKILL..."); err != nil {
 			return err
 		}
-		return a.PluginRemove(pos[0], pos[1:])
+		return confirmed(c, a.PluginRemove(pos[0], pos[1:]), "removed %s from plugin %q", strings.Join(pos[1:], ", "), pos[0])
 	case "list", "show":
 		man, err := store.LoadManifest(a.Home)
 		if err != nil {
@@ -1013,15 +1152,34 @@ func cmdPlugin(c *ctx, args []string) error {
 			if c.json {
 				return c.printJSON(p)
 			}
-			c.printf("%s: %s\n  skills: %s\n", pos[0], p.Description, strings.Join(p.Skills, ", "))
+			st := c.style(false)
+			c.printf("%s  %s\n", st.Bold(pos[0]), st.Dim(p.Description))
+			for _, sk := range p.Skills {
+				c.printf("  %s %s\n", st.Cyan("•"), sk)
+			}
+			if len(p.Skills) == 0 {
+				c.printf("  %s\n", st.Dim("(no skills yet: skigard plugin add "+pos[0]+" SKILL...)"))
+			}
 			return nil
 		}
 		if c.json {
 			return c.printJSON(man.Plugins)
 		}
+		st := c.style(false)
+		var rows [][]string
 		for _, n := range names {
-			c.printf("%s\t%s\n", n, strings.Join(man.Plugins[n].Skills, ", "))
+			rows = append(rows, []string{n, strings.Join(man.Plugins[n].Skills, ", ")})
 		}
+		if len(rows) == 0 {
+			c.printf("no plugins yet. Create one: skigard plugin create NAME\n")
+			return nil
+		}
+		c.printf("%s", term.Table(st, []string{"PLUGIN", "SKILLS"}, rows, func(_, col int, cell string) string {
+			if col == 0 {
+				return st.Bold(cell)
+			}
+			return cell
+		}))
 		return nil
 	}
 	return util.Errf("unknown plugin command %q", sub)
@@ -1126,12 +1284,21 @@ func cmdDetect2(c *ctx) error {
 	if c.json {
 		return c.printJSON(ds)
 	}
-	w := tabwriter.NewWriter(c.out, 0, 2, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tSTATUS\tVERIFIED\tGLOBAL DIR\tPROJECT DIR")
+	st := c.style(false)
+	var rows [][]string
 	for _, d := range ds {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%v\t%s\t%s\n", d.ID, d.Name, d.Status, d.Verified, d.GlobalAbs, d.Project)
+		rows = append(rows, []string{d.ID, d.Name, d.Status, fmt.Sprint(d.Verified), d.GlobalAbs, d.Project})
 	}
-	return w.Flush()
+	c.printf("%s", term.Table(st, []string{"ID", "NAME", "STATUS", "VERIFIED", "GLOBAL DIR", "PROJECT DIR"}, rows, func(_, col int, cell string) string {
+		switch col {
+		case 0:
+			return st.Bold(cell)
+		case 2, 3:
+			return st.Level(cell)
+		}
+		return cell
+	}))
+	return nil
 }
 
 func cmdRules(c *ctx, args []string) error {
@@ -1144,15 +1311,21 @@ func cmdRules(c *ctx, args []string) error {
 	if c.json {
 		return c.printJSON(cat)
 	}
-	w := tabwriter.NewWriter(c.out, 0, 2, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tFAMILY\tSEVERITY\tDESCRIPTION")
+	st := c.style(false)
+	var rows [][]string
 	for _, r := range cat {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", r[0], r[1], r[2], r[3], r[4])
+		rows = append(rows, []string{r[0], r[1], r[2], r[3], r[4]})
 	}
-	if err := w.Flush(); err != nil {
-		return err
-	}
-	c.printf("rules version %s\n", scan.RulesVersion)
+	c.printf("%s", term.Table(st, []string{"ID", "NAME", "FAMILY", "SEVERITY", "DESCRIPTION"}, rows, func(_, col int, cell string) string {
+		switch col {
+		case 0:
+			return st.Bold(cell)
+		case 3:
+			return sevStyle(st, cell)
+		}
+		return cell
+	}))
+	c.printf("%s\n", st.Dim("rules version "+scan.RulesVersion))
 	return nil
 }
 

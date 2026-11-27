@@ -56,10 +56,17 @@ can only raise concern; it never lowers a scanner finding. Details: [review](rev
 
 ## Score, mode and threshold
 
-The **safety score** is 1 to 10, **10 = no concern**, and is always shown with its reasons. It starts from the scanner's risk score
-(`10 - ceil(risk / 12)`, clamped to 1..10), then applies caps: scanner verdict `block` at most 3, incomplete coverage at most 6, reviewer `fail` at most 3,
+There are two numbers, and they point in opposite directions. The scanner's **risk** is 0 to 100 and **higher is riskier**: each rule counts once, at the weight
+of its worst finding (critical 40, high 20, medium 5, low 1), plus up to three small bumps when the same rule matched in many places, so fourteen identical
+lines are one habit and not fourteen risks. The **safety score** is 1 to 10, **10 = no concern, higher is safer**, and is always shown with its reasons. It starts from
+the risk (`10 - ceil(risk / 12)`, clamped to 1..10), then applies caps: scanner verdict `block` at most 3, incomplete coverage at most 6, reviewer `fail` at most 3,
 reviewer `concerns` minus 2. A review can only lower it. The tier is `ok` (at or above the threshold), `caution` or `blocked`. The formula is versioned
-(`score_version` in the lock).
+(`score_version` in the lock; version 2 counts each rule once).
+
+**Allowing rules for a source.** Medium and low scanner rules that are known noise for a source you trust can be allowed with
+`skigard allow add SOURCE|SKILL RULE... --reason R` (list: `skigard allow list`, undo: `skigard allow remove SOURCE [RULE...]`). A source can end in `/*`.
+It is a human step like `approve`: refused inside an agent and confirmed by typing `allow` at the terminal. It can never hide a `high` or `critical` rule, and
+suppressed findings are still counted in the scan output.
 
 **Hard stops** are a scanner `block` and a reviewer `fail`. They are never auto-installed, whatever the threshold; only `--force-install` or a human `approve --override` passes them.
 
@@ -70,7 +77,7 @@ The **mode** decides who acts on the score:
 - `--force-install` (any mode): installs regardless, recorded as `mode = "forced"`, human terminal only.
 
 Settings live in `skigard.toml` and are managed with `skigard config get|set mode|threshold|auto_review`. `set` of `mode` and `threshold` needs a human terminal.
-`auto_review` (default off) runs a review during `add`, which sends the skill to a model provider.
+`auto_review` (default on) runs a review during `add` and `update` with `settings.review_harness`, or else the first detected, verified reviewer (nothing is saved). That sends the skill to a model provider; `skigard config set auto_review false` stops it.
 
 ## Approve
 

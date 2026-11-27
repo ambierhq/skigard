@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -16,7 +17,12 @@ import (
 // needs a terminal (and would block on a developer's real one).
 func init() {
 	// The real ancestor walk would see the agent running `go test`.
-	testAppHook = func(a *core.App) { a.AgentAncestor = nil }
+	testAppHook = func(a *core.App) {
+		a.AgentAncestor = nil
+		// Review is on by default: never let a test find (and run) a real reviewer binary on the developer's PATH.
+		a.Env.LookPath = func(string) (string, error) { return "", exec.ErrNotFound }
+		a.Env.Extra = nil
+	}
 }
 
 // isolateUserHome points every user-home lookup at a scratch directory. os.UserHomeDir reads $HOME on Unix but
@@ -322,14 +328,26 @@ func TestAddFlagsAndJSON(t *testing.T) {
 func TestConfig(t *testing.T) {
 	home := filepath.Join(t.TempDir(), "h")
 	run(t, home, "init")
-	if code, out, _ := run(t, home, "config", "get"); code != 0 || !strings.Contains(out, "mode = auto") || !strings.Contains(out, "threshold = 7") || !strings.Contains(out, "auto_review = false") {
+	if code, out, _ := run(t, home, "config", "get"); code != 0 || !strings.Contains(out, "mode = auto") || !strings.Contains(out, "threshold = 7") || !strings.Contains(out, "auto_review = true") {
 		t.Fatalf("config get: %s", out)
 	}
-	if code, out, _ := run(t, home, "config", "set", "auto_review", "true"); code != 0 || !strings.Contains(out, "false -> true") {
+	if code, out, _ := run(t, home, "config", "set", "auto_review", "false"); code != 0 || !strings.Contains(out, "true -> false") {
 		t.Fatalf("config set auto_review: %d %s", code, out)
 	}
-	if code, out, _ := run(t, home, "config", "get", "auto_review"); code != 0 || strings.TrimSpace(out) != "true" {
+	if code, out, _ := run(t, home, "config", "get", "auto_review"); code != 0 || strings.TrimSpace(out) != "false" {
 		t.Fatalf("config get auto_review: %q", out)
+	}
+	if code, out, _ := run(t, home, "config", "get", "review_harness"); code != 0 || strings.TrimSpace(out) != "" {
+		t.Fatalf("no reviewer detected, want empty: %d %q", code, out)
+	}
+	if code, _, _ := run(t, home, "config", "set", "review_harness", "cursor"); code != util.ExitUsage {
+		t.Fatalf("a harness without a reviewer template: %d", code)
+	}
+	if code, _, _ := run(t, home, "config", "set", "review_harness", "pi"); code != 0 {
+		t.Fatalf("set review_harness: %d", code)
+	}
+	if code, out, _ := run(t, home, "config", "get", "review_harness"); code != 0 || strings.TrimSpace(out) != "pi" {
+		t.Fatalf("get review_harness: %q", out)
 	}
 	if code, _, _ := run(t, home, "config", "set", "threshold", "99"); code != util.ExitUsage {
 		t.Fatalf("bad threshold: %d", code)

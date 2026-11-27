@@ -300,6 +300,26 @@ func (s *state) chains() {
 
 var weights = map[Severity]int{Critical: 40, High: 20, Medium: 5, Low: 1}
 
+// ruleRisk is the 0..100 risk number: higher is riskier. Each rule counts once,
+// at the weight of its worst finding, plus a small bump (up to three more
+// steps of weight/5, at least 1) when it matched in many places. Fourteen
+// identical findings are one habit of the skill, not fourteen separate risks.
+func ruleRisk(findings []Finding) int {
+	worst := map[string]int{}
+	n := map[string]int{}
+	for _, f := range findings {
+		if w := weights[f.Severity]; w > worst[f.Rule] {
+			worst[f.Rule] = w
+		}
+		n[f.Rule]++
+	}
+	risk := 0
+	for id, w := range worst {
+		risk += w + min(n[id]-1, 3)*max(1, w/5)
+	}
+	return min(risk, 100)
+}
+
 func finalize(rep *Report, st *state, opts Options) {
 	now := opts.Now
 	if now.IsZero() {
@@ -323,6 +343,10 @@ func finalize(rep *Report, st *state, opts Options) {
 			rep.Suppressed = append(rep.Suppressed, f)
 			continue
 		}
+		if _, ok := opts.AllowRules[f.Rule]; ok && f.Severity.Rank() <= Medium.Rank() {
+			rep.Suppressed = append(rep.Suppressed, f)
+			continue
+		}
 		active = append(active, f)
 	}
 	sort.SliceStable(active, func(i, j int) bool {
@@ -337,17 +361,13 @@ func finalize(rep *Report, st *state, opts Options) {
 	})
 	rep.Findings = active
 	max := 0
-	risk := 0
-	perRule := map[string]int{}
+	var risk int
 	for _, f := range active {
 		if f.Severity.Rank() > max {
 			max = f.Severity.Rank()
 		}
-		if perRule[f.Rule] < 3 {
-			risk += weights[f.Severity]
-		}
-		perRule[f.Rule]++
 	}
+	risk = ruleRisk(active)
 	if risk > 100 {
 		risk = 100
 	}

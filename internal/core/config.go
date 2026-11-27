@@ -3,12 +3,13 @@ package core
 import (
 	"strconv"
 
+	"github.com/ambierhq/skigard/internal/review"
 	"github.com/ambierhq/skigard/internal/store"
 	"github.com/ambierhq/skigard/internal/util"
 )
 
 // ConfigKeys are the settings `config get|set` manages.
-var ConfigKeys = []string{"mode", "threshold", "auto_review"}
+var ConfigKeys = []string{"mode", "threshold", "auto_review", "review_harness"}
 
 // ConfigGet returns the effective value of a setting, as text.
 func (a *App) ConfigGet(key string) (string, error) {
@@ -22,9 +23,11 @@ func (a *App) ConfigGet(key string) (string, error) {
 	case "threshold":
 		return strconv.Itoa(man.Settings.EffectiveThreshold()), nil
 	case "auto_review":
-		return strconv.FormatBool(man.Settings.AutoReview), nil
+		return strconv.FormatBool(man.Settings.EffectiveAutoReview()), nil
+	case "review_harness":
+		return a.DefaultReviewHarness(man.Settings), nil
 	}
-	return "", util.Errf("unknown setting %q (want mode, threshold or auto_review)", util.Clean(key))
+	return "", util.Errf("unknown setting %q (want mode, threshold, auto_review or review_harness)", util.Clean(key))
 }
 
 // ConfigSet changes a setting. Changing mode or threshold decides how much an
@@ -62,10 +65,18 @@ func (a *App) ConfigSet(key, value string, confirm Confirmer) (old string, err e
 		if perr != nil {
 			return "", util.Errf("auto_review must be true or false")
 		}
-		old = strconv.FormatBool(s.AutoReview)
+		old = strconv.FormatBool(s.EffectiveAutoReview())
 		value = strconv.FormatBool(b)
+	case "review_harness":
+		// "auto" clears the saved choice so the first detected reviewer is used again.
+		old = a.DefaultReviewHarness(*s)
+		if value != "auto" {
+			if _, ok := review.TemplateFor(value); !ok {
+				return "", util.Errf("review_harness must be auto or a harness that can review (see `skigard review --list`)")
+			}
+		}
 	default:
-		return "", util.Errf("unknown setting %q (want mode, threshold or auto_review)", util.Clean(key))
+		return "", util.Errf("unknown setting %q (want mode, threshold, auto_review or review_harness)", util.Clean(key))
 	}
 	if human {
 		if v, ok := a.agentVar(); ok {
@@ -83,8 +94,14 @@ func (a *App) ConfigSet(key, value string, confirm Confirmer) (old string, err e
 		s.Mode = value
 	case "threshold":
 		s.Threshold, _ = strconv.Atoi(value)
+	case "review_harness":
+		s.ReviewHarness = value
+		if value == "auto" {
+			s.ReviewHarness = ""
+		}
 	case "auto_review":
-		s.AutoReview = value == "true"
+		on := value == "true"
+		s.AutoReview = &on
 	}
 	if err := s.Validate(); err != nil {
 		return "", util.Errf("%v", err)

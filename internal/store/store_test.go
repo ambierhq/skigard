@@ -207,16 +207,17 @@ func TestSplitHomeInit(t *testing.T) {
 }
 
 func TestSettingsModeThresholdRoundTripAndValidation(t *testing.T) {
+	off := false
 	h := Home{Root: t.TempDir()}
-	m := &Manifest{Version: 1, Settings: Settings{Mode: "strict", Threshold: 9, AutoReview: true}}
+	m := &Manifest{Version: 1, Settings: Settings{Mode: "strict", Threshold: 9, AutoReview: &off}}
 	if err := SaveManifest(h, m); err != nil {
 		t.Fatal(err)
 	}
 	got, err := LoadManifest(h)
-	if err != nil || got.Settings.Mode != "strict" || got.Settings.Threshold != 9 || !got.Settings.AutoReview {
+	if err != nil || got.Settings.Mode != "strict" || got.Settings.Threshold != 9 || got.Settings.EffectiveAutoReview() {
 		t.Fatalf("%+v %v", got, err)
 	}
-	if d := (Settings{}); d.EffectiveMode() != DefaultMode || d.EffectiveThreshold() != DefaultThreshold {
+	if d := (Settings{}); d.EffectiveMode() != DefaultMode || d.EffectiveThreshold() != DefaultThreshold || !d.EffectiveAutoReview() {
 		t.Errorf("defaults: %s %d", d.EffectiveMode(), d.EffectiveThreshold())
 	}
 	for _, bad := range []string{"mode = \"yolo\"", "threshold = 11", "threshold = -1"} {

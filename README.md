@@ -143,11 +143,11 @@ New machine: clone your home repository to `~/.config/skigard` and run `skigard 
 | `auto` (default) | If `score >= threshold` and there is no hard stop, approves and installs with no prompt. Otherwise the skill stays in quarantine with a warning, the reasons and the exact commands to continue. |
 | any mode + `--force-install` | Installs no matter what, recorded in the lock as `mode = "forced"`. Needs a human at a terminal: refused inside a detected agent. |
 
-The default threshold is `7`. Set them with `skigard config set mode strict`, `skigard config set threshold 8`, `skigard config set auto_review true`
-(`config get` reads them; `auto_review` is off by default because a review sends the skill to a model provider). `config set` of `mode` and `threshold` needs a human terminal and is refused in an agent.
+The default threshold is `7`. Set them with `skigard config set mode strict`, `skigard config set threshold 8`, `skigard config set auto_review false`
+(`config get` reads them; `auto_review` is on by default, so a review sends the skill to the model provider of the first detected verified reviewer harness; turn it off to stop that). `config set` of `mode` and `threshold` needs a human terminal and is refused in an agent.
 Inside an agent, `--mode` and `--threshold` may only make things stricter than the stored setting; a human may pass anything.
 
-The **safety score** runs from 1 to 10, where **10 means no concern**. It is a heuristic and is always printed with its reasons, never alone.
+The scanner prints a **risk** from 0 to 100 (**higher is riskier**); the **safety score** runs from 1 to 10, where **10 means no concern** (**higher is safer**). It is a heuristic and is always printed with its reasons, never alone.
 It starts from the scanner's risk score (`10 - ceil(risk / 12)`), then applies caps: a scanner `block` at most 3, incomplete coverage at most 6, a failing review at most 3, a review with concerns minus 2.
 A review can only lower the score. Tiers: `ok` (at or above the threshold), `caution`, `blocked`.
 
@@ -162,13 +162,14 @@ Settings live in the `[settings]` table of `skigard.toml` and are read and chang
 |---|---|---|---|
 | `mode` | `auto`, `strict` | `auto` | `auto` installs at or above the threshold; `strict` always asks a human |
 | `threshold` | `1` to `10` | `7` | minimum safety score for an automatic install |
-| `auto_review` | `true`, `false` | `false` | run the agent review on every `add` (sends the skill to a model provider) |
+| `auto_review` | `true`, `false` | `true` | run the agent review on every `add` and `update` with the saved `review_harness`, else the first detected verified reviewer (sends the skill to a model provider) |
+| `review_harness` | `auto` or a harness id (`claude-code`, `pi`, `omp`, ...) | `auto` | the reviewer: `auto` uses the first detected, verified one; `config get review_harness` shows what would run |
 
 ```sh
 skigard config get                      # show all settings
 skigard config set mode strict          # human approval for everything
 skigard config set threshold 8
-skigard config set auto_review true
+skigard config set auto_review false
 ```
 
 Per run, `add` takes `--mode`, `--threshold`, `--review`, `--quarantine-only` and `--force-install` (human terminal only). `config set mode|threshold` also needs a human terminal.
@@ -183,6 +184,7 @@ Per run, `add` takes `--mode`, `--threshold`, `--review`, `--quarantine-only` an
 | `review NAME [--harness ID \| --manual]` | advisory agent review ([how it works](docs/review.md)) |
 | `diff NAME` | quarantined vs approved |
 | `approve NAME [--override --reason R] [--accept R]` | **human only** (records `mode = "human"`) |
+| `allow add SOURCE\|SKILL RULE... --reason R`, `allow list`, `allow remove SOURCE [RULE...]` | **human only**: stop reporting medium/low scanner rules for one source; high and critical are never hidden |
 | `config get\|set mode\|threshold\|auto_review` | read or change settings; `set` of `mode`/`threshold` is human only |
 | `reject NAME` | delete from quarantine |
 | `update [NAME...]` | re-fetch approved skills; changes go to quarantine |
