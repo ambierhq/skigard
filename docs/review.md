@@ -23,6 +23,8 @@ skigard review record NAME --verdict pass|concerns|fail --summary "..."   # stor
 
 **Windows:** automated review is disabled and fails closed; use `--manual`. See [windows.md](windows.md).
 
+The same templates (verified ones only) run `skigard merge --with HARNESS`, with the same confinement and `--allow-policy-only` meaning, but with a merge prompt instead of a review prompt; the merge agent's output is untrusted and strictly parsed ([customizing a skill](customizing-skills.md#5-when-upstream-changes)). There is no `gemini-cli` template: it is an install target in the [registry](harnesses.md) only.
+
 Other harnesses: use `--manual`, or open a PR adding a template to `internal/review/review.go` with evidence for
 every flag. A template must disable tools, MCP and extensions, must not read the working directory, and must take the
 prompt on stdin.

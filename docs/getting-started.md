@@ -69,29 +69,18 @@ This takes about a minute and ends with a skill pinned in your lockfile and inst
 
    `verify` re-checks the lockfile, the approved store, the installs and, if you built one, the marketplace. It exits 1 on any drift. Run it in [CI](ci.md).
 
-## Keep your local changes
+## Change a skill you approved
 
-Example: you adopted Microsoft's `playwright-cli` skill and edited it so it runs Playwright through your project's mise setup.
+Do not edit `skills/NAME` in place. Copy it to a working copy, change it, adopt it, and let `update` and `merge` carry your changes forward:
 
 ```sh
-skigard add github:microsoft/playwright-cli --skill playwright-cli   # approve as usual
-skigard edit playwright-cli                                          # prints the working copy's path; skills/ stays read-only and untouched
-$EDITOR <that path>/SKILL.md                                         # run playwright via `mise run playwright`
-skigard adopt playwright-cli                                         # finalize and scan the edit
-skigard diff playwright-cli                                          # your edit vs the approved version
-skigard approve playwright-cli                                       # your edits are now a recorded local fork
-
-skigard update playwright-cli     # upstream changed: new version waits in quarantine, your copy is untouched
-skigard diff playwright-cli       # your copy vs the new upstream
-skigard merge playwright-cli --with claude-code --note "use mise run playwright"
-skigard diff playwright-cli       # now: your current copy vs the merged result. Read it.
-skigard review playwright-cli     # optional second opinion
-skigard approve playwright-cli    # human, real terminal; the summary says it was merged and by whom
+skigard edit playwright-cli      # working copy in quarantine; skills/ stays untouched
+skigard adopt playwright-cli     # scan and score your edit; approved at once in auto mode if it clears the threshold, else `approve`
+skigard update playwright-cli    # later: new upstream waits in quarantine, never approved over your edits
+skigard merge playwright-cli --with claude-code --note "use mise exec -- playwright"    # or --pick
 ```
 
-Use `skigard merge playwright-cli --pick` instead to choose hunk by hunk yourself (nothing is sent anywhere). The merge agent sees your copy, the new upstream and your note
-(this leaves your machine like a review does), its output is treated as untrusted and scanned, and an invalid answer stages nothing. `skigard reject playwright-cli` drops a merge you do not like;
-run `skigard update playwright-cli` again to fetch upstream again.
+The full walkthrough, with a plugin installed into one project, is in [Customizing a skill](customizing-skills.md).
 
 ## Where things are
 
@@ -102,6 +91,7 @@ repository with `skigard init --git`. On another machine, clone it there and run
 ## Next
 
 - [Concepts](concepts.md): quarantine, scan, review, approve, lockfile, harnesses.
+- [Customizing a skill](customizing-skills.md): edit, adopt, update and merge.
 - [Command reference](commands.md).
 - [Using skigard in CI](ci.md).
 - [Writing skills that pass the scanner honestly](writing-safe-skills.md).

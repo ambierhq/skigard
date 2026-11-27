@@ -91,16 +91,18 @@ approved version, and type the name. The decision is bound to a **content hash**
 
 `skigard.lock` is TOML, sorted, and meant to be committed. Each entry records the source, commit, content hash (SHA-256 over every file's
 path, length and bytes, identical on every OS, "hash v2"), an **exec set** (which files had an execute bit, with its own digest), the scan
-and review results, the score, and the approval (including its mode: `human`, `auto` or `forced`). `install`, `sync` and `verify` recompute the hash and refuse on any mismatch. Locks written by earlier
+and review results, the score, and the approval (including its mode: `human`, `local`, `auto` or `forced`). `install`, `sync` and `verify` recompute the hash and refuse on any mismatch. Locks written by earlier
 releases keep verifying; `skigard lock upgrade` moves them to v2, only where the old hash still matches. Format: [lockfile](lockfile.md).
 
 ## Update
 
 `skigard update` re-fetches approved skills. Unchanged content is "up to date". In `strict` mode anything that changed goes back to quarantine with a diff and
 needs approval again. In `auto` mode a change is approved and installed only if it scores at or above the threshold, has no hard stop, and does not score lower than the previously approved version;
-otherwise it goes back to quarantine with a warning and the diff. The output says which happened.
+otherwise it goes back to quarantine with a warning and the diff. The output says which happened. A [local fork](#editing-a-skill) is compared with its `upstream_hash` instead, reported as `up to date (local fork)` when upstream is unchanged, and a changed upstream always goes to quarantine, even in `auto` mode.
 
 ## Keeping your local changes
+
+A worked example (edit, adopt, plugin, update, merge) is in [customizing a skill](customizing-skills.md).
 
 ### Editing a skill
 
@@ -117,7 +119,7 @@ skigard approve NAME   # human, real terminal; recorded as mode = "local" with a
 
 The quick path is `edit` → change → `adopt`. `adopt` decides exactly like `add`: it takes the mode, threshold and `auto_review` from your settings (`--mode`, `--threshold`, `--review`, `--review-harness` override them, and an agent cannot weaken them),
 and in `auto` mode a score at or above the threshold with no hard stop (scanner `block`, reviewer `fail`, incomplete coverage) and any required review done approves the edit at once, recorded as `mode = "auto"` with the `upstream_hash` kept.
-Symlink installs follow `skills/` and show it immediately; copy installs need `skigard sync` (`adopt` says so). In `strict` mode, below the threshold, with a hard stop, or when a requested review did not run, `adopt` leaves the edit in quarantine, prints the reasons and the next steps,
+Symlink installs follow `skills/` and show it immediately; run `skigard sync` afterwards (`adopt` says so) to refresh the install records, which `verify` otherwise warns about, and to update copy installs. In `strict` mode, below the threshold, with a hard stop, or when a requested review did not run, `adopt` leaves the edit in quarantine, prints the reasons and the next steps,
 and only a human `approve` finishes it. It never prompts, and there is no `--force-install`. The result of `merge` is never auto-approved by `adopt`: it prints `merge results need a human: skigard approve NAME`.
 
 The harness installs keep the approved version until you approve. While the working copy is open, `list`, `status` and `show` call it `editing`; `approve`, `review` and `update` refuse to touch it, and `skigard reject NAME` discards it.
@@ -128,9 +130,9 @@ If you already edited `skills/NAME` in place (after a `chmod`, say), `verify` fa
 (a local source is re-read from its path), and only if it hashes to the approved baseline does it keep it, in quarantine, as the comparison for `diff` and `approve`. If it cannot, the edit is still staged but the approval screen says
 that no comparison is available and you must read the files yourself.
 
-An approved skill is recorded as `mode = "local"` with an `upstream_hash` (see [lockfile](lockfile.md)).
+A human-approved edit is recorded as `mode = "local"` with an `upstream_hash`; an edit that `adopt` approved in `auto` mode is `mode = "auto"` with the same `upstream_hash` (see [lockfile](lockfile.md)). Both are called a local fork.
 
-### Keeping your local changes
+### Merging a new upstream version
 
 When `update` later finds a new upstream version, it goes to quarantine and is never auto-approved over your edits. `skigard merge NAME` brings the new upstream changes into your copy:
 
@@ -139,7 +141,7 @@ When `update` later finds a new upstream version, it goes to quarantine and is n
 
 Both only write the merged tree into quarantine (the pristine upstream hash is kept for `upstream_hash`); then the normal scan, score, optional review and a human `approve` apply.
 `merge` never installs, never touches `skills/` or the lock, and is never part of `auto` mode. Merging is two-way (your copy against the new upstream; no stored base), so
-review the result with `skigard diff NAME`. Walkthrough: [getting started](getting-started.md#keep-your-local-changes).
+review the result with `skigard diff NAME`. Walkthrough: [customizing a skill](customizing-skills.md).
 
 ## Harness
 
