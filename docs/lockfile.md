@@ -22,7 +22,7 @@ hash_version = 2                # default scheme for entries that carry no hash_
   # upstream_hash = "sha256:..."  # only for a local fork: the upstream content it was edited from (see below)
 
   [skill.scan]
-    tool = "skigard 0.3.0"
+    tool = "skigard 0.4.0"
     rules = "2026.4"
     verdict = "block"           # pass | review | block
     coverage = "complete"       # complete | partial
