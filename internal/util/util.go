@@ -199,6 +199,46 @@ func MakeWritable(root string) {
 	})
 }
 
+// TreeWritable reports whether a tree is not in the state MakeReadOnly leaves
+// it in: a directory the owner can write to, or a file anyone can write to.
+// It never follows symlinks and stays inside root. It is false on Windows.
+func TreeWritable(root string) (bool, error) {
+	if runtime.GOOS == "windows" {
+		return false, nil
+	}
+	r, err := os.OpenRoot(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	defer r.Close()
+	found := false
+	err = fs.WalkDir(r.FS(), ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		var perm os.FileMode
+		switch {
+		case d.IsDir(), d.Type().IsRegular():
+			fi, err := d.Info()
+			if err != nil {
+				return err
+			}
+			perm = fi.Mode().Perm()
+		default:
+			return nil
+		}
+		if (d.IsDir() && perm&0o200 != 0) || (!d.IsDir() && perm&0o222 != 0) {
+			found = true
+			return fs.SkipAll
+		}
+		return nil
+	})
+	return found, err
+}
+
 // chmodTree applies the mode pick returns to every directory and regular file
 // under root, through an os.Root so a symlink swapped in mid-walk cannot redirect it.
 func chmodTree(root string, pick func(fs.DirEntry) (os.FileMode, bool)) error {

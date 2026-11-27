@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/ambierhq/skigard/internal/core"
 	"github.com/ambierhq/skigard/internal/scan"
 	"github.com/ambierhq/skigard/internal/store"
+	"github.com/ambierhq/skigard/internal/util"
 )
 
 // autoApproved returns a home with "demo" auto-approved from a local source.
@@ -205,5 +207,49 @@ func TestVerifyPointsAtAdoptAndEdit(t *testing.T) {
 	_, out, _ := run(t, home, "verify")
 	if !strings.Contains(out, "skills/ is read-only and must not be edited in place") || !strings.Contains(out, "`skigard adopt demo`") || !strings.Contains(out, "`skigard edit demo`") {
 		t.Errorf("verify: %s", out)
+	}
+}
+
+func TestLockProtectOutput(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("permission bits are synthetic on Windows")
+	}
+	home, _ := autoApproved(t)
+	dir := filepath.Join(home, "skills", "demo")
+	util.MakeWritable(dir) // an old-style approval
+	code, out, errs := run(t, home, "verify")
+	if code != 0 || errs != "" || !strings.Contains(out, "warn  demo: skills/demo is writable; edit it with `skigard edit demo`, and run `skigard lock protect` to make approved skills read-only\n") {
+		t.Fatalf("%d %q %q", code, out, errs)
+	}
+	if code, _, _ := run(t, home, "verify", "--strict"); code != 1 {
+		t.Fatalf("--strict code %d", code)
+	}
+	code, out, errs = run(t, home, "lock", "protect")
+	if code != 0 || errs != "" {
+		t.Fatalf("%d %q", code, errs)
+	}
+	if !strings.HasPrefix(out, "✔ demo is now read-only\n") || !strings.Contains(out, "(permissions only: content, hashes, the lock and installs are unchanged)\n") || nextBlock(out) == "" {
+		t.Fatalf("%q", out)
+	}
+	code, out, _ = run(t, home, "lock", "protect")
+	if code != 0 || out != "1 already read-only\n" {
+		t.Fatalf("%d %q", code, out)
+	}
+	if code, out, _ := run(t, home, "verify", "--strict"); code != 0 || strings.Contains(out, "writable") {
+		t.Fatalf("%d %q", code, out)
+	}
+	if code, out, _ := run(t, home, "lock", "protect", "demo", "--json"); code != 0 || !strings.Contains(out, `"note": "already read-only"`) {
+		t.Fatalf("%d %q", code, out)
+	}
+	if code, _, _ := run(t, home, "lock", "protect", "nope"); code != util.ExitUsage {
+		t.Fatalf("unknown name: %d", code)
+	}
+}
+
+func TestLockProtectHelp(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "h")
+	code, out, _ := run(t, home, "lock", "protect", "-h")
+	if code != 0 || !strings.Contains(out, "skigard lock protect [NAME...]") || !strings.Contains(out, "Make approved skills read-only") {
+		t.Fatalf("%d %q", code, out)
 	}
 }

@@ -116,6 +116,9 @@ skigard approve NAME   # human, real terminal; recorded as mode = "local" with a
 ```
 
 The harness installs keep the approved version until you approve. While the working copy is open, `list`, `status` and `show` call it `editing`; `approve`, `review` and `update` refuse to touch it, and `skigard reject NAME` discards it.
+Skills approved before read-only existed stay writable until their next approval. `verify` reports each one as a warning (`skills/NAME is writable`; `--strict` turns it into a failure), and `skigard lock protect [NAME...]` fixes it:
+it only removes write bits inside `skills/`, never changes content, hashes, the lock or installs, and is safe to run again (and in an agent). It does nothing on Windows.
+
 If you already edited `skills/NAME` in place (after a `chmod`, say), `verify` fails and `skigard adopt NAME` stages that edit instead. Because the pristine copy is gone, `adopt` re-fetches the original upstream at the locked commit
 (a local source is re-read from its path), and only if it hashes to the approved baseline does it keep it, in quarantine, as the comparison for `diff` and `approve`. If it cannot, the edit is still staged but the approval screen says
 that no comparison is available and you must read the files yourself.

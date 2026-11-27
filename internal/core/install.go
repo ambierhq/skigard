@@ -259,6 +259,11 @@ func (a *App) Verify() ([]Problem, error) {
 		if err == nil && st.ExecNA && s.HashVersion >= 2 {
 			add("info", "%s: exec-bit check not applicable on this OS (%d executable file(s) recorded at approval)", s.Name, len(s.ExecSet))
 		}
+		if runtime.GOOS != "windows" && isDir(a.Home.SkillDir(s.Name)) {
+			if w, werr := util.TreeWritable(a.Home.SkillDir(s.Name)); werr == nil && w {
+				add("warn", "%s: skills/%s is writable; edit it with `skigard edit %s`, and run `skigard lock protect` to make approved skills read-only", s.Name, s.Name, s.Name)
+			}
+		}
 		if s.Approval.Override {
 			add("warn", "%s: approved with an override (%s)", s.Name, util.Clean(s.Approval.Reason))
 		}

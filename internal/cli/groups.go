@@ -22,6 +22,7 @@ var groups = map[string][]subcommand{
 	},
 	"lock": {
 		{"upgrade", "[NAME...]", "upgrade lock entries to hash version 2 (only if the old hash still matches)"},
+		{"protect", "[NAME...]", "make approved skills read-only (changes permissions only, never content, hash or lock)"},
 	},
 	"allow": {
 		{"add", "SOURCE|SKILL RULE... --reason R", "HUMAN ONLY: stop reporting medium/low rules for one source"},

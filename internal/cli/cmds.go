@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -989,7 +990,7 @@ func cmdUninstall(c *ctx, args []string) error {
 
 func cmdVerify(c *ctx, args []string) error {
 	fs := c.flags("verify")
-	strict := fs.Bool("strict", false, "treat warnings (overrides, non-pass reviews) as failures")
+	strict := fs.Bool("strict", false, "treat warnings (overrides, non-pass reviews, writable approved skills) as failures")
 	requireHuman := fs.Bool("require-human", false, "fail if any approval was made automatically (mode auto) or forced")
 	if _, err := parse(fs, args); err != nil {
 		return err
@@ -1568,10 +1569,64 @@ func cmdMigrate(c *ctx, args []string) error {
 	return nil
 }
 
-func cmdLock(c *ctx, args []string) error {
-	_, args, err := c.verb("lock", args)
+// cmdLockProtect makes approved skills read-only. It only removes write bits, so it is allowed in an agent.
+func cmdLockProtect(c *ctx, args []string) error {
+	fs := c.flags("lock protect")
+	pos, err := parse(fs, args)
 	if err != nil {
 		return err
+	}
+	if err := c.open(); err != nil {
+		return err
+	}
+	res, err := c.app.Protect(pos)
+	if err != nil {
+		return err
+	}
+	if c.json {
+		if res == nil {
+			res = []core.ProtectResult{}
+		}
+		return c.printJSON(res)
+	}
+	if runtime.GOOS == "windows" {
+		c.printf("nothing to do: Windows permission bits are not meaningful, so approved skills are not made read-only there\n")
+		return nil
+	}
+	if len(res) == 0 {
+		c.printf("no approved skills\n")
+		return nil
+	}
+	st := c.style(false)
+	changed, already := 0, 0
+	for _, r := range res {
+		switch {
+		case r.Changed:
+			changed++
+			c.printf("%s %s is now read-only\n", st.Green("✔"), util.Clean(r.Name))
+		case r.Note == "already read-only":
+			already++
+		default:
+			c.printf("%s: %s\n", util.Clean(r.Name), r.Note)
+		}
+	}
+	if already > 0 {
+		c.printf("%d already read-only\n", already)
+	}
+	if changed > 0 {
+		c.printf("%s\n", st.Dim("(permissions only: content, hashes, the lock and installs are unchanged)"))
+		c.nextSteps("", "", "skigard verify", "skigard edit NAME   # to change a skill from now on")
+	}
+	return nil
+}
+
+func cmdLock(c *ctx, args []string) error {
+	verb, args, err := c.verb("lock", args)
+	if err != nil {
+		return err
+	}
+	if verb == "protect" {
+		return cmdLockProtect(c, args)
 	}
 	fs := c.flags("lock upgrade")
 	pos, err := parse(fs, args)

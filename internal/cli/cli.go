@@ -62,7 +62,7 @@ func init() {
 		{"sync", "", "install every approved skill into the default harnesses", cmdSync},
 		{"config", "get [KEY] | set KEY VALUE", "read or change mode, threshold, auto_review, review_harness and marketplace (set of mode/threshold is human only)", cmdConfig},
 		{"verify", "[--strict] [--require-human]", "check lock, store, installs and marketplace if built (CI-friendly)", cmdVerify},
-		{"lock", "upgrade [NAME...]", "upgrade lock entries to hash version 2 (only if the old hash still matches)", cmdLock},
+		{"lock", "upgrade|protect [NAME...]", "upgrade lock entries to hash version 2 (only if the old hash still matches)", cmdLock},
 		{"init-ci", "[--version X.Y.Z] [--action-sha SHA]", "write a GitHub workflow that runs skigard verify", cmdInitCI},
 		{"list", "", "list approved and quarantined skills", cmdList},
 		{"show", "NAME", "print a skill's SKILL.md and file list", cmdShow},

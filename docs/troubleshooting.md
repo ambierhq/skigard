@@ -29,6 +29,11 @@ Read the skill and the finding (`skigard scan NAME`), then `skigard approve NAME
 The approved copy in `skills/<name>` no longer matches the lock. Something edited it (`skills/` is read-only, so that took a `chmod` or a tool that ignores permissions), or a sync tool rewrote line endings. Run `skigard verify` to see what
 changed. Restore the files from your home repository (`git checkout -- skills/NAME`), or re-add and re-approve the skill.
 
+## `verify` says `skills/NAME is writable`
+
+The skill was approved before approved skills were made read-only, so nothing stops an in-place edit (which would be live in every install, unreviewed). It is a warning, not drift: the hash still matches. Run `skigard lock protect` to make
+approved skills read-only (permissions only; content, hashes and the lock are untouched), and use `skigard edit NAME` for future changes. `verify --strict` treats the warning as a failure until you do.
+
 ## `verify` reports an exec-bit change
 
 A file gained or lost its execute bit since approval (same bytes, different mode). On Linux and macOS this is reported as drift on purpose. On Windows the

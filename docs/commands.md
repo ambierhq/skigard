@@ -286,19 +286,20 @@ skigard verify [--strict] [--require-human]
 | Flag | Description |
 |---|---|
 | `--require-human` | fail if any approval was made automatically (mode auto) or forced |
-| `--strict` | treat warnings (overrides, non-pass reviews) as failures |
+| `--strict` | treat warnings (overrides, non-pass reviews, writable approved skills) as failures |
 
 ## skigard lock
 
 Upgrade lock entries to hash version 2 (only if the old hash still matches).
 
 ```
-skigard lock upgrade [NAME...]
+skigard lock upgrade|protect [NAME...]
 ```
 
 | Subcommand | Description |
 |---|---|
 | `upgrade [NAME...]` | upgrade lock entries to hash version 2 (only if the old hash still matches) |
+| `protect [NAME...]` | make approved skills read-only (changes permissions only, never content, hash or lock) |
 
 ## skigard init-ci
 

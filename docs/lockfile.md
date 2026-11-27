@@ -66,7 +66,7 @@ approval.
 | Command | Reads the lock | Verifies |
 |---|---|---|
 | `install`, `sync` | which skills are approved | recomputes `content_hash` (and, on Unix, the exec set) of `skills/<name>` and refuses on mismatch |
-| `verify` | everything | lock vs `skills/` vs install records vs marketplace (when built, or required when `settings.marketplace` is on); unapproved directories in `skills/` are errors |
+| `verify` | everything | lock vs `skills/` vs install records vs marketplace (when built, or required when `settings.marketplace` is on); unapproved directories in `skills/` are errors; a still-writable approved skill (approved before read-only existed) is a warning, fixed by `skigard lock protect` |
 | `update` | source, ref, subpath, approval score | re-fetches; unchanged content and exec set (for a local fork, unchanged against `upstream_hash`) is "up to date". A change goes to quarantine (always, when the skill is a local fork or has unadopted local edits), except in `auto` mode when it scores at or above the threshold with no hard stop and not lower than the approved score: then it is approved and installed |
 | `lock upgrade` | hash versions | upgrades version 1 entries to version 2, only where the version 1 hash still matches |
 

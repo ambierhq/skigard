@@ -20,6 +20,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (human, auto, forced, adopt, merge), plugin create/delete/add/remove, `lock upgrade` and `migrate`, and `verify` then requires it (a missing `marketplace/` is an error).
   A failed rebuild is a warning and never undoes the approval; `verify` flags the drift. `config set marketplace true` builds immediately; `false` leaves the directory.
 
+- **`skigard lock protect [NAME...]`** makes approved skills read-only, and `verify` now warns (`skills/NAME is writable`; a failure under `--strict`) about skills approved before read-only existed.
+  It removes write bits only, never touches content, hashes, the lock or installs, and is safe in an agent.
+
 ### Fixed
 
 - The `approve` screen (also shown by a strict-mode `add`) is laid out like `add`: a bold title and an aligned key/value header (`source`, `commit`, `hash`, `replaces`, `merge`), one blank line
