@@ -80,11 +80,12 @@ jobs:
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with: {go-version-file: go.mod}
       - run: |
-          go test ./internal/source -run XXX -fuzz=FuzzParse -fuzztime=30s
-          go test ./internal/safefs -run XXX -fuzz=FuzzCleanEntry -fuzztime=30s
-          go test ./internal/skill -run XXX -fuzz=FuzzFrontmatter -fuzztime=30s
-          go test ./internal/review -run XXX -fuzz=FuzzParse -fuzztime=30s
-          go test ./internal/hash -run XXX -fuzz=FuzzDirVersionDeterministic -fuzztime=30s
+          go test ./internal/source -run XXX -fuzz='^FuzzParse$' -fuzztime=30s
+          go test ./internal/safefs -run XXX -fuzz='^FuzzCleanEntry$' -fuzztime=30s
+          go test ./internal/skill -run XXX -fuzz='^FuzzFrontmatter$' -fuzztime=30s
+          go test ./internal/review -run XXX -fuzz='^FuzzParse$' -fuzztime=30s
+          go test ./internal/review -run XXX -fuzz='^FuzzParseMerge$' -fuzztime=30s
+          go test ./internal/hash -run XXX -fuzz='^FuzzDirVersionDeterministic$' -fuzztime=30s
   # Not a required check. go.mod and go.sum must be tidy and verified.
   go-mod:
     permissions: {contents: read}

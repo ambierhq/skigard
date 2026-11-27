@@ -38,12 +38,12 @@ run = "go test -tags e2e -count=1 -v ./e2e/windows"
 [tasks.fuzz]
 description = "Short fuzz runs"
 run = [
-  "go test ./internal/source -run XXX -fuzz=FuzzParse -fuzztime=20s",
-  "go test ./internal/safefs -run XXX -fuzz=FuzzCleanEntry -fuzztime=20s",
-  "go test ./internal/skill -run XXX -fuzz=FuzzFrontmatter -fuzztime=20s",
-  "go test ./internal/review -run XXX -fuzz=FuzzParse -fuzztime=20s",
-  "go test ./internal/review -run XXX -fuzz=FuzzParseMerge -fuzztime=20s",
-  "go test ./internal/hash -run XXX -fuzz=FuzzDirVersionDeterministic -fuzztime=20s",
+  "go test ./internal/source -run XXX -fuzz='^FuzzParse$' -fuzztime=20s",
+  "go test ./internal/safefs -run XXX -fuzz='^FuzzCleanEntry$' -fuzztime=20s",
+  "go test ./internal/skill -run XXX -fuzz='^FuzzFrontmatter$' -fuzztime=20s",
+  "go test ./internal/review -run XXX -fuzz='^FuzzParse$' -fuzztime=20s",
+  "go test ./internal/review -run XXX -fuzz='^FuzzParseMerge$' -fuzztime=20s",
+  "go test ./internal/hash -run XXX -fuzz='^FuzzDirVersionDeterministic$' -fuzztime=20s",
 ]
 
 [tasks.docs]

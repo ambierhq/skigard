@@ -15,10 +15,11 @@ jobs:
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with: {go-version-file: go.mod}
       - run: |
-          go test ./internal/source -run XXX -fuzz=FuzzParse -fuzztime=5m
-          go test ./internal/safefs -run XXX -fuzz=FuzzCleanEntry -fuzztime=5m
-          go test ./internal/skill -run XXX -fuzz=FuzzFrontmatter -fuzztime=5m
-          go test ./internal/review -run XXX -fuzz=FuzzParse -fuzztime=5m
+          go test ./internal/source -run XXX -fuzz='^FuzzParse$' -fuzztime=5m
+          go test ./internal/safefs -run XXX -fuzz='^FuzzCleanEntry$' -fuzztime=5m
+          go test ./internal/skill -run XXX -fuzz='^FuzzFrontmatter$' -fuzztime=5m
+          go test ./internal/review -run XXX -fuzz='^FuzzParse$' -fuzztime=5m
+          go test ./internal/review -run XXX -fuzz='^FuzzParseMerge$' -fuzztime=5m
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
