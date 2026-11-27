@@ -234,11 +234,22 @@ func (c *ctx) style(plain bool) term.Style {
 
 // writeScan prints a scan report, styled on a terminal and as plain text otherwise.
 func (c *ctx) writeScan(r *scan.Report) {
+	opt := c.scanOptions(false)
 	if st := c.style(false); st.On {
-		scan.WriteStyled(c.out, r, st)
+		scan.WriteStyledOpts(c.out, r, st, opt)
 		return
 	}
-	scan.WriteText(c.out, r)
+	scan.WriteTextOpts(c.out, r, opt)
+}
+
+// scanOptions is how scan findings are laid out: the terminal width when stdout is one, else 100
+// columns, and every finding only when all is set.
+func (c *ctx) scanOptions(all bool) scan.RenderOptions {
+	opt := scan.RenderOptions{All: all, Width: term.DefaultWidth}
+	if c.out == io.Writer(os.Stdout) {
+		opt.Width = term.Width(os.Stdout)
+	}
+	return opt
 }
 
 func (c *ctx) printf(format string, args ...any) { fmt.Fprintf(c.out, format, args...) }

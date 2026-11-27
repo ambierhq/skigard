@@ -19,7 +19,7 @@ func TestWriteStyledGroupsAndEscapes(t *testing.T) {
 	var plain, styled bytes.Buffer
 	WriteStyled(&plain, r, term.Style{})
 	WriteStyled(&styled, r, term.Style{On: true})
-	for _, want := range []string{"demo", "REVIEW", "43/100", "x2", "SKILL.md:5,9", "1 low", "2 medium"} {
+	for _, want := range []string{"demo", "REVIEW", "43/100", "SKILL.md:5", "SKILL.md:9", "eval a", "eval b", "1 low", "2 medium"} {
 		if !strings.Contains(plain.String(), want) {
 			t.Errorf("missing %q in\n%s", want, plain.String())
 		}

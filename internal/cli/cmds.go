@@ -354,7 +354,8 @@ func cmdScan(c *ctx, args []string) error {
 	failOn := fs.String("fail-on", "high", "exit 1 at this severity or above: low, medium, high, critical, none")
 	incomplete := fs.Bool("fail-on-incomplete", false, "exit 4 when scan coverage is incomplete")
 	out := fs.String("output", "", "write the report to a file")
-	plain := fs.Bool("plain", false, "text format: no colours and no grouping (the default when not on a terminal)")
+	plain := fs.Bool("plain", false, "text format: no colours (the default when not on a terminal)")
+	all := fs.Bool("all", false, "text format: show every finding instead of a summary")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
@@ -384,9 +385,13 @@ func cmdScan(c *ctx, args []string) error {
 	switch *format {
 	case "text":
 		if st := c.style(*plain); st.On && *out == "" {
-			scan.WriteStyled(w, rep, st)
+			scan.WriteStyledOpts(w, rep, st, c.scanOptions(*all))
 		} else {
-			scan.WriteText(w, rep)
+			opt := c.scanOptions(*all)
+			if *out != "" {
+				opt.Width = term.DefaultWidth
+			}
+			scan.WriteTextOpts(w, rep, opt)
 		}
 	case "json":
 		err = scan.WriteJSON(w, rep)

@@ -183,7 +183,7 @@ Per run, `add` takes `--mode`, `--threshold`, `--review`, `--quarantine-only` an
 |---|---|
 | `init [--git]`, `detect [--all]` | create the home; list harnesses (`installed`, `configured`, `absent`) |
 | `add SOURCE [--skill N \| --all] [--mode M] [--threshold N] [--review] [--force-install] [--quarantine-only]` | fetch, scan, score and (per mode) install; `--quarantine-only` stops after the scan. `SOURCE`: `github:owner/repo[/path][@ref]`, `owner/repo`, a github.com URL, or a local path |
-| `scan NAME\|PATH [--format text\|json\|sarif] [--fail-on LEVEL] [--plain]` | deterministic scan; grouped and coloured on a terminal, `--plain` for the flat text |
+| `scan NAME\|PATH [--format text\|json\|sarif] [--fail-on LEVEL] [--plain] [--all]` | deterministic scan; repeated low findings are folded into one line with a count (every medium and above is listed), coloured on a terminal; `--all` lists every finding, `--json` is always complete |
 | `review NAME [--harness ID \| --manual]` | advisory agent review ([how it works](docs/review.md)) |
 | `diff NAME` | quarantined vs approved |
 | `approve NAME [--override --reason R] [--accept R]` | **human only** (records `mode = "human"`) |

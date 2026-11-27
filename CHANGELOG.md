@@ -7,6 +7,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `scan`, `add`, `update` and `approve` now fold repeated low findings of one rule into a single line with a count, up to three `file:line` locations and one short
+  evidence sample; every medium and higher finding is still listed on its own, with evidence cut to one line of the terminal width (by display width, so wide characters never wrap).
+  A footer says when the view is a summary. `scan --all` lists every finding; `--json` and SARIF are unchanged.
 - `settings.marketplace` (`skigard config set marketplace true`, default off) keeps `marketplace/` in sync: it is rebuilt automatically after every approval
   (human, auto, forced, adopt, merge), plugin create/delete/add/remove, `lock upgrade` and `migrate`, and `verify` then requires it (a missing `marketplace/` is an error).
   A failed rebuild is a warning and never undoes the approval; `verify` flags the drift. `config set marketplace true` builds immediately; `false` leaves the directory.

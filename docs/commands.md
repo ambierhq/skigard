@@ -113,11 +113,12 @@ skigard scan NAME|PATH [--format text|json|sarif]
 
 | Flag | Description |
 |---|---|
+| `--all` | text format: show every finding instead of a summary |
 | `--fail-on STRING` | exit 1 at this severity or above: low, medium, high, critical, none (default "high") |
 | `--fail-on-incomplete` | exit 4 when scan coverage is incomplete |
 | `--format STRING` | text, json or sarif (default "text") |
 | `--output STRING` | write the report to a file |
-| `--plain` | text format: no colours and no grouping (the default when not on a terminal) |
+| `--plain` | text format: no colours (the default when not on a terminal) |
 
 ## skigard review
 
