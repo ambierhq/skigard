@@ -98,6 +98,22 @@ out=$("$BIN" list --home "$AUTO_HOME"); [[ "$out" == *forced* ]] || fail "list d
 "$BIN" verify --home "$AUTO_HOME" >/dev/null || fail "verify after auto add"
 "$BIN" verify --home "$AUTO_HOME" --require-human >/dev/null 2>&1 && fail "--require-human should fail on auto/forced"
 
+# 6b. edit -> adopt: auto mode approves the edit when it clears the threshold; strict leaves it for a human
+out=$("$BIN" edit good --home "$AUTO_HOME" 2>&1) || fail "edit: $out"
+[[ "$out" == *"approves automatically when your mode and threshold allow"* ]] || fail "edit hints: $out"
+echo "extra prose" >> "$AUTO_HOME/quarantine/good/SKILL.md"
+out=$("$BIN" adopt good --home "$AUTO_HOME" 2>&1) || fail "auto adopt: $out"
+[[ "$out" == *"approved automatically (recorded in the lock as mode = auto)"* ]] || fail "auto adopt output: $out"
+grep -q "extra prose" "$AUTO_HOME/skills/good/SKILL.md" || fail "adopted edit not in skills/"
+[[ ! -w "$AUTO_HOME/skills/good/SKILL.md" ]] || fail "adopted skill should be read-only"
+"$BIN" verify --home "$AUTO_HOME" --require-human >/dev/null 2>&1 && fail "adopt auto approval should be flagged by --require-human"
+"$BIN" edit good --home "$AUTO_HOME" >/dev/null || fail "second edit"
+echo "more prose" >> "$AUTO_HOME/quarantine/good/SKILL.md"
+out=$("$BIN" adopt good --home "$AUTO_HOME" --mode strict 2>&1) || fail "strict adopt: $out"
+[[ "$out" == *"waiting for a human"* && "$out" == *"skigard approve good"* ]] || fail "strict adopt output: $out"
+grep -q "more prose" "$AUTO_HOME/skills/good/SKILL.md" && fail "strict adopt approved"
+"$BIN" reject good --home "$AUTO_HOME" >/dev/null
+
 # 7. strict mode on a real pty: the human confirms (or cancels) inside add; an agent stays in quarantine
 STRICT_HOME="$W/strict"
 "$BIN" init --home "$STRICT_HOME" >/dev/null

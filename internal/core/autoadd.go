@@ -154,7 +154,24 @@ func (a *App) effectivePolicy(man *store.Manifest, o AddInstallOpts) (mode strin
 	return mode, th, nil
 }
 
-func (a *App) decide(ctx context.Context, q *Quarantined, man *store.Manifest, mode string, th int, inAgent bool, o AddInstallOpts) (AddOutcome, error) {
+// assessed is what the shared scan/review/score step of add and adopt found.
+type assessed struct {
+	meta        *store.Meta
+	dir         string
+	rev         *review.Record
+	stale       bool
+	sf          scan.Safety
+	needsReview bool
+	// decision is DecisionForced or DecisionInstalled when the skill may be approved
+	// now without a human, and empty otherwise (oc.Reasons then says why).
+	decision string
+}
+
+// assess runs the optional review, scores the quarantined skill and applies the
+// gates shared by `add` and `adopt`: forced, hard stop, require_review, a review that
+// was requested but did not run, and the threshold. It never approves anything.
+// canForce says whether the hard-stop hint may mention --force-install.
+func (a *App) assess(ctx context.Context, q *Quarantined, man *store.Manifest, mode string, th int, o AddInstallOpts, canForce bool) (AddOutcome, *assessed, error) {
 	name := q.Name
 	oc := AddOutcome{Name: name, Hash: q.Hash, Mode: mode, Report: q.Report}
 	var reviewNote string
@@ -173,7 +190,7 @@ func (a *App) decide(ctx context.Context, q *Quarantined, man *store.Manifest, m
 	}
 	meta, dir, err := a.loadQuarantined(name)
 	if err != nil {
-		return oc, err
+		return oc, nil, err
 	}
 	rev, stale := ReviewInfo(meta)
 	oc.Review = rev
@@ -184,26 +201,36 @@ func (a *App) decide(ctx context.Context, q *Quarantined, man *store.Manifest, m
 	if reviewNote != "" {
 		oc.Reasons = append(oc.Reasons, reviewNote)
 	}
-	needsReview := man.Settings.RequireReview && rev == nil
-
-	forced := o.ForceInstall
-	var decision string
+	as := &assessed{meta: meta, dir: dir, rev: rev, stale: stale, sf: sf, needsReview: man.Settings.RequireReview && rev == nil}
 	switch {
-	case forced:
-		decision = DecisionForced
-	case sf.HardStop:
+	case canForce && o.ForceInstall:
+		as.decision = DecisionForced
+	case sf.HardStop && canForce:
 		oc.Reasons = append(oc.Reasons, "hard stop: only --force-install or a human `skigard approve --override` can install this")
-	case needsReview:
+	case sf.HardStop:
+		oc.Reasons = append(oc.Reasons, "hard stop: only a human `skigard approve --override` can approve this")
+	case as.needsReview:
 		oc.Reasons = append(oc.Reasons, "this home requires a review before approval (settings.require_review)")
 	case mode == store.ModeStrict:
-		// handled below: a human must confirm
+		// a human must confirm
 	case reviewNote != "":
 		oc.Reasons = append(oc.Reasons, "not auto-installed because the requested review did not run")
 	case sf.Score < th:
 		oc.Reasons = append(oc.Reasons, fmt.Sprintf("score %d is below the threshold %d", sf.Score, th))
 	default:
-		decision = DecisionInstalled
+		as.decision = DecisionInstalled
 	}
+	return oc, as, nil
+}
+
+func (a *App) decide(ctx context.Context, q *Quarantined, man *store.Manifest, mode string, th int, inAgent bool, o AddInstallOpts) (AddOutcome, error) {
+	name := q.Name
+	oc, as, err := a.assess(ctx, q, man, mode, th, o, true)
+	if err != nil {
+		return oc, err
+	}
+	meta, dir, rev, stale, sf, needsReview, decision := as.meta, as.dir, as.rev, as.stale, as.sf, as.needsReview, as.decision
+	rep := q.Report
 
 	approval := store.ApprovalRec{By: o.By, At: util.Now(), Score: sf.Score, Threshold: th, ScoreVersion: sf.Version}
 	if approval.By == "" {

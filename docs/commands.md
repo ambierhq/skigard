@@ -31,7 +31,7 @@ Usage: `skigard COMMAND [ARGS]`. Flags may come before or after positional argum
 - [`diff`](#skigard-diff): show quarantined changes against the approved version
 - [`approve`](#skigard-approve): HUMAN ONLY: approve a quarantined skill
 - [`edit`](#skigard-edit): copy an approved skill into quarantine as an editable working copy (skills/ stays untouched)
-- [`adopt`](#skigard-adopt): finalize your edit of an approved skill (from `edit`, or made in place) for review and approval
+- [`adopt`](#skigard-adopt): finalize your edit of an approved skill (from `edit`, or made in place): scan and score it, then approve automatically in auto mode when it clears the threshold, else leave it for a human `approve`
 - [`merge`](#skigard-merge): merge the new upstream version of an edited skill into your local copy (staged in quarantine)
 - [`reject`](#skigard-reject): delete a quarantined skill
 - [`update`](#skigard-update): re-fetch approved skills; changes go to quarantine
@@ -177,11 +177,18 @@ skigard edit NAME
 
 ## skigard adopt
 
-Finalize your edit of an approved skill (from `edit`, or made in place) for review and approval.
+Finalize your edit of an approved skill (from `edit`, or made in place): scan and score it, then approve automatically in auto mode when it clears the threshold, else leave it for a human `approve`.
 
 ```
-skigard adopt NAME
+skigard adopt NAME [--review] [--mode strict|auto] [--threshold N]
 ```
+
+| Flag | Description |
+|---|---|
+| `--mode STRING` | strict or auto (default: your setting; inside an agent only a stricter one than the setting is allowed) |
+| `--review` | run an advisory review before scoring (sends the skill to a model provider) |
+| `--review-harness STRING` | harness that runs the review (default: your saved choice) |
+| `--threshold INT` | minimum safety score 1..10 for automatic approval (default: your setting; inside an agent it cannot be lower) |
 
 ## skigard merge
 

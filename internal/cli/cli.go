@@ -53,7 +53,7 @@ func init() {
 		{"diff", "NAME", "show quarantined changes against the approved version", cmdDiff},
 		{"approve", "NAME", "HUMAN ONLY: approve a quarantined skill", cmdApprove},
 		{"edit", "NAME", "copy an approved skill into quarantine as an editable working copy (skills/ stays untouched)", cmdEdit},
-		{"adopt", "NAME", "finalize your edit of an approved skill (from `edit`, or made in place) for review and approval", cmdAdopt},
+		{"adopt", "NAME [--review] [--mode strict|auto] [--threshold N]", "finalize your edit of an approved skill (from `edit`, or made in place): scan and score it, then approve automatically in auto mode when it clears the threshold, else leave it for a human `approve`", cmdAdopt},
 		{"merge", "NAME [--pick | --with HARNESS] [--note TEXT]", "merge the new upstream version of an edited skill into your local copy (staged in quarantine)", cmdMerge},
 		{"reject", "NAME", "delete a quarantined skill", cmdReject},
 		{"update", "[NAME...]", "re-fetch approved skills; changes go to quarantine", cmdUpdate},

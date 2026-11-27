@@ -51,7 +51,7 @@ hash_version = 2                # default scheme for entries that carry no hash_
 
 ### Approval fields
 
-- `mode`: `human` (a person confirmed on the terminal with `approve`, or in strict mode), `local` (a person approved their own edits of a skill that was staged with `skigard adopt`; see `upstream_hash`), `auto` (`add` or `update` in auto mode, no prompt) or `forced`
+- `mode`: `human` (a person confirmed on the terminal with `approve`, or in strict mode), `local` (a person approved their own edits of a skill that was staged with `skigard adopt`; see `upstream_hash`), `auto` (`add`, `update` or `adopt` in auto mode, no prompt; an `adopt` entry also carries `upstream_hash`) or `forced`
   (`add --force-install`). Locks without these fields read as `human`.
 - `by`: who decided. For `human` and `forced` it is the OS user (or `--by`); for `auto` it is always `skigard (auto)`, because a machine decided, not a person. That value is reserved: a lock that uses it with another mode fails to load. Locks written before this change may carry the OS user with `mode = "auto"`; rely on `mode`, not `by`.
 - `score`, `threshold`, `score_version`: the safety score (1..10, 10 = no concern), the threshold in force, and the version of the formula. `approve` records the score and `score_version` but no threshold; `add` (auto, forced, or confirmed in strict mode) records all three. A formula change bumps `score_version`, like the rules version.

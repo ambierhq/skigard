@@ -186,7 +186,7 @@ Per run, `add` takes `--mode`, `--threshold`, `--review`, `--quarantine-only` an
 | `scan NAME\|PATH [--format text\|json\|sarif] [--fail-on LEVEL] [--plain] [--all]` | deterministic scan; repeated low findings are folded into one line with a count (every medium and above is listed), coloured on a terminal; `--all` lists every finding, `--json` is always complete |
 | `review NAME [--harness ID \| --manual]` | advisory agent review ([how it works](docs/review.md)) |
 | `edit NAME` | copy an approved skill into quarantine as an editable working copy (`skills/` is read-only and untouched) |
-| `adopt NAME` | finalize the working copy from `edit` (or stage an edit made in place) for review and approval; approval records `mode = "local"` |
+| `adopt NAME [--review] [--mode M] [--threshold N]` | finalize the working copy from `edit` (or an edit made in place): scan and score it; in `auto` mode it is approved when it clears the threshold (`mode = "auto"`), otherwise it stays in quarantine for a human `approve` (`mode = "local"`). Merge results always need a human |
 | `diff NAME` | quarantined vs approved (for an edit: against the approved version, or the rebuilt upstream for an in-place edit; it says which) |
 | `approve NAME [--override --reason R] [--accept R]` | **human only** (records `mode = "human"`) |
 | `allow add SOURCE\|SKILL RULE... --reason R`, `allow list`, `allow remove SOURCE [RULE...]` | **human only**: stop reporting medium/low scanner rules for one source; high and critical are never hidden |

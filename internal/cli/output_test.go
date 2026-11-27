@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -39,6 +40,20 @@ func autoApproved(t *testing.T) (home, src string) {
 	return home, src
 }
 
+// setMode writes the settings the way a human would have (`config set` needs a terminal).
+func setMode(t *testing.T, home, mode string, threshold int) {
+	t.Helper()
+	h := store.Home{Root: home}
+	man, err := store.LoadManifest(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	man.Settings.Mode, man.Settings.Threshold = mode, threshold
+	if err := store.SaveManifest(h, man); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func appendTo(t *testing.T, p, s string) {
 	t.Helper()
 	os.Chmod(p, 0o644) // approved skills are read-only
@@ -63,6 +78,7 @@ func nextBlock(out string) string {
 
 func TestAdoptOutputStyle(t *testing.T) {
 	home, _ := autoApproved(t)
+	setMode(t, home, store.ModeStrict, 0)
 	appendTo(t, filepath.Join(home, "skills", "demo", "SKILL.md"), "mine\n")
 	code, out, errs := run(t, home, "adopt", "demo")
 	if code != 0 || errs != "" {
@@ -70,7 +86,7 @@ func TestAdoptOutputStyle(t *testing.T) {
 	}
 	for _, want := range []string{
 		"✔ staged your local edits of \"demo\" in quarantine\n  (skills/, the lock and installs are unchanged)\nscan: PASS",
-		"\n\nnext: skigard diff demo   (your edits vs the original upstream)\n      skigard review demo   (optional)\n      skigard approve demo  (in a real terminal)\n",
+		"\nsafety score: 10/10 (higher is safer; ok; threshold 7; mode strict)\n  - no findings\n  - strict mode: a human must confirm with `skigard approve demo`\n\n● \"demo\" is in quarantine and waiting for a human.\nnext: skigard diff demo   (your edits vs the original upstream)\n      skigard review demo   (optional)\n      skigard approve demo  (in a real terminal)\n",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in\n%s", want, out)
@@ -139,6 +155,7 @@ func TestMergeSummaryStyle(t *testing.T) {
 
 func TestEditOutputStyleAndWorkflow(t *testing.T) {
 	home, _ := autoApproved(t)
+	setMode(t, home, store.ModeStrict, 0)
 	code, out, errs := run(t, home, "edit", "demo")
 	if code != 0 || errs != "" {
 		t.Fatalf("%d %q", code, errs)
@@ -146,7 +163,7 @@ func TestEditOutputStyleAndWorkflow(t *testing.T) {
 	wc := store.Home{Root: home}.QuarantineSkill("demo")
 	for _, want := range []string{
 		"✔ editable working copy of \"demo\"\n  " + wc + "\n  (skills/, the lock and installs are unchanged; the approved version stays live)\n",
-		"\nnext: edit the files in " + wc + "\n      skigard diff demo     (see your changes)\n      skigard adopt demo    (finalize: hash and scan the edit)\n      skigard approve demo  (in a real terminal)\n",
+		"\nnext: edit the files in " + wc + "\n      skigard diff demo     (see your changes)\n      skigard adopt demo    (finalize; approves automatically when your mode and threshold allow)\n      skigard approve demo  (in a real terminal, if adopt left it staged)\n",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in\n%s", want, out)
@@ -174,7 +191,7 @@ func TestEditOutputStyleAndWorkflow(t *testing.T) {
 	}
 	for _, want := range []string{
 		"✔ finalized your edit of \"demo\" in quarantine\n  (skills/, the lock and installs are unchanged)\nscan: PASS",
-		"\n\nnext: skigard diff demo   (your edits vs the approved version)\n      skigard review demo   (optional)\n      skigard approve demo  (in a real terminal)\n",
+		"\n● \"demo\" is in quarantine and waiting for a human.\nnext: skigard diff demo   (your edits vs the approved version)\n      skigard review demo   (optional)\n      skigard approve demo  (in a real terminal)\n",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in\n%s", want, out)
@@ -193,6 +210,7 @@ func TestEditOutputStyleAndWorkflow(t *testing.T) {
 
 func TestInPlaceAdoptDiffSaysWhatItCompares(t *testing.T) {
 	home, _ := autoApproved(t)
+	setMode(t, home, store.ModeStrict, 0)
 	appendTo(t, filepath.Join(home, "skills", "demo", "SKILL.md"), "mine\n")
 	run(t, home, "adopt", "demo")
 	_, out, _ := run(t, home, "diff", "demo")
@@ -251,5 +269,97 @@ func TestLockProtectHelp(t *testing.T) {
 	code, out, _ := run(t, home, "lock", "protect", "-h")
 	if code != 0 || !strings.Contains(out, "skigard lock protect [NAME...]") || !strings.Contains(out, "Make approved skills read-only") {
 		t.Fatalf("%d %q", code, out)
+	}
+}
+
+func TestAdoptAutoApprovedOutput(t *testing.T) {
+	home, _ := autoApproved(t)
+	appendTo(t, filepath.Join(home, "skills", "demo", "SKILL.md"), "mine\n")
+	code, out, errs := run(t, home, "adopt", "demo")
+	if code != 0 || errs != "note: run `skigard sync` to update the install records of \"demo\"\n" {
+		t.Fatalf("%d %q", code, errs)
+	}
+	for _, want := range []string{
+		"\nsafety score: 10/10 (higher is safer; ok; threshold 7; mode auto)\n  - no findings\n\n✔ approved automatically (recorded in the lock as mode = auto)\n  refreshed ",
+		"(symlink to skills/; shows the new version)\n\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "\x1b") || strings.Contains(out, "next:") || strings.Contains(out, "staged") {
+		t.Errorf("unexpected text:\n%s", out)
+	}
+	if _, lout, _ := run(t, home, "list"); strings.Contains(lout, "quarantined") {
+		t.Errorf("still quarantined: %s", lout)
+	}
+	// verify --require-human flags the automatic approval; the fork baseline is kept.
+	if code, vout, verr := run(t, home, "verify", "--require-human"); code == 0 || !strings.Contains(vout+verr, "auto") {
+		t.Errorf("require-human: %d %s %s", code, vout, verr)
+	}
+	ls, err := store.LoadLock(store.Home{Root: home})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, _ := ls.Get("demo")
+	if e.Approval.Mode != store.ApprovalAuto || e.UpstreamHash == "" || e.UpstreamHash == e.ContentHash {
+		t.Errorf("lock: %+v", e)
+	}
+}
+
+func TestAdoptBelowThresholdStaysStaged(t *testing.T) {
+	home, _ := autoApproved(t)
+	appendTo(t, filepath.Join(home, "skills", "demo", "SKILL.md"), "mine\n")
+	code, out, errs := run(t, home, "adopt", "demo", "--threshold", "10", "--review")
+	_ = code
+	for _, want := range []string{"review did not run", "not auto-installed because the requested review did not run", "WARNING \"demo\" was NOT approved; it is still in quarantine.\nnext: skigard diff demo"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in\n%s%s", want, out, errs)
+		}
+	}
+	if code != 0 {
+		t.Errorf("exit %d", code)
+	}
+	if _, lout, _ := run(t, home, "list"); !strings.Contains(lout, "quarantined") {
+		t.Errorf("list: %s", lout)
+	}
+}
+
+func TestAdoptJSON(t *testing.T) {
+	home, _ := autoApproved(t)
+	appendTo(t, filepath.Join(home, "skills", "demo", "SKILL.md"), "mine\n")
+	_, jout, errs := run(t, home, "adopt", "demo", "--json")
+	var m map[string]any
+	if err := json.Unmarshal([]byte(jout), &m); err != nil || errs != "" {
+		t.Fatalf("%v %q %s", err, errs, jout)
+	}
+	if m["decision"] != "adopted" || m["mode"] != "auto" || m["reasons"] == nil || m["score"] == nil || m["upstream_hash"] == "" {
+		t.Errorf("%v", m)
+	}
+	// unchanged (nothing to adopt now): in strict mode a staged edit reports its decision.
+	setMode(t, home, store.ModeStrict, 0)
+	appendTo(t, filepath.Join(home, "skills", "demo", "SKILL.md"), "again\n")
+	_, jout, _ = run(t, home, "adopt", "demo", "--json")
+	m = map[string]any{}
+	if err := json.Unmarshal([]byte(jout), &m); err != nil || m["decision"] != "needs-approval" || m["mode"] != "strict" {
+		t.Errorf("%v %s", err, jout)
+	}
+}
+
+func TestAdoptAndEditHelp(t *testing.T) {
+	for _, c := range []string{"adopt", "edit"} {
+		_, out, errs := run(t, filepath.Join(t.TempDir(), "h"), c, "-h")
+		got := out + errs
+		for _, want := range map[string][]string{
+			"adopt": {"-mode", "-threshold", "-review", "-review-harness"},
+			"edit":  {"edit NAME"},
+		}[c] {
+			if !strings.Contains(got, want) {
+				t.Errorf("%s -h missing %q:\n%s", c, want, got)
+			}
+		}
+		if strings.Contains(got, "force-install") {
+			t.Errorf("%s -h mentions force-install", c)
+		}
 	}
 }

@@ -110,10 +110,15 @@ Do not edit `skills/NAME` in place. Installs are symlinks into it, so an unrevie
 ```sh
 skigard edit NAME      # copies the approved skill into quarantine as an editable working copy (it prints the path)
 $EDITOR <that path>    # change it; skigard never launches an editor or runs anything from the skill
-skigard adopt NAME     # finalize: hash, scan and score the edit ("no changes" leaves the working copy open)
-skigard diff NAME      # your edit against the approved version
+skigard adopt NAME     # finalize: hash, scan and score the edit; in auto mode, approve it when it clears your threshold
+skigard diff NAME      # your edit against the approved version (when adopt left it staged)
 skigard approve NAME   # human, real terminal; recorded as mode = "local" with an upstream_hash
 ```
+
+The quick path is `edit` → change → `adopt`. `adopt` decides exactly like `add`: it takes the mode, threshold and `auto_review` from your settings (`--mode`, `--threshold`, `--review`, `--review-harness` override them, and an agent cannot weaken them),
+and in `auto` mode a score at or above the threshold with no hard stop (scanner `block`, reviewer `fail`, incomplete coverage) and any required review done approves the edit at once, recorded as `mode = "auto"` with the `upstream_hash` kept.
+Symlink installs follow `skills/` and show it immediately; copy installs need `skigard sync` (`adopt` says so). In `strict` mode, below the threshold, with a hard stop, or when a requested review did not run, `adopt` leaves the edit in quarantine, prints the reasons and the next steps,
+and only a human `approve` finishes it. It never prompts, and there is no `--force-install`. The result of `merge` is never auto-approved by `adopt`: it prints `merge results need a human: skigard approve NAME`.
 
 The harness installs keep the approved version until you approve. While the working copy is open, `list`, `status` and `show` call it `editing`; `approve`, `review` and `update` refuse to touch it, and `skigard reject NAME` discards it.
 Skills approved before read-only existed stay writable until their next approval. `verify` reports each one as a warning (`skills/NAME is writable`; `--strict` turns it into a failure), and `skigard lock protect [NAME...]` fixes it:

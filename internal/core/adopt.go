@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ambierhq/skigard/internal/harness"
 	"github.com/ambierhq/skigard/internal/hash"
 	"github.com/ambierhq/skigard/internal/safefs"
 	"github.com/ambierhq/skigard/internal/source"
@@ -70,6 +71,11 @@ func (a *App) Adopt(ctx context.Context, name string) (*Quarantined, error) {
 		return nil, err
 	}
 	defer unlock()
+	return a.adopt(ctx, name)
+}
+
+// adopt is Adopt without taking the home lock; the caller holds it.
+func (a *App) adopt(ctx context.Context, name string) (*Quarantined, error) {
 	if err := util.CheckName(name); err != nil {
 		return nil, err
 	}
@@ -223,4 +229,105 @@ func kindOf(ls *store.LockSkill) string {
 		return source.KindGitHub
 	}
 	return source.KindLocal
+}
+
+// Decisions of AdoptAndApprove besides DecisionNeedsApproval and DecisionWarned.
+const (
+	DecisionAdopted   = "adopted"    // approved automatically (mode auto) and promoted to skills/
+	DecisionNoChanges = "no-changes" // the working copy equals the approved version; nothing was staged
+)
+
+// AdoptOpts control `adopt` with its automatic approval. They mean what the same
+// options of AddInstallOpts mean; there is no force and no confirmation.
+type AdoptOpts struct {
+	Mode       string
+	Threshold  int
+	Review     bool
+	ReviewOpts ReviewOpts
+}
+
+// AdoptOutcome is the result of AdoptAndApprove.
+type AdoptOutcome struct {
+	Q *Quarantined
+	AddOutcome
+	// Refreshed lists symlink installs of the skill, which follow skills/ and now show
+	// the new version; Stale lists copy installs, which need `skigard sync`.
+	Refreshed, Stale []string
+}
+
+// AdoptAndApprove finalizes an edit like Adopt and then decides like `add`: in auto
+// mode a skill that clears the threshold (no hard stop, review satisfied) is approved
+// automatically through the shared promote step and keeps its fork baseline; in
+// strict mode, below the threshold, or for a merge result it stays in quarantine for
+// a human `approve`. It never prompts and never forces. It takes the home lock once.
+func (a *App) AdoptAndApprove(ctx context.Context, name string, o AdoptOpts) (*AdoptOutcome, error) {
+	unlock, err := a.Home.Lock()
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+	ctx = ctxOrBackground(ctx)
+	man, err := store.LoadManifest(a.Home)
+	if err != nil {
+		return nil, err
+	}
+	io := AddInstallOpts{Mode: o.Mode, Threshold: o.Threshold, Review: o.Review, ReviewOpts: o.ReviewOpts}
+	mode, th, err := a.effectivePolicy(man, io)
+	if err != nil {
+		return nil, err
+	}
+	q, err := a.adopt(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	out := &AdoptOutcome{Q: q, AddOutcome: AddOutcome{Name: q.Name, Hash: q.Hash, Mode: mode, Report: q.Report}}
+	if q.NoChanges {
+		out.Decision = DecisionNoChanges
+		return out, nil
+	}
+	oc, as, err := a.assess(ctx, q, man, mode, th, io, false)
+	if err != nil {
+		return nil, err
+	}
+	out.AddOutcome = oc
+	merged := as.meta.MergeMode != "" || as.meta.MergedBy != ""
+	switch {
+	case merged:
+		out.Reasons = append(out.Reasons, "merge results need a human: skigard approve "+name)
+	case as.decision == DecisionInstalled:
+	case mode == store.ModeStrict:
+		if !as.sf.HardStop && !as.needsReview {
+			out.Reasons = append(out.Reasons, "strict mode: a human must confirm with `skigard approve "+name+"`")
+		}
+	}
+	if merged || as.decision != DecisionInstalled {
+		out.Decision = DecisionWarned
+		if mode == store.ModeStrict || merged {
+			out.Decision = DecisionNeedsApproval
+		}
+		return out, nil
+	}
+	ap := store.ApprovalRec{By: store.AutoApprover, At: util.Now(), Mode: store.ApprovalAuto, Score: as.sf.Score, Threshold: th, ScoreVersion: as.sf.Version}
+	lock, err := store.LoadLock(a.Home)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := a.promote(as.meta, as.dir, q.Report, as.rev, ap, lock); err != nil {
+		return nil, err
+	}
+	a.syncMarketplace(man)
+	out.Decision = DecisionAdopted
+	if st, err := harness.LoadState(a.Home.InstallsPath()); err == nil {
+		for _, r := range st.Installs {
+			if r.Name != name {
+				continue
+			}
+			if r.Mode == harness.ModeCopy {
+				out.Stale = append(out.Stale, r.Path)
+			} else {
+				out.Refreshed = append(out.Refreshed, r.Path)
+			}
+		}
+	}
+	return out, nil
 }

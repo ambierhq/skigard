@@ -7,6 +7,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **`skigard adopt NAME` approves automatically like `add` does in auto mode.** It takes `--review`, `--review-harness`, `--mode` and `--threshold` (an agent cannot use a weaker mode or lower threshold than the stored ones), finalizes the edit and then
+  reuses the `add` decision: a score at or above the threshold with no hard stop and any required review done is approved as `mode = "auto"` with the fork baseline (`upstream_hash`) kept; strict mode, a lower score, a hard stop, a review that did not run or
+  `require_review` leave it in quarantine for a human `approve`, with the reasons. Merge results are never auto-approved. Copy installs of the skill need `skigard sync` afterwards (symlink installs follow `skills/`). `adopt --json` gains `decision`, `mode`, `score`, `reasons`, `scan`, `notes`, `installs_refreshed` and `installs_stale`.
 - `scan`, `add`, `update`, `adopt` and `approve` now fold repeated low findings of one rule into a single line with a count, up to three `file:line` locations and one short
   evidence sample; every medium and higher finding is still listed on its own, with evidence cut to one line of the terminal width (by display width, so wide characters never wrap).
   A footer says when the view is a summary. `scan --all` lists every finding; `--json` and SARIF are unchanged.

@@ -666,42 +666,89 @@ func cmdApprove(c *ctx, args []string) error {
 
 func cmdAdopt(c *ctx, args []string) error {
 	fs := c.flags("adopt")
+	mode := fs.String("mode", "", "strict or auto (default: your setting; inside an agent only a stricter one than the setting is allowed)")
+	threshold := fs.Int("threshold", 0, "minimum safety score 1..10 for automatic approval (default: your setting; inside an agent it cannot be lower)")
+	rev := fs.Bool("review", false, "run an advisory review before scoring (sends the skill to a model provider)")
+	revHarness := fs.String("review-harness", "", "harness that runs the review (default: your saved choice)")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
 	}
-	if err := needArgs(pos, 1, "adopt NAME"); err != nil {
+	if err := needArgs(pos, 1, "adopt NAME [--review] [--mode M] [--threshold N]"); err != nil {
 		return err
 	}
 	if err := c.open(); err != nil {
 		return err
 	}
-	q, err := c.app.Adopt(c.ctx, pos[0])
+	o, err := c.app.AdoptAndApprove(c.ctx, pos[0], core.AdoptOpts{Mode: *mode, Threshold: *threshold, Review: *rev, ReviewOpts: core.ReviewOpts{Harness: *revHarness}})
 	if err != nil {
 		return err
 	}
+	q := o.Q
 	if c.json {
-		return c.printJSON(map[string]any{"name": q.Name, "content_hash": q.Hash, "upstream_hash": q.Meta.UpstreamHash, "no_changes": q.NoChanges, "baseline_warning": q.BaselineWarning, "report": q.Report})
+		m := map[string]any{
+			"name": o.Name, "content_hash": o.Hash, "upstream_hash": q.Meta.UpstreamHash, "mode": o.Mode, "decision": o.Decision,
+			"no_changes": q.NoChanges, "baseline_warning": q.BaselineWarning, "report": q.Report, "scan": q.Report,
+			"reasons": o.Reasons, "notes": o.Notes, "installs_refreshed": o.Refreshed, "installs_stale": o.Stale,
+		}
+		if o.Decision != core.DecisionNoChanges {
+			m["score"] = o.Safety
+		}
+		if o.Review != nil {
+			m["review"] = o.Review
+		}
+		return c.printJSON(m)
 	}
 	st := c.style(false)
 	if q.NoChanges {
 		c.printf("%s no changes: the working copy of %q is identical to the approved version\n  %s\n", st.Yellow("●"), q.Name, st.Dim("(it is still open: edit "+c.app.Home.QuarantineSkill(q.Name)+" or discard it with `skigard reject "+q.Name+"`)"))
 		return nil
 	}
-	verb := "finalized your edit of"
-	if q.Meta.InPlace {
-		verb = "staged your local edits of"
+	if o.Decision != core.DecisionAdopted {
+		verb := "finalized your edit of"
+		if q.Meta.InPlace {
+			verb = "staged your local edits of"
+		}
+		c.printf("%s %s %q in quarantine\n  %s\n", st.Green("✔"), verb, q.Name, st.Dim("(skills/, the lock and installs are unchanged)"))
 	}
-	c.printf("%s %s %q in quarantine\n  %s\n", st.Green("✔"), verb, q.Name, st.Dim("(skills/, the lock and installs are unchanged)"))
 	c.writeScan(q.Report)
 	if q.BaselineWarning != "" {
 		c.printf("%s no comparison is available for this in-place edit: %s\n  `skigard diff` and the approve screen cannot show what changed; read every file in quarantine.\n", st.Yellow("●"), q.BaselineWarning)
 	}
+	if o.Review != nil {
+		c.printf("review: %s %s\n", verdictStyle(st, o.Review.Verdict), st.Dim("(advisory)"))
+	}
+	c.printf("\n")
+	sf := o.Safety
+	sf.Score, sf.Reasons = o.Score, o.Reasons
+	scan.WriteScore(c.out, st, sf, o.Mode)
+	if o.Decision == core.DecisionAdopted {
+		c.printf("\n%s approved automatically (recorded in the lock as mode = auto)\n", st.Green("✔"))
+		for _, p := range o.Refreshed {
+			c.printf("  %s %s %s\n", st.Green("refreshed"), util.Clean(p), st.Dim("(symlink to skills/; shows the new version)"))
+		}
+		for _, p := range o.Stale {
+			c.printf("  %s %s %s\n", st.Yellow("stale"), util.Clean(p), st.Dim("(copy install)"))
+		}
+		if len(o.Stale) > 0 {
+			fmt.Fprintf(c.errw, "%s copy installs of %q still hold the old version; run `skigard sync`\n", st.Yellow("note:"), q.Name)
+		} else if len(o.Refreshed) > 0 {
+			fmt.Fprintf(c.errw, "%s run `skigard sync` to update the install records of %q\n", st.Yellow("note:"), q.Name)
+		}
+		c.printf("\n")
+		return nil
+	}
+	c.printf("\n")
 	against := "your edits vs the approved version"
 	if q.Meta.InPlace {
 		against = "your edits vs the original upstream"
 	}
-	c.nextSteps("\n", "",
+	if o.Decision == core.DecisionWarned {
+		c.printf("%s %q was NOT approved; it is still in quarantine.\n", st.Tag("33", "WARNING"), q.Name)
+	} else {
+		c.printf("%s %q is in quarantine and waiting for a human.\n", st.Yellow("●"), q.Name)
+	}
+	c.nextSteps("", "",
 		fmt.Sprintf("skigard diff %s   (%s)", q.Name, against),
 		fmt.Sprintf("skigard review %s   (optional)", q.Name),
 		fmt.Sprintf("skigard approve %s  (in a real terminal)", q.Name))
@@ -733,8 +780,8 @@ func cmdEdit(c *ctx, args []string) error {
 	c.nextSteps("\n", "",
 		fmt.Sprintf("edit the files in %s", util.Clean(dir)),
 		fmt.Sprintf("skigard diff %s     (see your changes)", q.Name),
-		fmt.Sprintf("skigard adopt %s    (finalize: hash and scan the edit)", q.Name),
-		fmt.Sprintf("skigard approve %s  (in a real terminal)", q.Name))
+		fmt.Sprintf("skigard adopt %s    (finalize; approves automatically when your mode and threshold allow)", q.Name),
+		fmt.Sprintf("skigard approve %s  (in a real terminal, if adopt left it staged)", q.Name))
 	return nil
 }
 
