@@ -363,3 +363,21 @@ func TestConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestMergeNeedsAFlagWithoutTerminal(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "h")
+	code, _, errs := run(t, home, "merge", "demo")
+	if code != util.ExitUsage || !strings.Contains(errs, "--pick") || !strings.Contains(errs, "--with") {
+		t.Fatalf("%d %s", code, errs)
+	}
+	if code, _, errs := run(t, home, "merge", "demo", "--pick", "--with", "pi"); code != util.ExitUsage || !strings.Contains(errs, "one of") {
+		t.Fatalf("%d %s", code, errs)
+	}
+	if code, _, errs := run(t, home, "merge", "demo", "--note", "x"); code != util.ExitUsage || !strings.Contains(errs, "--with") {
+		t.Fatalf("%d %s", code, errs)
+	}
+	// A named skill that is not approved is refused before anything runs.
+	if code, _, errs := run(t, home, "merge", "demo", "--with", "pi"); code == 0 || errs == "" {
+		t.Fatalf("%d %s", code, errs)
+	}
+}

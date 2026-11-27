@@ -97,7 +97,9 @@ Use "fail" when anything is clearly malicious or unsafe, "concerns" when somethi
 
 // Input is the material handed to the reviewer.
 type Input struct {
-	Prompt     string
+	Prompt string
+	// System replaces SystemPrompt for this run (the merge mode). Empty means the reviewer prompt.
+	System     string
 	Included   []string
 	Skipped    []string
 	PromptHash string
@@ -436,7 +438,11 @@ func (r Runner) Run(ctx context.Context, t Template, model string, in *Input) (s
 	for _, k := range t.TmpEnv {
 		env = append(env, k+"="+work)
 	}
-	argv := t.Args(SystemPrompt, model)
+	system := SystemPrompt
+	if in.System != "" {
+		system = in.System
+	}
+	argv := t.Args(system, model)
 	iso := Isolation{Mode: IsoPolicyOnly, Note: "no OS-level filesystem or network isolation"}
 	cmdPath := path
 	if !r.NoOSSandbox {
@@ -463,7 +469,7 @@ func (r Runner) Run(ctx context.Context, t Template, model string, in *Input) (s
 	cmd.Env = env
 	stdin := in.Prompt
 	if t.SystemInStdin {
-		stdin = SystemPrompt + "\n\n" + stdin
+		stdin = system + "\n\n" + stdin
 	}
 	cmd.Stdin = strings.NewReader(stdin)
 	var stdout, stderr limitedBuffer

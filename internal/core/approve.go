@@ -290,6 +290,12 @@ func (a *App) summary(meta *store.Meta, rep *scan.Report, rev *review.Record, st
 	if d.None {
 		b.WriteString("NO COMPARISON  this is your in-place edit of an approved skill and the original upstream could not be rebuilt (see `skigard adopt`); read every file in quarantine before you approve\n")
 	}
+	if n := mergeNote(meta); n != "" {
+		fmt.Fprintf(&b, "  merge:   %s\n", util.Clean(n))
+	}
+	if meta.MergeMode == MergeAgent {
+		b.WriteString("WARNING  the merge agent's output is untrusted; read the diff against skills/ below\n")
+	}
 	scan.WriteText(&b, rep)
 	fmt.Fprintf(&b, "safety score: %d/10 (%s; threshold %d): %s\n", sf.Score, sf.Tier, sf.Threshold, strings.Join(sf.Reasons, "; "))
 	switch {

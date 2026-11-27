@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"sort"
@@ -736,6 +737,91 @@ func cmdEdit(c *ctx, args []string) error {
 	return nil
 }
 
+func cmdMerge(c *ctx, args []string) error {
+	fs := c.flags("merge")
+	pick := fs.Bool("pick", false, "choose hunk by hunk in your terminal what to take from upstream (default for every hunk: keep mine)")
+	with := fs.String("with", "", "have this harness (a reviewer template id: claude-code, pi, omp) merge, confined like a reviewer")
+	note := fs.String("note", "", "guidance for the merge agent, for example \"use mise run playwright\" (sent to the agent; max 2000 bytes)")
+	model := fs.String("model", "", "model for the merge agent, if it supports --model")
+	policyOnly := fs.Bool("allow-policy-only", false, "if no OS sandbox works here, run the merge agent isolated by policy only (same meaning as for review; has no effect on approval)")
+	pos, err := parse(fs, args)
+	if err != nil {
+		return err
+	}
+	if err := needArgs(pos, 1, "merge NAME [--pick | --with HARNESS] [--note TEXT]"); err != nil {
+		return err
+	}
+	if *pick && *with != "" {
+		return util.Errf("choose one of --pick and --with")
+	}
+	if *note != "" && *with == "" {
+		return util.Errf("--note is for the merge agent; use it with --with HARNESS")
+	}
+	if err := c.open(); err != nil {
+		return err
+	}
+	name := pos[0]
+	if !*pick && *with == "" {
+		if !stdinIsTerminal() || c.json || c.out != io.Writer(os.Stdout) {
+			return util.Errf("choose how to merge: --pick (you choose hunk by hunk) or --with HARNESS (an agent merges, then you review and approve)")
+		}
+		switch strings.ToLower(ask("merge by [p]ick hunks yourself or with an [a]gent? [p/a]: ")) {
+		case "p", "pick":
+			*pick = true
+		case "a", "agent":
+			rv, err := c.app.Reviewers()
+			if err != nil {
+				return err
+			}
+			if *with, err = pickReviewer(c, rv); err != nil {
+				return err
+			}
+		default:
+			return util.Cancelled("no merge mode chosen")
+		}
+	}
+	var m *core.Merged
+	if *pick {
+		ch, closeFn, err := ttyChooser(c.style(false))
+		if err != nil {
+			return err
+		}
+		defer closeFn()
+		if m, err = c.app.PickMerge(name, ch); err != nil {
+			return err
+		}
+	} else {
+		iso, isoErr := review.SandboxStatus()
+		if isoErr != nil {
+			fmt.Fprintf(c.errw, "note: no OS sandbox is available here (%s)\n", util.OneLine(isoErr.Error(), 200))
+		}
+		fmt.Fprintf(c.errw, "merging %q with %s (tools disabled, isolation: %s). This sends your local copy, the new upstream version and your note to its model provider, and uses your own %s plan/credits once.\n", name, *with, iso.Mode, *with)
+		if m, err = c.app.AgentMerge(c.ctx, name, core.MergeOpts{Harness: *with, Model: *model, Note: *note, AllowPolicyOnly: *policyOnly}); err != nil {
+			return err
+		}
+	}
+	if c.json {
+		return c.printJSON(map[string]any{"name": m.Name, "mode": m.Mode, "merged_by": m.Meta.MergedBy, "isolation": m.Isolation.Mode,
+			"content_hash": m.Hash, "upstream_hash": m.Meta.UpstreamHash, "report": m.Report})
+	}
+	printMerged(c, m)
+	return nil
+}
+
+// printMerged is the human summary of a staged merge.
+func printMerged(c *ctx, m *core.Merged) {
+	how := "your picks"
+	if m.Mode == core.MergeAgent {
+		how = fmt.Sprintf("agent %s (isolation: %s)", util.Clean(m.Meta.MergedBy), m.Isolation.Mode)
+	}
+	c.printf("%s staged the merge of %q from %s in quarantine\n  %s\n", c.style(false).Green("✔"), m.Name, how, c.style(false).Dim("(skills/, the lock and installs are unchanged)"))
+	c.writeScan(m.Report)
+	c.nextSteps("\n", "",
+		fmt.Sprintf("skigard diff %s   (your current copy vs the merge)", m.Name),
+		fmt.Sprintf("skigard review %s   (optional)", m.Name),
+		fmt.Sprintf("skigard approve %s  (in a real terminal)", m.Name))
+}
+
 func cmdReject(c *ctx, args []string) error {
 	fs := c.flags("reject")
 	pos, err := parse(fs, args)
@@ -968,6 +1054,9 @@ func cmdList(c *ctx, args []string) error {
 		}
 		if e.Drift {
 			flags += " [DRIFT]"
+		}
+		if e.Merge != "" {
+			flags += " [merged: " + util.Clean(e.Merge) + "]"
 		}
 		score := "-"
 		if e.Score > 0 {

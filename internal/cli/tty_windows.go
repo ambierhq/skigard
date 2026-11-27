@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"io"
 	"os"
 	"syscall"
 )
@@ -50,4 +51,18 @@ func ttyConfirm(summary, want string) error {
 func stdinIsTerminal() bool {
 	var mode uint32
 	return syscall.GetConsoleMode(syscall.Handle(os.Stdin.Fd()), &mode) == nil
+}
+
+// openTerminal opens the console for prompts that must come from a human.
+func openTerminal() (io.Reader, io.Writer, func(), error) {
+	in, err := openConsole("CONIN$")
+	if err != nil {
+		return nil, nil, nil, noTerminal("no console found")
+	}
+	out, err := openConsole("CONOUT$")
+	if err != nil {
+		in.Close()
+		return nil, nil, nil, noTerminal("no console found")
+	}
+	return in, out, func() { in.Close(); out.Close() }, nil
 }

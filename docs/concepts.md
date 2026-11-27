@@ -122,6 +122,17 @@ that no comparison is available and you must read the files yourself.
 
 An approved skill is recorded as `mode = "local"` with an `upstream_hash` (see [lockfile](lockfile.md)).
 
+### Keeping your local changes
+
+When `update` later finds a new upstream version, it goes to quarantine and is never auto-approved over your edits. `skigard merge NAME` brings the new upstream changes into your copy:
+
+- `--pick`: you choose hunk by hunk in your terminal (default: keep mine). Humans only; refused inside a detected agent.
+- `--with HARNESS [--note TEXT]`: a coding agent merges, confined exactly like a reviewer (tools and MCP off, empty cwd, scrubbed env, OS sandbox; the isolation is printed).
+
+Both only write the merged tree into quarantine (the pristine upstream hash is kept for `upstream_hash`); then the normal scan, score, optional review and a human `approve` apply.
+`merge` never installs, never touches `skills/` or the lock, and is never part of `auto` mode. Merging is two-way (your copy against the new upstream; no stored base), so
+review the result with `skigard diff NAME`. Walkthrough: [getting started](getting-started.md#keep-your-local-changes).
+
 ## Harness
 
 An agent product with a skills directory (`~/.claude/skills`, `~/.agents/skills` and so on). skigard keeps a registry of

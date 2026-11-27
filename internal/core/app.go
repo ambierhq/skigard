@@ -21,10 +21,12 @@ import (
 
 // App holds everything a workflow needs, so tests can substitute any of it.
 type App struct {
-	Home          store.Home
-	Env           harness.Env
-	Fetcher       *source.Fetcher
-	Runner        review.Runner
+	Home    store.Home
+	Env     harness.Env
+	Fetcher *source.Fetcher
+	Runner  review.Runner
+	// MergeRunner runs the merge agent; nil uses Runner. Tests inject a fake so no real agent runs.
+	MergeRunner   AgentRunner
 	Out, Err      io.Writer
 	Version       string
 	User          string

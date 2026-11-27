@@ -42,6 +42,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `update` knows about local edits: it compares upstream with the pinned baseline, reports `up to date (local fork)` and unadopted edits, and when upstream changed
   it puts the new version in quarantine for `skigard diff NAME` (your copy against the new upstream) and never auto-approves it, even in `auto` mode
   (`local_changes` in `--json`). The approval screen warns when approving replaces local edits.
+- **`skigard merge NAME [--pick | --with HARNESS] [--note TEXT]`** brings a new upstream version (from `update`) into your locally edited copy. `--pick` is an interactive hunk
+  picker on `/dev/tty` (default keep mine; humans only). `--with HARNESS` has a verified reviewer-template harness do the merge with the same confinement as `review`
+  (tools and MCP off, empty cwd, scrubbed env, OS sandbox; `--allow-policy-only` as for review) and a strict, hand-parsed output format; invalid output stages nothing. Either way
+  only quarantine changes: the result is scanned, scored and approved by a human like anything else (recorded `local`, with `upstream_hash` from the pristine upstream). The quarantine metadata
+  records `merge_mode`, `merged_by` and `merge_isolation` (additive), shown on the `approve` screen, in `list` and in `show`. `internal/diff` gained a hunk API.
 
 ## [0.3.0] - 2026-11-27
 

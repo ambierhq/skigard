@@ -54,6 +54,7 @@ func init() {
 		{"approve", "NAME", "HUMAN ONLY: approve a quarantined skill", cmdApprove},
 		{"edit", "NAME", "copy an approved skill into quarantine as an editable working copy (skills/ stays untouched)", cmdEdit},
 		{"adopt", "NAME", "finalize your edit of an approved skill (from `edit`, or made in place) for review and approval", cmdAdopt},
+		{"merge", "NAME [--pick | --with HARNESS] [--note TEXT]", "merge the new upstream version of an edited skill into your local copy (staged in quarantine)", cmdMerge},
 		{"reject", "NAME", "delete a quarantined skill", cmdReject},
 		{"update", "[NAME...]", "re-fetch approved skills; changes go to quarantine", cmdUpdate},
 		{"install", "NAME... | --plugin P", "install approved skills into harnesses", cmdInstall},

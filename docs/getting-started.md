@@ -69,6 +69,30 @@ This takes about a minute and ends with a skill pinned in your lockfile and inst
 
    `verify` re-checks the lockfile, the approved store, the installs and, if you built one, the marketplace. It exits 1 on any drift. Run it in [CI](ci.md).
 
+## Keep your local changes
+
+Example: you adopted Microsoft's `playwright-cli` skill and edited it so it runs Playwright through your project's mise setup.
+
+```sh
+skigard add github:microsoft/playwright-cli --skill playwright-cli   # approve as usual
+skigard edit playwright-cli                                          # prints the working copy's path; skills/ stays read-only and untouched
+$EDITOR <that path>/SKILL.md                                         # run playwright via `mise run playwright`
+skigard adopt playwright-cli                                         # finalize and scan the edit
+skigard diff playwright-cli                                          # your edit vs the approved version
+skigard approve playwright-cli                                       # your edits are now a recorded local fork
+
+skigard update playwright-cli     # upstream changed: new version waits in quarantine, your copy is untouched
+skigard diff playwright-cli       # your copy vs the new upstream
+skigard merge playwright-cli --with claude-code --note "use mise run playwright"
+skigard diff playwright-cli       # now: your current copy vs the merged result. Read it.
+skigard review playwright-cli     # optional second opinion
+skigard approve playwright-cli    # human, real terminal; the summary says it was merged and by whom
+```
+
+Use `skigard merge playwright-cli --pick` instead to choose hunk by hunk yourself (nothing is sent anywhere). The merge agent sees your copy, the new upstream and your note
+(this leaves your machine like a review does), its output is treated as untrusted and scanned, and an invalid answer stages nothing. `skigard reject playwright-cli` drops a merge you do not like;
+run `skigard update playwright-cli` again to fetch upstream again.
+
 ## Where things are
 
 Everything lives under `~/.config/skigard` (`%APPDATA%\skigard` on Windows), or wherever `SKIGARD_HOME` points. Keep it in a private git

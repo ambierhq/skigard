@@ -32,6 +32,7 @@ Usage: `skigard COMMAND [ARGS]`. Flags may come before or after positional argum
 - [`approve`](#skigard-approve): HUMAN ONLY: approve a quarantined skill
 - [`edit`](#skigard-edit): copy an approved skill into quarantine as an editable working copy (skills/ stays untouched)
 - [`adopt`](#skigard-adopt): finalize your edit of an approved skill (from `edit`, or made in place) for review and approval
+- [`merge`](#skigard-merge): merge the new upstream version of an edited skill into your local copy (staged in quarantine)
 - [`reject`](#skigard-reject): delete a quarantined skill
 - [`update`](#skigard-update): re-fetch approved skills; changes go to quarantine
 - [`install`](#skigard-install): install approved skills into harnesses
@@ -181,6 +182,22 @@ Finalize your edit of an approved skill (from `edit`, or made in place) for revi
 ```
 skigard adopt NAME
 ```
+
+## skigard merge
+
+Merge the new upstream version of an edited skill into your local copy (staged in quarantine).
+
+```
+skigard merge NAME [--pick | --with HARNESS] [--note TEXT]
+```
+
+| Flag | Description |
+|---|---|
+| `--allow-policy-only` | if no OS sandbox works here, run the merge agent isolated by policy only (same meaning as for review; has no effect on approval) |
+| `--model STRING` | model for the merge agent, if it supports --model |
+| `--note STRING` | guidance for the merge agent, for example "use mise run playwright" (sent to the agent; max 2000 bytes) |
+| `--pick` | choose hunk by hunk in your terminal what to take from upstream (default for every hunk: keep mine) |
+| `--with STRING` | have this harness (a reviewer template id: claude-code, pi, omp) merge, confined like a reviewer |
 
 ## skigard reject
 
