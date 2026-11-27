@@ -57,7 +57,7 @@ func init() {
 		{"install", "NAME... | --plugin P", "install approved skills into harnesses", cmdInstall},
 		{"uninstall", "[NAME...]", "remove skills installed by skigard", cmdUninstall},
 		{"sync", "", "install every approved skill into the default harnesses", cmdSync},
-		{"config", "get [KEY] | set KEY VALUE", "read or change mode, threshold and auto_review (set of mode/threshold is human only)", cmdConfig},
+		{"config", "get [KEY] | set KEY VALUE", "read or change mode, threshold, auto_review and review_harness (set of mode/threshold is human only)", cmdConfig},
 		{"verify", "[--strict] [--require-human]", "check lock, store, installs and marketplace (CI-friendly)", cmdVerify},
 		{"lock", "upgrade [NAME...]", "upgrade lock entries to hash version 2 (only if the old hash still matches)", cmdLock},
 		{"init-ci", "[--version X.Y.Z] [--action-sha SHA]", "write a GitHub workflow that runs skigard verify", cmdInitCI},

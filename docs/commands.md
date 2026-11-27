@@ -35,7 +35,7 @@ Usage: `skigard COMMAND [ARGS]`. Flags may come before or after positional argum
 - [`install`](#skigard-install): install approved skills into harnesses
 - [`uninstall`](#skigard-uninstall): remove skills installed by skigard
 - [`sync`](#skigard-sync): install every approved skill into the default harnesses
-- [`config`](#skigard-config): read or change mode, threshold and auto_review (set of mode/threshold is human only)
+- [`config`](#skigard-config): read or change mode, threshold, auto_review and review_harness (set of mode/threshold is human only)
 - [`verify`](#skigard-verify): check lock, store, installs and marketplace (CI-friendly)
 - [`lock`](#skigard-lock): upgrade lock entries to hash version 2 (only if the old hash still matches)
 - [`init-ci`](#skigard-init-ci): write a GitHub workflow that runs skigard verify
@@ -224,7 +224,7 @@ skigard sync
 
 ## skigard config
 
-Read or change mode, threshold and auto_review (set of mode/threshold is human only).
+Read or change mode, threshold, auto_review and review_harness (set of mode/threshold is human only).
 
 ```
 skigard config get [KEY] | set KEY VALUE
