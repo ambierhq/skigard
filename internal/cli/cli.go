@@ -14,7 +14,9 @@ import (
 	"strings"
 
 	"github.com/ambierhq/skigard/internal/core"
+	"github.com/ambierhq/skigard/internal/scan"
 	"github.com/ambierhq/skigard/internal/store"
+	"github.com/ambierhq/skigard/internal/term"
 	"github.com/ambierhq/skigard/internal/util"
 )
 
@@ -55,7 +57,7 @@ func init() {
 		{"install", "NAME... | --plugin P", "install approved skills into harnesses", cmdInstall},
 		{"uninstall", "[NAME...]", "remove skills installed by skigard", cmdUninstall},
 		{"sync", "", "install every approved skill into the default harnesses", cmdSync},
-		{"config", "get [KEY] | set KEY VALUE", "read or change mode, threshold and auto_review (set of mode/threshold is human only)", cmdConfig},
+		{"config", "get [KEY] | set KEY VALUE", "read or change mode, threshold, auto_review and review_harness (set of mode/threshold is human only)", cmdConfig},
 		{"verify", "[--strict] [--require-human]", "check lock, store, installs and marketplace (CI-friendly)", cmdVerify},
 		{"lock", "upgrade [NAME...]", "upgrade lock entries to hash version 2 (only if the old hash still matches)", cmdLock},
 		{"init-ci", "[--version X.Y.Z] [--action-sha SHA]", "write a GitHub workflow that runs skigard verify", cmdInitCI},
@@ -64,6 +66,7 @@ func init() {
 		{"status", "", "summary of this home", cmdStatus},
 		{"doctor", "", "check the environment", cmdDoctor},
 		{"stats", "--tokens", "estimate the context cost of approved skills", cmdStats},
+		{"allow", "add SOURCE|SKILL RULE... --reason R | list | remove SOURCE [RULE...]", "HUMAN ONLY: stop reporting medium/low scanner rules for one source", cmdAllow},
 		{"plugin", "create|delete|add|remove|show|list", "manage plugins (groups of approved skills)", cmdPlugin},
 		{"marketplace", "build|check", "generate or check the Claude/OMP marketplace", cmdMarketplace},
 		{"harness", "list|add", "inspect or extend the harness registry", cmdHarness},
@@ -151,16 +154,48 @@ func (c *ctx) open() error {
 		return err
 	}
 	c.app = core.New(h, Version, c.out, c.errw)
+	if !c.json && c.errw == io.Writer(os.Stderr) && term.StderrIsTerminal(os.Getenv) {
+		c.app.ReviewProgress = c.reviewProgress
+	}
 	if testAppHook != nil {
 		testAppHook(c.app)
 	}
 	return nil
 }
 
+// reviewProgress shows a spinner with the elapsed time while a reviewer runs,
+// so a slow model call is visibly alive. It writes to stderr only.
+func (c *ctx) reviewProgress(skill, harness string) func() {
+	label := fmt.Sprintf("reviewing %s with %s (this can take a minute or two)", util.Clean(skill), util.Clean(harness))
+	sp := term.StartSpinner(c.errw, label)
+	return func() {
+		took := sp.Stop()
+		fmt.Fprintf(c.errw, "review finished in %s\n", term.Elapsed(took))
+	}
+}
+
 func (c *ctx) printJSON(v any) error {
 	enc := json.NewEncoder(c.out)
 	enc.SetIndent("", "  ")
 	return enc.Encode(v)
+}
+
+// style is the output style for human-readable text: colours only on a real
+// terminal, never with --json, --plain or NO_COLOR, so pipes and files stay plain.
+func (c *ctx) style(plain bool) term.Style {
+	if plain || c.json || c.out != io.Writer(os.Stdout) {
+		return term.Style{}
+	}
+	return term.Style{On: term.Enabled(os.Stdout, os.Getenv)}
+}
+
+// writeScan prints a scan report, styled on a terminal and as plain text otherwise.
+func (c *ctx) writeScan(r *scan.Report) {
+	if st := c.style(false); st.On {
+		scan.WriteStyled(c.out, r, st)
+		return
+	}
+	scan.WriteText(c.out, r)
 }
 
 func (c *ctx) printf(format string, args ...any) { fmt.Fprintf(c.out, format, args...) }

@@ -4,7 +4,7 @@ import "fmt"
 
 // ScoreVersion changes whenever the scoring formula changes. It is recorded in
 // the lock next to each score.
-const ScoreVersion = "1"
+const ScoreVersion = "2"
 
 // DefaultThreshold is the score at or above which a skill counts as "ok".
 const DefaultThreshold = 7
@@ -64,7 +64,7 @@ func Score(rep *Report, reviewVerdict string) Safety {
 	}
 	score := 10 - (risk+11)/12
 	if risk > 0 {
-		s.Reasons = append(s.Reasons, fmt.Sprintf("scanner risk %d/100", risk))
+		s.Reasons = append(s.Reasons, fmt.Sprintf("scanner risk %d/100 (higher is riskier)", risk))
 	}
 	capTo := func(max int, why string) {
 		if score > max {

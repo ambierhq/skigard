@@ -159,13 +159,15 @@ func (a *App) decide(ctx context.Context, q *Quarantined, man *store.Manifest, m
 	name := q.Name
 	oc := AddOutcome{Name: name, Hash: q.Hash, Mode: mode, Report: q.Report}
 	var reviewNote string
-	if o.Review || man.Settings.AutoReview {
+	if o.Review || man.Settings.EffectiveAutoReview() {
 		ro := o.ReviewOpts
 		if ro.Harness == "" {
-			ro.Harness = man.Settings.ReviewHarness
+			ro.Harness = a.DefaultReviewHarness(man.Settings)
 		}
 		if ro.Harness == "" {
-			reviewNote = "review did not run: no reviewer harness set (use --review-harness or `skigard config`)"
+			if o.Review || man.Settings.AutoReview != nil {
+				reviewNote = "review did not run: no reviewer harness set (use --review-harness or `skigard config`)"
+			}
 		} else if _, err := a.Review(ctx, name, ro); err != nil {
 			reviewNote = "review did not run: " + util.Clean(err.Error())
 		}
@@ -280,9 +282,11 @@ func (a *App) decide(ctx context.Context, q *Quarantined, man *store.Manifest, m
 func (a *App) updateAuto(ctx context.Context, man *store.Manifest, ls *store.LockSkill, q *Quarantined, r *UpdateResult) {
 	th := man.Settings.EffectiveThreshold()
 	var note []string
-	if man.Settings.AutoReview && man.Settings.ReviewHarness != "" {
-		if _, err := a.Review(ctx, ls.Name, ReviewOpts{Harness: man.Settings.ReviewHarness}); err != nil {
-			note = append(note, "review did not run: "+util.Clean(err.Error()))
+	if man.Settings.EffectiveAutoReview() {
+		if h := a.DefaultReviewHarness(man.Settings); h != "" {
+			if _, err := a.Review(ctx, ls.Name, ReviewOpts{Harness: h}); err != nil {
+				note = append(note, "review did not run: "+util.Clean(err.Error()))
+			}
 		}
 	}
 	meta, dir, err := a.loadQuarantined(ls.Name)

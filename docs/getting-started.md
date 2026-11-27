@@ -31,12 +31,15 @@ This takes about a minute and ends with a skill pinned in your lockfile and inst
    Want a human to confirm every time? `skigard config set mode strict` (or `add --mode strict`). Want the old fetch-and-scan-only behaviour? `add --quarantine-only`.
    See [concepts](concepts.md#score-mode-and-threshold). The steps below are what to do when a skill stays in quarantine.
 
-4. **Optional: get a second opinion.** An agent you already use reads the skill with its tools off. It is advisory and can only add doubt.
+4. **Get a second opinion.** `add` already asks an agent you have (the first detected, verified one) to read the skill with its tools off, unless you ran `skigard config set auto_review false`. That sends the skill to that harness's model provider. It is advisory and can only add doubt. Run it by hand, or choose the harness, here.
    See [review](review.md). On Windows use `skigard review hello-skill --manual`.
 
    ```sh
    skigard review hello-skill
+   skigard config set review_harness pi   # pin a reviewer; `auto` goes back to the first detected one
    ```
+
+   While a reviewer runs, `add`, `update` and `review` show a spinner with the elapsed time on stderr (terminals only, not with `--json`). A default review that fails to run keeps the skill in quarantine: it is never auto-installed unreviewed.
 
 5. **Approve it, as a human, in a real terminal.** (Needed for a held-back skill, and always in `strict` mode.) You see the scan, the review and the diff against anything approved before, then type
    the skill's name. There is no `--yes`, no stdin path and no environment variable, and skigard refuses inside the agent harnesses it can detect. A process that creates its own pseudo-terminal can still type the answer, so the gate stops accidents and ordinary prompt injection, not a determined agent. Signed approvals (a key in your OS keychain or a passkey) are planned.
@@ -54,6 +57,8 @@ This takes about a minute and ends with a skill pinned in your lockfile and inst
    ```
 
    Big skills can have hundreds of findings. Read the verdict and the counts first, then open the files they point at.
+
+   **Noisy but trusted source?** If a source you trust keeps tripping the same `medium` or `low` rule, a human can stop it being reported with `skigard allow add SOURCE RULE... --reason "..."` (see `skigard allow list`, `skigard allow remove`). You confirm by typing `allow` at a terminal; an agent cannot do it, and `high` and `critical` rules can never be allowed. Suppressed findings are still counted in the scan output.
 
 6. **Install into every detected agent.** (Already done by `add` when the skill cleared the threshold; run it for skills you approved by hand.)
 

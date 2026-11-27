@@ -34,13 +34,13 @@
 - Nobody reviews them, and the agent that installs a skill is the same agent a bad skill can talk into installing more.
 - A prompt-injected agent can add skills on its own, so "the agent approved it" is not a control.
 
-skigard puts a check in front of that: **fetch to quarantine, scan, optional agent review, safety score, decision (auto-install or ask a human), hash-pinned lockfile, install.** It scores and warns; it does not claim to stop every attack (see the [threat model](docs/threat-model.md)).
+skigard puts a check in front of that: **fetch to quarantine, scan, agent review (on by default when a reviewer is installed), safety score, decision (auto-install or ask a human), hash-pinned lockfile, install.** It scores and warns; it does not claim to stop every attack (see the [threat model](docs/threat-model.md)).
 
 | Without skigard | With skigard |
 |---|---|
 | `git clone` or copy a skill straight into `~/.claude/skills` | Fetched as an archive into a private quarantine, never executed |
 | Whatever is on the branch today | Pinned to a commit and a SHA-256 content hash in `skigard.lock` |
-| You skim it, maybe | A deterministic scan, an optional agent review, and a diff against what you approved before |
+| You skim it, maybe | A deterministic scan, an agent review (on by default, advisory), and a diff against what you approved before |
 | An agent can install more skills | `approve`, `--force-install` and changing `mode`/`threshold` need a human at a terminal, and agents skigard can detect are refused. In `auto` mode an agent's `add` can still install skills that clear your threshold, and the lock records it |
 | A skill changes silently on update | Changes are re-scored; in `auto` mode only a skill that clears the threshold and does not score lower than before is installed, otherwise it goes back to quarantine with a diff |
 | Each agent has its own skills folder | Installs once into every detected harness (Claude Code, Pi, Codex, Cursor, Gemini CLI, OpenCode and 72 more of the 78 in the registry; only 3 are verified) |
@@ -114,7 +114,7 @@ skigard verify                                                         # CI-frie
 quarantine you get a warning with the reasons and the exact commands to continue (or use `--quarantine-only` to stop after the scan):
 
 ```sh
-skigard review hello-skill                                             # optional second opinion from pi / claude / omp (asks which)
+skigard review hello-skill                                             # second opinion from pi / claude / omp (asks which; `add` already ran it by default)
 skigard approve hello-skill                                            # in a real terminal: shows scan, review and diff; you type the name
 skigard install hello-skill                                            # link into every detected, verified harness
 ```
@@ -143,11 +143,11 @@ New machine: clone your home repository to `~/.config/skigard` and run `skigard 
 | `auto` (default) | If `score >= threshold` and there is no hard stop, approves and installs with no prompt. Otherwise the skill stays in quarantine with a warning, the reasons and the exact commands to continue. |
 | any mode + `--force-install` | Installs no matter what, recorded in the lock as `mode = "forced"`. Needs a human at a terminal: refused inside a detected agent. |
 
-The default threshold is `7`. Set them with `skigard config set mode strict`, `skigard config set threshold 8`, `skigard config set auto_review true`
-(`config get` reads them; `auto_review` is off by default because a review sends the skill to a model provider). `config set` of `mode` and `threshold` needs a human terminal and is refused in an agent.
+The default threshold is `7`. Set them with `skigard config set mode strict`, `skigard config set threshold 8`, `skigard config set auto_review false`
+(`config get` reads them; `auto_review` is on by default, so a review sends the skill to the model provider of the first detected verified reviewer harness; turn it off to stop that). `config set` of `mode` and `threshold` needs a human terminal and is refused in an agent.
 Inside an agent, `--mode` and `--threshold` may only make things stricter than the stored setting; a human may pass anything.
 
-The **safety score** runs from 1 to 10, where **10 means no concern**. It is a heuristic and is always printed with its reasons, never alone.
+The scanner prints a **risk** from 0 to 100 (**higher is riskier**); the **safety score** runs from 1 to 10, where **10 means no concern** (**higher is safer**). It is a heuristic and is always printed with its reasons, never alone.
 It starts from the scanner's risk score (`10 - ceil(risk / 12)`), then applies caps: a scanner `block` at most 3, incomplete coverage at most 6, a failing review at most 3, a review with concerns minus 2.
 A review can only lower the score. Tiers: `ok` (at or above the threshold), `caution`, `blocked`.
 
@@ -162,14 +162,17 @@ Settings live in the `[settings]` table of `skigard.toml` and are read and chang
 |---|---|---|---|
 | `mode` | `auto`, `strict` | `auto` | `auto` installs at or above the threshold; `strict` always asks a human |
 | `threshold` | `1` to `10` | `7` | minimum safety score for an automatic install |
-| `auto_review` | `true`, `false` | `false` | run the agent review on every `add` (sends the skill to a model provider) |
+| `auto_review` | `true`, `false` | `true` | run the agent review on every `add` and `update` with the saved `review_harness`, else the first detected verified reviewer (sends the skill to a model provider) |
+| `review_harness` | `auto` or a harness id (`claude-code`, `pi`, `omp`, ...) | `auto` | the reviewer: `auto` uses the first detected, verified one; `config get review_harness` shows what would run |
 
 ```sh
 skigard config get                      # show all settings
 skigard config set mode strict          # human approval for everything
 skigard config set threshold 8
-skigard config set auto_review true
+skigard config set auto_review false
 ```
+
+Output is coloured and tidied (tables, grouped scan findings, rendered `show`) only on a terminal. Pipes, files, `--json`, `--plain` (on `show` and `scan`) and `NO_COLOR` stay plain text, and everything from a skill is escaped first. While a reviewer runs on a terminal, a spinner with the elapsed time is drawn on stderr.
 
 Per run, `add` takes `--mode`, `--threshold`, `--review`, `--quarantine-only` and `--force-install` (human terminal only). `config set mode|threshold` also needs a human terminal.
 
@@ -179,16 +182,17 @@ Per run, `add` takes `--mode`, `--threshold`, `--review`, `--quarantine-only` an
 |---|---|
 | `init [--git]`, `detect [--all]` | create the home; list harnesses (`installed`, `configured`, `absent`) |
 | `add SOURCE [--skill N \| --all] [--mode M] [--threshold N] [--review] [--force-install] [--quarantine-only]` | fetch, scan, score and (per mode) install; `--quarantine-only` stops after the scan. `SOURCE`: `github:owner/repo[/path][@ref]`, `owner/repo`, a github.com URL, or a local path |
-| `scan NAME\|PATH [--format text\|json\|sarif] [--fail-on LEVEL]` | deterministic scan |
+| `scan NAME\|PATH [--format text\|json\|sarif] [--fail-on LEVEL] [--plain]` | deterministic scan; grouped and coloured on a terminal, `--plain` for the flat text |
 | `review NAME [--harness ID \| --manual]` | advisory agent review ([how it works](docs/review.md)) |
 | `diff NAME` | quarantined vs approved |
 | `approve NAME [--override --reason R] [--accept R]` | **human only** (records `mode = "human"`) |
-| `config get\|set mode\|threshold\|auto_review` | read or change settings; `set` of `mode`/`threshold` is human only |
+| `allow add SOURCE\|SKILL RULE... --reason R`, `allow list`, `allow remove SOURCE [RULE...]` | **human only**: stop reporting medium/low scanner rules for one source; high and critical are never hidden |
+| `config get\|set mode\|threshold\|auto_review\|review_harness` | read or change settings; `set` of `mode`/`threshold` is human only |
 | `reject NAME` | delete from quarantine |
 | `update [NAME...]` | re-fetch approved skills; changes go to quarantine |
 | `install NAME... [--to IDS] [--scope user\|project] [--copy]`, `uninstall`, `sync` | put approved skills into harnesses, remove them, or install everything approved |
 | `verify [--strict] [--require-human]` | lock, store, installs and marketplace agree (exit 1 if not); `--require-human` also fails on any `auto` or `forced` approval |
-| `list`, `show`, `status`, `doctor`, `stats --tokens` | inspect (`list`, `show` and `status` show approval mode and score) |
+| `list`, `show [--plain]`, `status`, `doctor`, `stats --tokens` | inspect (`list`, `show` and `status` show approval mode and score; `show` renders the Markdown on a terminal, `--plain` prints it raw) |
 | `plugin ...`, `marketplace build\|check` | group skills; generate a Claude Code / OMP marketplace |
 | `harness list\|add`, `rules` | the harness registry and the scanner rules |
 | `lock upgrade` | move older lock entries to hash v2, only where the old hash still matches |
@@ -200,7 +204,7 @@ Full reference: [docs/commands.md](docs/commands.md) (generated from the CLI).
 ### How skigard decides
 
 1. **Scan**: [37 rules](docs/rules.md) plus capability chains. Any `high`/`critical` finding is a **block**; `medium` or incomplete coverage is a **review**.
-2. **Review** (optional, `--review` or `auto_review`): an installed harness reads the files with tools off, inside an OS sandbox where one works. It can only add doubt and only lower the score.
+2. **Review** (on by default via `auto_review` when a verified reviewer harness is installed; `--review` forces it, `config set auto_review false` turns it off): an installed harness reads the files with tools off, inside an OS sandbox where one works. It can only add doubt and only lower the score.
 3. **Score** 1 to 10 with reasons. A `block` verdict or a failing review is a hard stop.
 4. **Decide**: `strict` asks you on `/dev/tty`; `auto` installs at or above the threshold with no hard stop and otherwise keeps the skill in quarantine. `--force-install` overrides, for a human only.
    With `approve`, you see the scan, the review and the diff, and type the skill name; a block or failing review needs `--override --reason "..."`, which is recorded forever.
@@ -236,7 +240,7 @@ No. The scanner is heuristic and a review can be fooled. A 10 means the rules fo
 
 <details><summary><b>Does an agent review replace reading the skill?</b></summary>
 
-No. It is a second opinion that can only raise concern. It is optional, and nothing else depends on it.
+No. It is a second opinion that can only raise concern. It runs on `add` and `update` by default but nothing else depends on it; `skigard config set auto_review false` turns it off.
 </details>
 
 <details><summary><b>Why can't my agent approve skills?</b></summary>
@@ -246,7 +250,7 @@ An injected agent installing more skills is the threat. `approve` reads the term
 
 <details><summary><b>Does it phone home?</b></summary>
 
-No telemetry and no update check. It talks to GitHub only when you `add` or `update`. `review` sends the skill to the provider of the harness you choose; use `--manual` to avoid that.
+No telemetry and no update check. It talks to GitHub only when you `add` or `update`. `review` (which `add` and `update` run by default, see `auto_review`) sends the skill to the provider of the reviewer harness; use `--manual`, or `skigard config set auto_review false`, to avoid that.
 </details>
 
 <details><summary><b>How is it different from vercel-labs/skills?</b></summary>

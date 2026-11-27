@@ -31,7 +31,7 @@ const cfToken = import.meta.env.CF_WEB_ANALYTICS_TOKEN;
 const steps = [
   ["Add", "One command. Fetch the skill into a private quarantine. Nothing from it is executed."],
   ["Scan", "Deterministic rules and capability chains. High and critical findings block."],
-  ["Review", "Optionally ask an agent you already use. It can only add doubt, never remove a finding."],
+  ["Review", "An agent you already use reads it with tools off (on by default, one setting turns it off). It can only add doubt, never remove a finding."],
   ["Score", "A safety score from 1 to 10, always with its reasons. Scanner blocks and failing reviews are hard stops."],
   ["Decide", "Auto mode installs at or above your threshold. Strict mode always asks you in a real terminal. Below the threshold the skill stays in quarantine until a human approves it, or forces the install, at a terminal."],
   ["Lock", "The decision is pinned to a content hash in skigard.lock, with its mode (human, auto or forced). Commit it."],

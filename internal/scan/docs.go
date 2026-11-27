@@ -16,7 +16,7 @@ func CatalogMarkdown() string {
 	fmt.Fprintf(&b, "Rules version `%s`. The scanner is deterministic and heuristic: it flags, a human decides. It never executes anything.\n\n", RulesVersion)
 	b.WriteString("Severity maps to a verdict: any `high` or `critical` finding gives **block**; `medium` (or incomplete coverage) gives **review**; otherwise **pass**.\n")
 	b.WriteString("In the prose of Markdown/text files (outside code fences) command-like mentions matching rules marked `(prose-low)` are downgraded to `low`.\n")
-	b.WriteString("Accepted findings (`approve --accept REASON`) can suppress `medium` and below, never `high` or `critical`.\n\n")
+	b.WriteString("Accepted findings (`approve --accept REASON`) and rules allowed for a source (`skigard allow`) can suppress `medium` and below, never `high` or `critical`.\n`risk` is 0 to 100 and **higher is riskier**: each rule counts once at the weight of its worst finding (critical 40, high 20, medium 5, low 1), plus a small bump when it matched in many places. The safety score on the other hand is 1 to 10 and higher is safer.\n\n")
 	b.WriteString("| ID | Name | Family | Severity | What it flags |\n|---|---|---|---|---|\n")
 	for _, r := range cat {
 		desc := r[4]

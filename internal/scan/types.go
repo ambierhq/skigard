@@ -52,7 +52,7 @@ const (
 const SchemaVersion = 1
 
 // RulesVersion changes whenever the rule set changes.
-const RulesVersion = "2026.3"
+const RulesVersion = "2026.4"
 
 // Finding is a single scanner signal.
 type Finding struct {
@@ -109,6 +109,10 @@ type Options struct {
 	Now         time.Time
 	// SkippedLinks are symlinks dropped while fetching (relative to the skill).
 	SkippedLinks []string
+	// AllowRules maps a rule ID to the reason a human allowed it for this
+	// skill's source (skigard allow). Like Accepted, it can only suppress
+	// medium and below, never high or critical.
+	AllowRules map[string]string
 }
 
 func findingKey(rule, file, evidence string) string {

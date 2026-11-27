@@ -2,11 +2,12 @@
 
 <!-- Generated from internal/scan. Run: go test ./internal/scan -run Docs -update -->
 
-Rules version `2026.3`. The scanner is deterministic and heuristic: it flags, a human decides. It never executes anything.
+Rules version `2026.4`. The scanner is deterministic and heuristic: it flags, a human decides. It never executes anything.
 
 Severity maps to a verdict: any `high` or `critical` finding gives **block**; `medium` (or incomplete coverage) gives **review**; otherwise **pass**.
 In the prose of Markdown/text files (outside code fences) command-like mentions matching rules marked `(prose-low)` are downgraded to `low`.
-Accepted findings (`approve --accept REASON`) can suppress `medium` and below, never `high` or `critical`.
+Accepted findings (`approve --accept REASON`) and rules allowed for a source (`skigard allow`) can suppress `medium` and below, never `high` or `critical`.
+`risk` is 0 to 100 and **higher is riskier**: each rule counts once at the weight of its worst finding (critical 40, high 20, medium 5, low 1), plus a small bump when it matched in many places. The safety score on the other hand is 1 to 10 and higher is safer.
 
 | ID | Name | Family | Severity | What it flags |
 |---|---|---|---|---|

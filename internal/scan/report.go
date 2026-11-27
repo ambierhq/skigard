@@ -17,7 +17,7 @@ func WriteText(w io.Writer, r *Report) {
 			scripts++
 		}
 	}
-	fmt.Fprintf(w, "scan: %s  coverage: %s  risk: %d/100  (%d files, %d scripts)\n",
+	fmt.Fprintf(w, "scan: %s  coverage: %s  risk: %d/100 (higher is riskier)  (%d files, %d scripts)\n",
 		strings.ToUpper(r.Verdict), r.Coverage, r.Risk, len(r.Files), scripts)
 	if r.Fingerprint != "" {
 		fmt.Fprintf(w, "content hash: %s\n", r.Fingerprint)

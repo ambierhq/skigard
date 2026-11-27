@@ -1,6 +1,6 @@
 # Shared look for every scene. Palette from assets/brand/tokens.env (@ACCENT@ is substituted by demo.sh).
 Set Shell "bash"
-Set FontSize 15
+Set FontSize 14
 Set FontFamily "Menlo"
 Set Width 1280
 Set Height 640

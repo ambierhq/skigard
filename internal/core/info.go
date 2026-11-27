@@ -76,8 +76,24 @@ func (a *App) List() ([]Entry, error) {
 
 // Show returns SKILL.md and the file list of a skill.
 func (a *App) Show(name string) (string, error) {
-	if err := util.CheckName(name); err != nil {
+	d, err := a.ShowDoc(name)
+	if err != nil {
 		return "", err
+	}
+	return fmt.Sprintf("%s: %s\nfiles: %s\n\n%s", d.Name, d.State, strings.Join(d.Files, ", "), d.Body), nil
+}
+
+// SkillDoc is a skill's SKILL.md and file list, with all text already cleaned for a terminal.
+type SkillDoc struct {
+	Name, State string
+	Files       []string
+	Body        string
+}
+
+// ShowDoc reads a skill (quarantine first, then approved) for display.
+func (a *App) ShowDoc(name string) (*SkillDoc, error) {
+	if err := util.CheckName(name); err != nil {
+		return nil, err
 	}
 	dir := a.Home.QuarantineSkill(name)
 	state := "quarantined (UNTRUSTED)"
@@ -85,7 +101,7 @@ func (a *App) Show(name string) (string, error) {
 		dir = a.Home.SkillDir(name)
 		state = "approved"
 		if !isDir(dir) {
-			return "", util.Errf("no skill named %q", name)
+			return nil, util.Errf("no skill named %q", name)
 		}
 		if lock, err := store.LoadLock(a.Home); err == nil {
 			if ls, ok := lock.Get(name); ok {
@@ -98,7 +114,7 @@ func (a *App) Show(name string) (string, error) {
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "SKILL.md"))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	var files []string
 	_ = filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
@@ -109,7 +125,10 @@ func (a *App) Show(name string) (string, error) {
 		return nil
 	})
 	sort.Strings(files)
-	return fmt.Sprintf("%s: %s\nfiles: %s\n\n%s", name, state, util.Clean(strings.Join(files, ", ")), util.Clean(string(data))), nil
+	for i := range files {
+		files[i] = util.Clean(files[i])
+	}
+	return &SkillDoc{Name: name, State: state, Files: files, Body: util.Clean(string(data))}, nil
 }
 
 // TokenRow is one skill's context cost.

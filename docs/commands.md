@@ -35,7 +35,7 @@ Usage: `skigard COMMAND [ARGS]`. Flags may come before or after positional argum
 - [`install`](#skigard-install): install approved skills into harnesses
 - [`uninstall`](#skigard-uninstall): remove skills installed by skigard
 - [`sync`](#skigard-sync): install every approved skill into the default harnesses
-- [`config`](#skigard-config): read or change mode, threshold and auto_review (set of mode/threshold is human only)
+- [`config`](#skigard-config): read or change mode, threshold, auto_review and review_harness (set of mode/threshold is human only)
 - [`verify`](#skigard-verify): check lock, store, installs and marketplace (CI-friendly)
 - [`lock`](#skigard-lock): upgrade lock entries to hash version 2 (only if the old hash still matches)
 - [`init-ci`](#skigard-init-ci): write a GitHub workflow that runs skigard verify
@@ -44,6 +44,7 @@ Usage: `skigard COMMAND [ARGS]`. Flags may come before or after positional argum
 - [`status`](#skigard-status): summary of this home
 - [`doctor`](#skigard-doctor): check the environment
 - [`stats`](#skigard-stats): estimate the context cost of approved skills
+- [`allow`](#skigard-allow): HUMAN ONLY: stop reporting medium/low scanner rules for one source
 - [`plugin`](#skigard-plugin): manage plugins (groups of approved skills)
 - [`marketplace`](#skigard-marketplace): generate or check the Claude/OMP marketplace
 - [`harness`](#skigard-harness): inspect or extend the harness registry
@@ -116,6 +117,7 @@ skigard scan NAME|PATH [--format text|json|sarif]
 | `--fail-on-incomplete` | exit 4 when scan coverage is incomplete |
 | `--format STRING` | text, json or sarif (default "text") |
 | `--output STRING` | write the report to a file |
+| `--plain` | text format: no colours and no grouping (the default when not on a terminal) |
 
 ## skigard review
 
@@ -222,7 +224,7 @@ skigard sync
 
 ## skigard config
 
-Read or change mode, threshold and auto_review (set of mode/threshold is human only).
+Read or change mode, threshold, auto_review and review_harness (set of mode/threshold is human only).
 
 ```
 skigard config get [KEY] | set KEY VALUE
@@ -279,6 +281,10 @@ Print a skill's SKILL.md and file list.
 skigard show NAME
 ```
 
+| Flag | Description |
+|---|---|
+| `--plain` | print the raw text, with no colours or Markdown rendering |
+
 ## skigard status
 
 Summary of this home.
@@ -306,6 +312,14 @@ skigard stats --tokens
 | Flag | Description |
 |---|---|
 | `--tokens` | estimate token cost of approved skills (default true) |
+
+## skigard allow
+
+HUMAN ONLY: stop reporting medium/low scanner rules for one source.
+
+```
+skigard allow add SOURCE|SKILL RULE... --reason R | list | remove SOURCE [RULE...]
+```
 
 ## skigard plugin
 
