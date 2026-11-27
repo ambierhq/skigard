@@ -1083,7 +1083,11 @@ func cmdVerify(c *ctx, args []string) error {
 			c.printf("%s %s\n", st.Level(fmt.Sprintf("%-5s", p.Level)), util.Clean(p.Msg))
 		}
 		if !bad {
-			c.printf("%s lock, store, installs and marketplace agree\n", st.Green("✔ ok"))
+			what := "lock, store and installs agree"
+			if fi, err := os.Stat(c.app.Home.MarketplaceDir()); err == nil && fi.IsDir() {
+				what = "lock, store, installs and marketplace agree"
+			}
+			c.printf("%s %s\n", st.Green("✔ ok"), what)
 		}
 	}
 	if bad {

@@ -28,6 +28,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `skigard verify` says "lock, store and installs agree" when no marketplace has been built, and names the marketplace only once `marketplace/` exists.
 - Declining the strict-mode prompt in `skigard add` no longer prints the cancellation twice (once in the "waiting for a human" block and again as the final `skigard: cancelled` line); other errors still show in the block.
 - The `approve` screen (also shown by a strict-mode `add`) is laid out like `add`: a bold title and an aligned key/value header (`source`, `commit`, `hash`, `replaces`, `merge`), one blank line
   between sections and before the prompt (it used to have none between sections and two after), the scan block indented and printed once (the hash was repeated), the `safety score:` line and

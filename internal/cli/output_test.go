@@ -385,3 +385,19 @@ func TestNeedsApprovalReportsCancelOnce(t *testing.T) {
 		t.Errorf("a non-cancel error should still be shown:\n%s", got)
 	}
 }
+
+// verify only claims the marketplace agrees once it has been built.
+func TestVerifyOKNamesTheMarketplaceOnlyWhenBuilt(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	home := filepath.Join(t.TempDir(), "h")
+	run(t, home, "init")
+	if code, out, errs := run(t, home, "verify"); code != 0 || !strings.Contains(out, "ok lock, store and installs agree") || strings.Contains(out, "marketplace") {
+		t.Fatalf("no marketplace: %d %q %q", code, out, errs)
+	}
+	if code, out, errs := run(t, home, "marketplace", "build"); code != 0 {
+		t.Fatalf("build: %d %q %q", code, out, errs)
+	}
+	if code, out, errs := run(t, home, "verify"); code != 0 || !strings.Contains(out, "lock, store, installs and marketplace agree") {
+		t.Fatalf("built: %d %q %q", code, out, errs)
+	}
+}
