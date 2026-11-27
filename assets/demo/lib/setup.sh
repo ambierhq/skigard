@@ -11,6 +11,8 @@ rm -rf "$SKIGARD_HOME"
 rm -rf "$DEMO_TMP/work"; mkdir -p "$DEMO_TMP/work"; cp -R "$DEMO_ROOT/assets/demo/fixtures/skills" "$DEMO_TMP/work/skills"
 cd "$DEMO_TMP/work"
 skigard init >/dev/null
+# The demo never calls a model provider: review is opt-in here (auto_review defaults to on, and no reviewer harness exists in this home).
+skigard config set auto_review false >/dev/null
 # `add` runs the real decision in auto mode (default): commit-helper is installed, free-tokens stays in quarantine.
 case "$1" in
   blocked)  skigard add skills --skill commit-helper >/dev/null ;;

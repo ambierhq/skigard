@@ -1,5 +1,5 @@
 {
-  "version": "dev+b9010dc",
+  "version": "dev+5e179c2",
   "lines": [
     {
       "t": "$ skigard add ./examples/hello-skill --quarantine-only",
@@ -10,7 +10,7 @@
       "c": "ok"
     },
     {
-      "t": "scan: PASS  coverage: complete  risk: 0/100  (1 files, 0 scripts)",
+      "t": "scan: PASS  coverage: complete  risk: 0/100 (higher is riskier)  (1 files, 0 scripts)",
       "c": "out"
     },
     {
@@ -38,7 +38,7 @@
       "c": "out"
     },
     {
-      "t": "scan: PASS  coverage: complete  risk: 0/100  (1 files, 0 scripts)",
+      "t": "scan: PASS  coverage: complete  risk: 0/100 (higher is riskier)  (1 files, 0 scripts)",
       "c": "out"
     },
     {
@@ -66,7 +66,7 @@
       "c": "warn"
     },
     {
-      "t": "approved \"hello-skill\" (9f4c343fd0b8)",
+      "t": "✔ approved \"hello-skill\" (9f4c343fd0b8)",
       "c": "ok"
     },
     {
@@ -74,11 +74,11 @@
       "c": "cmd"
     },
     {
-      "t": "installed hello-skill -> ~/.agents/skills/hello-skill (symlink; pi, omp)",
+      "t": "✔ installed hello-skill -> ~/.agents/skills/hello-skill (symlink; pi, omp)",
       "c": "ok"
     },
     {
-      "t": "installed hello-skill -> ~/.claude/skills/hello-skill (symlink; claude-code)",
+      "t": "✔ installed hello-skill -> ~/.claude/skills/hello-skill (symlink; claude-code)",
       "c": "ok"
     },
     {
@@ -90,7 +90,7 @@
       "c": "out"
     },
     {
-      "t": "ok: lock, store, installs and marketplace agree",
+      "t": "✔ ok lock, store, installs and marketplace agree",
       "c": "ok"
     }
   ]
