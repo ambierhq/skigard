@@ -321,7 +321,17 @@ func wrap(tok string, parts ...string) string {
 	return "=== SKIGARD MERGE " + tok + " BEGIN ===\n" + strings.Join(parts, "") + "=== SKIGARD MERGE " + tok + " END ===\n"
 }
 
+// skipNoAgent skips tests that go through AgentMerge: the merge agent is
+// unavailable on Windows and fails closed before any runner is used.
+func skipNoAgent(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("the merge agent is unavailable on Windows (fails closed)")
+	}
+}
+
 func TestAgentMergeValid(t *testing.T) {
+	skipNoAgent(t)
 	a := forkScenario(t)
 	q := a.Home.QuarantineSkill("alpha")
 	pristineV, _ := hash.DirVersion(q, hash.Version)
@@ -424,8 +434,16 @@ func TestAgentMergeRefusesBadOutput(t *testing.T) {
 			q := a.Home.QuarantineSkill("alpha")
 			pristine := dirHash(t, q)
 			metaBefore, _ := os.ReadFile(a.Home.MetaPath("alpha"))
-			a.MergeRunner = &fakeAgent{reply: reply}
-			if _, err := a.AgentMerge(context.Background(), "alpha", MergeOpts{Harness: "pi"}); err == nil || !strings.Contains(err.Error(), "merge output was invalid") {
+			var err error
+			if runtime.GOOS == "windows" {
+				// AgentMerge fails closed on Windows, so feed the same output
+				// to the parse/validate/stage step that follows the run.
+				err = finishFake(t, a, reply)
+			} else {
+				a.MergeRunner = &fakeAgent{reply: reply}
+				_, err = a.AgentMerge(context.Background(), "alpha", MergeOpts{Harness: "pi"})
+			}
+			if err == nil || !strings.Contains(err.Error(), "merge output was invalid") {
 				t.Fatalf("expected an invalid-output refusal, got %v", err)
 			}
 			if dirHash(t, q) != pristine {
@@ -442,6 +460,26 @@ func TestAgentMergeRefusesBadOutput(t *testing.T) {
 			}
 		})
 	}
+}
+
+// finishFake drives finishAgentMerge with a canned reply, as AgentMerge would
+// after its runner returned.
+func finishFake(t *testing.T, a *App, reply func(string) string) error {
+	t.Helper()
+	tpl, ok := review.TemplateFor("pi")
+	if !ok {
+		t.Fatal("no pi template")
+	}
+	src, changes, err := a.mergePrepare("alpha")
+	if err != nil {
+		t.Fatal(err)
+	}
+	in, err := review.BuildMergeInput(src.local, src.up, "alpha", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = a.finishAgentMerge("alpha", tpl, src, changes, in.Token, reply(in.Token), review.Isolation{Mode: review.IsoSeatbelt})
+	return err
 }
 
 func TestAgentMergeRunnerAndTemplateErrors(t *testing.T) {
@@ -464,6 +502,7 @@ func TestAgentMergeRunnerAndTemplateErrors(t *testing.T) {
 }
 
 func TestAgentMergePromptSeparatesNoteAndTrees(t *testing.T) {
+	skipNoAgent(t)
 	a := forkScenario(t)
 	local := a.Home.SkillDir("alpha")
 	os.WriteFile(filepath.Join(local, "notes.md"), []byte("LOCALMARKER-ZZ\n"), 0o644)

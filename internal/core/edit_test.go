@@ -110,8 +110,11 @@ func TestEditingWorkingCopyBlocksApproveReviewAndUpdate(t *testing.T) {
 	if util.CodeOf(err) != util.ExitPolicy || !strings.Contains(err.Error(), "still an editable working copy") || !strings.Contains(err.Error(), "skigard adopt alpha") {
 		t.Fatalf("approve: %v", err)
 	}
-	if _, err := a.Review(context.Background(), "alpha", ReviewOpts{Harness: "pi"}); err == nil || !strings.Contains(err.Error(), "editable working copy") {
-		t.Fatalf("review: %v", err)
+	// Windows refuses automated review before it looks at the skill (fail closed).
+	if runtime.GOOS != "windows" {
+		if _, err := a.Review(context.Background(), "alpha", ReviewOpts{Harness: "pi"}); err == nil || !strings.Contains(err.Error(), "editable working copy") {
+			t.Fatalf("review: %v", err)
+		}
 	}
 	if _, err := a.RecordManual("alpha", "pass", "ok", "me"); err == nil || !strings.Contains(err.Error(), "editable working copy") {
 		t.Fatalf("record: %v", err)

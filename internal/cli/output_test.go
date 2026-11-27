@@ -276,13 +276,23 @@ func TestAdoptAutoApprovedOutput(t *testing.T) {
 	home, _ := autoApproved(t)
 	appendTo(t, filepath.Join(home, "skills", "demo", "SKILL.md"), "mine\n")
 	code, out, errs := run(t, home, "adopt", "demo")
-	if code != 0 || errs != "note: run `skigard sync` to update the install records of \"demo\"\n" {
-		t.Fatalf("%d %q", code, errs)
-	}
-	for _, want := range []string{
+	// Installs are symlinks on POSIX (refreshed) and copies on Windows (stale).
+	wantErr := "note: run `skigard sync` to update the install records of \"demo\"\n"
+	wants := []string{
 		"\nsafety score: 10/10 (higher is safer; ok; threshold 7; mode auto)\n  - no findings\n\n✔ approved automatically (recorded in the lock as mode = auto)\n  refreshed ",
 		"(symlink to skills/; shows the new version)\n\n",
-	} {
+	}
+	if runtime.GOOS == "windows" {
+		wantErr = "note: copy installs of \"demo\" still hold the old version; run `skigard sync`\n"
+		wants = []string{
+			"\nsafety score: 10/10 (higher is safer; ok; threshold 7; mode auto)\n  - no findings\n\n✔ approved automatically (recorded in the lock as mode = auto)\n  stale ",
+			"(copy install)\n\n",
+		}
+	}
+	if code != 0 || errs != wantErr {
+		t.Fatalf("%d %q", code, errs)
+	}
+	for _, want := range wants {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in\n%s", want, out)
 		}

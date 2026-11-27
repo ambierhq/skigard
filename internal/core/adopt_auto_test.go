@@ -87,7 +87,13 @@ func TestAdoptAutoApproves(t *testing.T) {
 				t.Error("symlink install not refreshed")
 			}
 		}
-		if len(out.Refreshed) != 1 || len(out.Stale) != 1 {
+		// POSIX: one symlink install is refreshed, the copy is stale.
+		// Windows installs are copies only, so both are stale.
+		wantRefreshed, wantStale := 1, 1
+		if runtime.GOOS == "windows" {
+			wantRefreshed, wantStale = 0, 2
+		}
+		if len(out.Refreshed) != wantRefreshed || len(out.Stale) != wantStale {
 			t.Errorf("refreshed %v stale %v", out.Refreshed, out.Stale)
 		}
 	}

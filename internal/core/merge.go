@@ -196,7 +196,14 @@ func (a *App) AgentMerge(ctx context.Context, name string, o MergeOpts) (*Merged
 	if err != nil {
 		return nil, err
 	}
-	out, err := review.ParseMerge(raw, in.Token)
+	return a.finishAgentMerge(name, t, src, changes, in.Token, raw, iso)
+}
+
+// finishAgentMerge parses, validates and stages the agent's raw output. It
+// runs nothing: the output is as untrusted here as it is from a real run, and
+// the caller holds the lock.
+func (a *App) finishAgentMerge(name string, t review.Template, src *mergeSrc, changes []diff.FileChange, token, raw string, iso review.Isolation) (*Merged, error) {
+	out, err := review.ParseMerge(raw, token)
 	if err != nil {
 		return nil, err
 	}
