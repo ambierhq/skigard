@@ -65,7 +65,11 @@ func (a *App) List() ([]Entry, error) {
 		if err != nil {
 			continue
 		}
-		e := Entry{Name: n, State: "quarantined", Source: m.Source, Commit: m.Commit, Hash: m.ContentHash}
+		state := "quarantined"
+		if m.Editing {
+			state = "editing"
+		}
+		e := Entry{Name: n, State: state, Source: m.Source, Commit: m.Commit, Hash: m.ContentHash}
 		if rec, _ := ReviewInfo(m); rec != nil {
 			e.Review = rec.Verdict
 		}

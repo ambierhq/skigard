@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/ambierhq/skigard/internal/store"
+	"github.com/ambierhq/skigard/internal/util"
 )
 
 // marketplaceApp is an app with settings.marketplace on, a warning buffer and one approved skill in plugin "dev".
@@ -130,6 +131,7 @@ func TestMarketplaceNoAutoRebuildWhenDisabled(t *testing.T) {
 func TestMarketplaceRebuildFailureIsAWarning(t *testing.T) {
 	a, warn := marketplaceApp(t)
 	// Tamper with the approved skill the plugin renders, so the rebuild refuses.
+	util.MakeWritable(a.Home.SkillDir("alpha"))
 	if err := os.WriteFile(filepath.Join(a.Home.SkillDir("alpha"), "extra.md"), []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}

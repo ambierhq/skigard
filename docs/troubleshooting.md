@@ -26,7 +26,7 @@ Read the skill and the finding (`skigard scan NAME`), then `skigard approve NAME
 
 ## `install` refuses with a hash mismatch
 
-The approved copy in `skills/<name>` no longer matches the lock. Something edited it, or a sync tool rewrote line endings. Run `skigard verify` to see what
+The approved copy in `skills/<name>` no longer matches the lock. Something edited it (`skills/` is read-only, so that took a `chmod` or a tool that ignores permissions), or a sync tool rewrote line endings. Run `skigard verify` to see what
 changed. Restore the files from your home repository (`git checkout -- skills/NAME`), or re-add and re-approve the skill.
 
 ## `verify` reports an exec-bit change

@@ -92,6 +92,12 @@ func (h Home) QuarantineSkill(n string) string { return filepath.Join(h.localRoo
 func (h Home) MetaPath(n string) string {
 	return filepath.Join(h.localRoot(), "quarantine", ".meta", n+".json")
 }
+
+// BasePath is where `adopt` keeps the rebuilt pristine upstream tree that an
+// in-place edit is compared against. It is removed by approve and reject.
+func (h Home) BasePath(n string) string {
+	return filepath.Join(h.localRoot(), "quarantine", ".meta", n+".base")
+}
 func (h Home) StateDir() string       { return filepath.Join(h.localRoot(), "state") }
 func (h Home) InstallsPath() string   { return filepath.Join(h.StateDir(), "installs.json") }
 func (h Home) MarketplaceDir() string { return filepath.Join(h.Root, "marketplace") }
@@ -167,6 +173,9 @@ const (
 	ApprovalHuman  = "human"
 	ApprovalAuto   = "auto"
 	ApprovalForced = "forced"
+	// ApprovalLocal is a human approval of a locally edited skill (a local fork):
+	// the content differs from upstream and upstream_hash pins the upstream baseline.
+	ApprovalLocal = "local"
 )
 
 // AutoApprover is the `by` recorded for a machine decision (mode "auto"), so the
@@ -385,6 +394,9 @@ type LockSkill struct {
 	Subpath     string `toml:"subpath,omitempty"`
 	Commit      string `toml:"commit,omitempty"`
 	ContentHash string `toml:"content_hash"`
+	// UpstreamHash is the upstream content hash (same HashVersion as ContentHash)
+	// when the approved content is a local fork. Empty means ContentHash IS upstream.
+	UpstreamHash string `toml:"upstream_hash,omitempty"`
 	// HashVersion is the scheme of ContentHash. Entries written before it
 	// existed take the lock's default, so they stay version 1.
 	HashVersion int `toml:"hash_version,omitempty"`
@@ -459,9 +471,14 @@ func LoadLock(h Home) (*Lock, error) {
 // its digest agree. It is a consistency check on the file, not a trust root.
 func (s *LockSkill) normalize(def int) error {
 	switch s.Approval.Mode {
-	case "", ApprovalHuman, ApprovalAuto, ApprovalForced:
+	case "", ApprovalHuman, ApprovalAuto, ApprovalForced, ApprovalLocal:
 	default:
 		return util.Errf("unknown approval mode %q", util.Clean(s.Approval.Mode))
+	}
+	if s.UpstreamHash != "" {
+		if !strings.HasPrefix(s.UpstreamHash, "sha256:") || len(s.UpstreamHash) != len("sha256:")+64 {
+			return util.Errf("bad upstream_hash %q", util.Clean(s.UpstreamHash))
+		}
 	}
 	if s.Approval.By == AutoApprover && s.Approval.Mode != ApprovalAuto {
 		return util.Errf("approval by %q is only valid with mode %q", AutoApprover, ApprovalAuto)
@@ -549,20 +566,34 @@ func (l *Lock) Delete(name string) {
 // Meta describes a quarantined skill. It lives next to, not inside, the skill
 // so it never changes the content hash.
 type Meta struct {
-	Name         string         `json:"name"`
-	Source       string         `json:"source"`
-	Kind         string         `json:"kind"`
-	Location     string         `json:"location"`
-	Ref          string         `json:"ref,omitempty"`
-	Subpath      string         `json:"subpath,omitempty"`
-	Commit       string         `json:"commit,omitempty"`
-	FetchedAt    string         `json:"fetched_at"`
-	ContentHash  string         `json:"content_hash"`
-	HashVersion  int            `json:"hash_version,omitempty"` // 0 means 1 (quarantined before hash v2)
-	ExecSet      []string       `json:"exec_set,omitempty"`
-	ExecHash     string         `json:"exec_hash,omitempty"`
-	SkippedLinks []string       `json:"skipped_links,omitempty"`
-	Review       *review.Record `json:"review,omitempty"`
+	Name        string `json:"name"`
+	Source      string `json:"source"`
+	Kind        string `json:"kind"`
+	Location    string `json:"location"`
+	Ref         string `json:"ref,omitempty"`
+	Subpath     string `json:"subpath,omitempty"`
+	Commit      string `json:"commit,omitempty"`
+	FetchedAt   string `json:"fetched_at"`
+	ContentHash string `json:"content_hash"`
+	// UpstreamHash is set by `adopt`: the upstream baseline (in the entry's hash
+	// version) the local edits are measured against. Empty for a fetched skill.
+	UpstreamHash string `json:"upstream_hash,omitempty"`
+	// Editing marks quarantine/<name> as an editable working copy made by `edit`: it is
+	// not finalized (hashed, scanned, reviewable) until `adopt` clears the flag.
+	Editing bool `json:"editing,omitempty"`
+	// InPlace marks a fork staged by `adopt` from an edit made directly in skills/. The
+	// pristine baseline, when it could be rebuilt, is at Home.BasePath(name).
+	InPlace bool `json:"in_place,omitempty"`
+	// MergedBy and MergeMode are set by `merge`: the merge agent's harness id (empty for a
+	// hand-picked merge) and "pick" or "agent". MergeIsolation is how the agent was confined.
+	MergedBy       string         `json:"merged_by,omitempty"`
+	MergeMode      string         `json:"merge_mode,omitempty"`
+	MergeIsolation string         `json:"merge_isolation,omitempty"`
+	HashVersion    int            `json:"hash_version,omitempty"` // 0 means 1 (quarantined before hash v2)
+	ExecSet        []string       `json:"exec_set,omitempty"`
+	ExecHash       string         `json:"exec_hash,omitempty"`
+	SkippedLinks   []string       `json:"skipped_links,omitempty"`
+	Review         *review.Record `json:"review,omitempty"`
 }
 
 // LoadMeta reads the metadata for a quarantined skill.

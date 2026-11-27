@@ -7,9 +7,15 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `scan`, `add`, `update` and `approve` now fold repeated low findings of one rule into a single line with a count, up to three `file:line` locations and one short
+- `scan`, `add`, `update`, `adopt` and `approve` now fold repeated low findings of one rule into a single line with a count, up to three `file:line` locations and one short
   evidence sample; every medium and higher finding is still listed on its own, with evidence cut to one line of the terminal width (by display width, so wide characters never wrap).
   A footer says when the view is a summary. `scan --all` lists every finding; `--json` and SARIF are unchanged.
+- **`skigard edit NAME`** copies an approved skill into quarantine as an editable working copy and leaves `skills/`, the lock and the installs untouched, so the approved version
+  stays live and pristine until a human approves. `skigard adopt NAME` finalizes the working copy (hash, scan, score; "no changes" leaves it open); `diff` and `approve` compare it
+  with the approved version and say so. While a working copy is open, `list`/`status`/`show` call it `editing`, `approve`/`review`/`update` refuse to touch it and `reject` discards it.
+  The new `editing` and `in_place` fields in quarantine metadata are additive.
+- `adopt` of an edit made in place now rebuilds the comparison baseline: it re-fetches the original upstream at the locked commit (a local source is re-read), keeps it in
+  `quarantine/.meta/NAME.base/` only if it hashes to the approved baseline, and `diff`/`approve` compare against it. When it cannot, the approval screen says no comparison is available.
 - `settings.marketplace` (`skigard config set marketplace true`, default off) keeps `marketplace/` in sync: it is rebuilt automatically after every approval
   (human, auto, forced, adopt, merge), plugin create/delete/add/remove, `lock upgrade` and `migrate`, and `verify` then requires it (a missing `marketplace/` is an error).
   A failed rebuild is a warning and never undoes the approval; `verify` flags the drift. `config set marketplace true` builds immediately; `false` leaves the directory.
@@ -22,8 +28,20 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Approved skills are read-only after approval (dirs `0555`, files `0444`, executable files `0555`; not on Windows) so an in-place edit is a deliberate act. This is a deterrent,
+  not a security boundary; the lock hash is. Existing skills become read-only when next approved. `verify` and the marketplace error now point at `adopt` and `edit`. If you delete a home
+  by hand, `chmod -R u+w` its `skills/` first.
 - `verify` checks the generated marketplace only when `marketplace/` exists (opt-in via `skigard marketplace build`); a home that uses plugins only for
   `install --plugin` no longer fails with "marketplace/ is missing". Once built it is enforced as before, and `marketplace check` still reports a missing directory.
+
+### Added
+
+- **Local forks.** `skigard adopt NAME` stages your edits of an approved skill into quarantine (it changes nothing else); `skigard approve NAME` then records the
+  skill with `mode = "local"` and a new `upstream_hash` in the lock (additive, `omitempty`; the lock `version` stays 1 and old locks load unchanged).
+  `verify --require-human` accepts `local` approvals (a human approved them); `status` counts them. `verify` now hints at `adopt` when a skill differs from the lock.
+- `update` knows about local edits: it compares upstream with the pinned baseline, reports `up to date (local fork)` and unadopted edits, and when upstream changed
+  it puts the new version in quarantine for `skigard diff NAME` (your copy against the new upstream) and never auto-approves it, even in `auto` mode
+  (`local_changes` in `--json`). The approval screen warns when approving replaces local edits.
 
 ## [0.3.0] - 2026-11-27
 

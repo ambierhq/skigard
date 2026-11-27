@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ambierhq/skigard/internal/diff"
 	"github.com/ambierhq/skigard/internal/review"
 	"github.com/ambierhq/skigard/internal/scan"
 	"github.com/ambierhq/skigard/internal/source"
@@ -227,11 +226,7 @@ func (a *App) decide(ctx context.Context, q *Quarantined, man *store.Manifest, m
 			return oc, err
 		}
 		prev, replacing := lock.Get(name)
-		oldDir := ""
-		if replacing {
-			oldDir = a.Home.SkillDir(name)
-		}
-		d, err := diff.Dirs(oldDir, dir)
+		d, err := a.compare(meta, replacing, dir)
 		if err != nil {
 			return oc, err
 		}
@@ -281,6 +276,9 @@ func (a *App) decide(ctx context.Context, q *Quarantined, man *store.Manifest, m
 // quarantine. It sets r.Applied when the new version was approved, otherwise it
 // leaves the skill in quarantine and says why in r.Note. The caller holds the home lock.
 func (a *App) updateAuto(ctx context.Context, man *store.Manifest, ls *store.LockSkill, q *Quarantined, r *UpdateResult) {
+	if ls.UpstreamHash != "" || a.hasLocalEdits(ls) {
+		return // never replace local edits or a local fork without a human
+	}
 	th := man.Settings.EffectiveThreshold()
 	var note []string
 	if man.Settings.EffectiveAutoReview() {

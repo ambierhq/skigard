@@ -185,7 +185,9 @@ Per run, `add` takes `--mode`, `--threshold`, `--review`, `--quarantine-only` an
 | `add SOURCE [--skill N \| --all] [--mode M] [--threshold N] [--review] [--force-install] [--quarantine-only]` | fetch, scan, score and (per mode) install; `--quarantine-only` stops after the scan. `SOURCE`: `github:owner/repo[/path][@ref]`, `owner/repo`, a github.com URL, or a local path |
 | `scan NAME\|PATH [--format text\|json\|sarif] [--fail-on LEVEL] [--plain] [--all]` | deterministic scan; repeated low findings are folded into one line with a count (every medium and above is listed), coloured on a terminal; `--all` lists every finding, `--json` is always complete |
 | `review NAME [--harness ID \| --manual]` | advisory agent review ([how it works](docs/review.md)) |
-| `diff NAME` | quarantined vs approved |
+| `edit NAME` | copy an approved skill into quarantine as an editable working copy (`skills/` is read-only and untouched) |
+| `adopt NAME` | finalize the working copy from `edit` (or stage an edit made in place) for review and approval; approval records `mode = "local"` |
+| `diff NAME` | quarantined vs approved (for an edit: against the approved version, or the rebuilt upstream for an in-place edit; it says which) |
 | `approve NAME [--override --reason R] [--accept R]` | **human only** (records `mode = "human"`) |
 | `allow add SOURCE\|SKILL RULE... --reason R`, `allow list`, `allow remove SOURCE [RULE...]` | **human only**: stop reporting medium/low scanner rules for one source; high and critical are never hidden |
 | `config get\|set mode\|threshold\|auto_review\|review_harness\|marketplace` | read or change settings; `set` of `mode`/`threshold` is human only |

@@ -136,6 +136,9 @@ func (a *App) Reject(name string) error {
 	if err := os.RemoveAll(a.Home.QuarantineSkill(name)); err != nil {
 		return err
 	}
+	if err := os.RemoveAll(a.Home.BasePath(name)); err != nil {
+		return err
+	}
 	return os.Remove(a.Home.MetaPath(name))
 }
 

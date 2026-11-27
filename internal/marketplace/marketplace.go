@@ -59,7 +59,7 @@ func Render(h store.Home, dest, defaultOwner string) error {
 				return util.Errf("plugin %q lists %q, which is not approved", pname, s)
 			}
 			if st, err := hash.Check(h.SkillDir(s), ls.Identity()); err != nil || !st.OK() {
-				return util.Errf("skill %q does not match its approved hash; run: skigard verify", s)
+				return util.Errf("skill %q does not match its approved hash; skills/ is read-only and must not be edited in place. Run `skigard verify`; if the edit was intentional run `skigard adopt %s`, and make future edits with `skigard edit %s`", s, s, s)
 			}
 			if _, err := safefs.CopyTree(h.SkillDir(s), filepath.Join(pdir, "skills", s), safefs.DefaultLimits()); err != nil {
 				return err

@@ -30,6 +30,8 @@ Usage: `skigard COMMAND [ARGS]`. Flags may come before or after positional argum
 - [`review`](#skigard-review): have an agent harness review a quarantined skill (advisory)
 - [`diff`](#skigard-diff): show quarantined changes against the approved version
 - [`approve`](#skigard-approve): HUMAN ONLY: approve a quarantined skill
+- [`edit`](#skigard-edit): copy an approved skill into quarantine as an editable working copy (skills/ stays untouched)
+- [`adopt`](#skigard-adopt): finalize your edit of an approved skill (from `edit`, or made in place) for review and approval
 - [`reject`](#skigard-reject): delete a quarantined skill
 - [`update`](#skigard-update): re-fetch approved skills; changes go to quarantine
 - [`install`](#skigard-install): install approved skills into harnesses
@@ -163,6 +165,22 @@ skigard approve NAME
 | `--accept-expires STRING` | expiry date (YYYY-MM-DD) for --accept |
 | `--override` | approve despite a BLOCK verdict, incomplete coverage or a FAIL review |
 | `--reason STRING` | why the override is acceptable (required with --override) |
+
+## skigard edit
+
+Copy an approved skill into quarantine as an editable working copy (skills/ stays untouched).
+
+```
+skigard edit NAME
+```
+
+## skigard adopt
+
+Finalize your edit of an approved skill (from `edit`, or made in place) for review and approval.
+
+```
+skigard adopt NAME
+```
 
 ## skigard reject
 

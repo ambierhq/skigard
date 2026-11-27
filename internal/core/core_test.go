@@ -30,6 +30,7 @@ func newApp(t *testing.T) (*App, string) {
 	t.Helper()
 	root := t.TempDir()
 	home := filepath.Join(root, "home")
+	t.Cleanup(func() { util.MakeWritable(home) }) // approved skills are read-only; let TempDir remove them
 	userHome := filepath.Join(root, "user")
 	os.MkdirAll(userHome, 0o755)
 	var out bytes.Buffer
@@ -287,6 +288,7 @@ func TestInstallVerifySyncUninstall(t *testing.T) {
 		t.Fatalf("%+v", ps)
 	}
 	// tamper with the approved store
+	util.MakeWritable(a.Home.SkillDir("alpha"))
 	os.WriteFile(filepath.Join(a.Home.SkillDir("alpha"), "SKILL.md"), []byte("evil"), 0o644)
 	ps, _ := a.Verify()
 	if !HasErrors(ps) {

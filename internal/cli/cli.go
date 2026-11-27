@@ -52,6 +52,8 @@ func init() {
 		{"review", "NAME [--harness ID | --manual]", "have an agent harness review a quarantined skill (advisory)", cmdReview},
 		{"diff", "NAME", "show quarantined changes against the approved version", cmdDiff},
 		{"approve", "NAME", "HUMAN ONLY: approve a quarantined skill", cmdApprove},
+		{"edit", "NAME", "copy an approved skill into quarantine as an editable working copy (skills/ stays untouched)", cmdEdit},
+		{"adopt", "NAME", "finalize your edit of an approved skill (from `edit`, or made in place) for review and approval", cmdAdopt},
 		{"reject", "NAME", "delete a quarantined skill", cmdReject},
 		{"update", "[NAME...]", "re-fetch approved skills; changes go to quarantine", cmdUpdate},
 		{"install", "NAME... | --plugin P", "install approved skills into harnesses", cmdInstall},
@@ -250,6 +252,23 @@ func (c *ctx) scanOptions(all bool) scan.RenderOptions {
 		opt.Width = term.Width(os.Stdout)
 	}
 	return opt
+}
+
+// nextSteps prints the dim "next:" hint used after every command that leaves a skill in quarantine:
+// the first step follows the label, the rest are aligned under it. lead is printed before it ("\n"
+// for a blank line), indent is put before every line.
+func (c *ctx) nextSteps(lead, indent string, steps ...string) {
+	st := c.style(false)
+	var b strings.Builder
+	b.WriteString(lead)
+	for i, s := range steps {
+		if i == 0 {
+			b.WriteString(indent + st.Dim("next:") + " " + s + "\n")
+		} else {
+			b.WriteString(indent + "      " + s + "\n")
+		}
+	}
+	fmt.Fprint(c.out, b.String())
 }
 
 func (c *ctx) printf(format string, args ...any) { fmt.Fprintf(c.out, format, args...) }

@@ -144,7 +144,7 @@ func (a *App) MigrateSkm(repo string) (*MigrateResult, error) {
 			continue
 		}
 		dest := a.Home.SkillDir(name)
-		if err := os.RemoveAll(dest); err != nil {
+		if err := util.RemoveAll(dest); err != nil {
 			return res, err
 		}
 		if _, err := safefs.CopyTree(src, dest, safefs.DefaultLimits()); err != nil {
@@ -190,6 +190,7 @@ func (a *App) MigrateSkm(repo string) (*MigrateResult, error) {
 		}
 		ls.SetIdentity(hash.Identity{Version: hash.Version, Content: h, Exec: exec, ExecHash: hash.ExecDigest(exec)})
 		lock.Put(ls)
+		_ = util.MakeReadOnly(dest)
 		res.Migrated = append(res.Migrated, name)
 	}
 	if err := lock.Save(a.Home); err != nil {

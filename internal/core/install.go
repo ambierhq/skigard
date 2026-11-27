@@ -158,7 +158,7 @@ func (a *App) install(o InstallOpts) ([]Installed, []string, error) {
 		}
 		dir := a.Home.SkillDir(n)
 		if st, err := hash.Check(dir, ls.Identity()); err != nil || !st.OK() {
-			return out, notes, util.Policyf("%q does not match its approved hash; refusing to install (run: skigard verify)", n)
+			return out, notes, util.Policyf("%q does not match its approved hash; refusing to install (run: skigard verify; an intentional in-place edit goes through `skigard adopt %s`)", n, n)
 		}
 		for _, t := range ts {
 			rec, err := harness.InstallSkill(t.Dir, n, dir, mode, ls.Identity(), o.Force)
@@ -252,9 +252,9 @@ func (a *App) Verify() ([]Problem, error) {
 		case err != nil:
 			add("error", "%s: cannot hash: %v", s.Name, err)
 		case !st.ContentOK:
-			add("error", "%s: content changed since approval (%s, approved %s)", s.Name, hash.Short(st.Got, 12), hash.Short(s.ContentHash, 12))
+			add("error", "%s: content changed since approval (%s, approved %s); skills/ is read-only and must not be edited in place. If this is an intentional edit already made, run `skigard adopt %s`; to make future edits safely use `skigard edit %s`", s.Name, hash.Short(st.Got, 12), hash.Short(s.ContentHash, 12), s.Name, s.Name)
 		case !st.ExecOK:
-			add("error", "%s: executable files changed since approval (now %s, approved %s)", s.Name, execList(st.ExecGot), execList(s.ExecSet))
+			add("error", "%s: executable files changed since approval (now %s, approved %s); skills/ is read-only and must not be edited in place. If this is an intentional edit already made, run `skigard adopt %s`; to make future edits safely use `skigard edit %s`", s.Name, execList(st.ExecGot), execList(s.ExecSet), s.Name, s.Name)
 		}
 		if err == nil && st.ExecNA && s.HashVersion >= 2 {
 			add("info", "%s: exec-bit check not applicable on this OS (%d executable file(s) recorded at approval)", s.Name, len(s.ExecSet))

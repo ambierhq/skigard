@@ -620,14 +620,20 @@ func cmdDiff(c *ctx, args []string) error {
 	if err := c.open(); err != nil {
 		return err
 	}
-	d, err := c.app.Diff(pos[0])
+	d, err := c.app.DiffAgainst(pos[0])
 	if err != nil {
 		return err
 	}
-	if d == "" {
-		d = "no differences from the approved version\n"
+	st := c.style(false)
+	if d.NoBaseline {
+		c.printf("%s no comparison is available: the original upstream of this in-place edit could not be rebuilt.\n  Read the files in quarantine instead (skigard show %s).\n", st.Yellow("●"), pos[0])
+		return nil
 	}
-	c.printf("%s", term.Diff(c.style(false), d))
+	c.printf("%s\n", st.Dim(d.Phrase))
+	if d.Text == "" {
+		c.printf("no differences\n")
+	}
+	c.printf("%s", term.Diff(st, d.Text))
 	return nil
 }
 
@@ -653,6 +659,80 @@ func cmdApprove(c *ctx, args []string) error {
 	}
 	st := c.style(false)
 	c.printf("%s approved %q (%s)\n%s %s\n%s skigard install %s\n", st.Green("✔"), res.Name, hash.Short(res.Hash, 12), st.Dim("evidence:"), res.Record, st.Dim("next:"), res.Name)
+	return nil
+}
+
+func cmdAdopt(c *ctx, args []string) error {
+	fs := c.flags("adopt")
+	pos, err := parse(fs, args)
+	if err != nil {
+		return err
+	}
+	if err := needArgs(pos, 1, "adopt NAME"); err != nil {
+		return err
+	}
+	if err := c.open(); err != nil {
+		return err
+	}
+	q, err := c.app.Adopt(c.ctx, pos[0])
+	if err != nil {
+		return err
+	}
+	if c.json {
+		return c.printJSON(map[string]any{"name": q.Name, "content_hash": q.Hash, "upstream_hash": q.Meta.UpstreamHash, "no_changes": q.NoChanges, "baseline_warning": q.BaselineWarning, "report": q.Report})
+	}
+	st := c.style(false)
+	if q.NoChanges {
+		c.printf("%s no changes: the working copy of %q is identical to the approved version\n  %s\n", st.Yellow("●"), q.Name, st.Dim("(it is still open: edit "+c.app.Home.QuarantineSkill(q.Name)+" or discard it with `skigard reject "+q.Name+"`)"))
+		return nil
+	}
+	verb := "finalized your edit of"
+	if q.Meta.InPlace {
+		verb = "staged your local edits of"
+	}
+	c.printf("%s %s %q in quarantine\n  %s\n", st.Green("✔"), verb, q.Name, st.Dim("(skills/, the lock and installs are unchanged)"))
+	c.writeScan(q.Report)
+	if q.BaselineWarning != "" {
+		c.printf("%s no comparison is available for this in-place edit: %s\n  `skigard diff` and the approve screen cannot show what changed; read every file in quarantine.\n", st.Yellow("●"), q.BaselineWarning)
+	}
+	against := "your edits vs the approved version"
+	if q.Meta.InPlace {
+		against = "your edits vs the original upstream"
+	}
+	c.nextSteps("\n", "",
+		fmt.Sprintf("skigard diff %s   (%s)", q.Name, against),
+		fmt.Sprintf("skigard review %s   (optional)", q.Name),
+		fmt.Sprintf("skigard approve %s  (in a real terminal)", q.Name))
+	return nil
+}
+
+func cmdEdit(c *ctx, args []string) error {
+	fs := c.flags("edit")
+	pos, err := parse(fs, args)
+	if err != nil {
+		return err
+	}
+	if err := needArgs(pos, 1, "edit NAME"); err != nil {
+		return err
+	}
+	if err := c.open(); err != nil {
+		return err
+	}
+	q, err := c.app.Edit(pos[0])
+	if err != nil {
+		return err
+	}
+	dir := c.app.Home.QuarantineSkill(q.Name)
+	if c.json {
+		return c.printJSON(map[string]any{"name": q.Name, "path": dir, "content_hash": q.Hash})
+	}
+	st := c.style(false)
+	c.printf("%s editable working copy of %q\n  %s\n  %s\n", st.Green("✔"), q.Name, util.Clean(dir), st.Dim("(skills/, the lock and installs are unchanged; the approved version stays live)"))
+	c.nextSteps("\n", "",
+		fmt.Sprintf("edit the files in %s", util.Clean(dir)),
+		fmt.Sprintf("skigard diff %s     (see your changes)", q.Name),
+		fmt.Sprintf("skigard adopt %s    (finalize: hash and scan the edit)", q.Name),
+		fmt.Sprintf("skigard approve %s  (in a real terminal)", q.Name))
 	return nil
 }
 
@@ -821,7 +901,8 @@ func cmdVerify(c *ctx, args []string) error {
 			return err
 		}
 		for _, sk := range lock.Skills {
-			if m := sk.Approval.EffectiveMode(); m != store.ApprovalHuman {
+			// local is a human approval of the user's own edits (flagged in list/status as local); it is allowed here.
+			if m := sk.Approval.EffectiveMode(); m != store.ApprovalHuman && m != store.ApprovalLocal {
 				ps = append(ps, core.Problem{Level: "error", Msg: fmt.Sprintf("%s: approved with mode %s, not by a human (--require-human)", sk.Name, m)})
 			}
 		}
@@ -1022,7 +1103,7 @@ func cmdStatus(c *ctx, args []string) error {
 	st := c.style(false)
 	c.printf("%s %s\n%s %s (%d with override)\n", st.Dim("home:       "), c.app.Home.Root, st.Dim("approved:   "), st.Green(strconv.Itoa(appr)), over)
 	if appr > 0 {
-		c.printf("%s %d human, %d auto, %d forced\n", st.Dim("  by mode:  "), modes[store.ApprovalHuman], modes[store.ApprovalAuto], modes[store.ApprovalForced])
+		c.printf("%s %d human, %d local, %d auto, %d forced\n", st.Dim("  by mode:  "), modes[store.ApprovalHuman], modes[store.ApprovalLocal], modes[store.ApprovalAuto], modes[store.ApprovalForced])
 	}
 	qs := strconv.Itoa(quar)
 	if quar > 0 {

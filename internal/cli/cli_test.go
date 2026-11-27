@@ -39,6 +39,7 @@ func run(t *testing.T, home string, args ...string) (int, string, string) {
 	var out, errb bytes.Buffer
 	t.Setenv("SKIGARD_HOME", home)
 	isolateUserHome(t, home)
+	t.Cleanup(func() { util.MakeWritable(home) }) // approved skills are read-only; let TempDir remove them
 	// Tests must behave the same inside and outside an agent harness.
 	for _, n := range []string{"CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CODEX_SANDBOX", "CODEX_THREAD_ID", "GEMINI_CLI", "OPENCODE", "CURSOR_AGENT", "PI_CODING_AGENT", "GOOSE_TERMINAL", "AMP_CURRENT_THREAD_ID"} {
 		t.Setenv(n, "")

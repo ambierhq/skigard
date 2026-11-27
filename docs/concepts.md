@@ -100,6 +100,28 @@ releases keep verifying; `skigard lock upgrade` moves them to v2, only where the
 needs approval again. In `auto` mode a change is approved and installed only if it scores at or above the threshold, has no hard stop, and does not score lower than the previously approved version;
 otherwise it goes back to quarantine with a warning and the diff. The output says which happened.
 
+## Keeping your local changes
+
+### Editing a skill
+
+Do not edit `skills/NAME` in place. Installs are symlinks into it, so an unreviewed edit is live in every agent at once, and the pristine approved version is lost, so there is nothing left to review the edit against.
+`skills/` is read-only (directories `0555`, files `0444`, executable files `0555`) after every approval. That is a deterrent, not a security boundary; the lock hash is what `verify` and `install` check.
+
+```sh
+skigard edit NAME      # copies the approved skill into quarantine as an editable working copy (it prints the path)
+$EDITOR <that path>    # change it; skigard never launches an editor or runs anything from the skill
+skigard adopt NAME     # finalize: hash, scan and score the edit ("no changes" leaves the working copy open)
+skigard diff NAME      # your edit against the approved version
+skigard approve NAME   # human, real terminal; recorded as mode = "local" with an upstream_hash
+```
+
+The harness installs keep the approved version until you approve. While the working copy is open, `list`, `status` and `show` call it `editing`; `approve`, `review` and `update` refuse to touch it, and `skigard reject NAME` discards it.
+If you already edited `skills/NAME` in place (after a `chmod`, say), `verify` fails and `skigard adopt NAME` stages that edit instead. Because the pristine copy is gone, `adopt` re-fetches the original upstream at the locked commit
+(a local source is re-read from its path), and only if it hashes to the approved baseline does it keep it, in quarantine, as the comparison for `diff` and `approve`. If it cannot, the edit is still staged but the approval screen says
+that no comparison is available and you must read the files yourself.
+
+An approved skill is recorded as `mode = "local"` with an `upstream_hash` (see [lockfile](lockfile.md)).
+
 ## Harness
 
 An agent product with a skills directory (`~/.claude/skills`, `~/.agents/skills` and so on). skigard keeps a registry of

@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 BIN="${1:-}"
 if [ -z "$BIN" ]; then BIN="$(mktemp -d)/skigard"; go build -o "$BIN" ./cmd/skigard; fi
-W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
+W="$(mktemp -d)"; trap 'chmod -R u+w "$W" 2>/dev/null; rm -rf "$W"' EXIT  # approved skills are read-only
 export SKIGARD_HOME="$W/home" HOME="$W/user"
 mkdir -p "$HOME" "$W/src/good" "$W/src/evil"
 fail() { echo "FAIL: $*" >&2; exit 1; }
@@ -67,6 +67,8 @@ out=$(python3 scripts/detach.py "$BIN" approve evil)
 "$BIN" harness add --id fake --name Fake --global "$W/fake/skills" >/dev/null
 "$BIN" install good --to fake >/dev/null || fail "install"
 "$BIN" verify >/dev/null || fail "verify should pass"
+[[ ! -w "$SKIGARD_HOME/skills/good/SKILL.md" ]] || fail "approved skill should be read-only"
+chmod -R u+w "$SKIGARD_HOME/skills/good"
 echo tampered >> "$SKIGARD_HOME/skills/good/SKILL.md"
 "$BIN" verify >/dev/null 2>&1 && fail "verify should fail after tampering"
 "$BIN" install good --to fake >/dev/null 2>&1 && fail "install of tampered skill should fail"
