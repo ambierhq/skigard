@@ -5,6 +5,66 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`skigard adopt NAME` approves automatically like `add` does in auto mode.** It takes `--review`, `--review-harness`, `--mode` and `--threshold` (an agent cannot use a weaker mode or lower threshold than the stored ones), finalizes the edit and then
+  reuses the `add` decision: a score at or above the threshold with no hard stop and any required review done is approved as `mode = "auto"` with the fork baseline (`upstream_hash`) kept; strict mode, a lower score, a hard stop, a review that did not run or
+  `require_review` leave it in quarantine for a human `approve`, with the reasons. Merge results are never auto-approved. Copy installs of the skill need `skigard sync` afterwards (symlink installs follow `skills/`). `adopt --json` gains `decision`, `mode`, `score`, `reasons`, `scan`, `notes`, `installs_refreshed` and `installs_stale`.
+- `scan`, `add`, `update`, `adopt` and `approve` now fold repeated low findings of one rule into a single line with a count, up to three `file:line` locations and one short
+  evidence sample; every medium and higher finding is still listed on its own, with evidence cut to one line of the terminal width (by display width, so wide characters never wrap).
+  A footer says when the view is a summary. `scan --all` lists every finding; `--json` and SARIF are unchanged.
+- **`skigard edit NAME`** copies an approved skill into quarantine as an editable working copy and leaves `skills/`, the lock and the installs untouched, so the approved version
+  stays live and pristine until a human approves. `skigard adopt NAME` finalizes the working copy (hash, scan, score; "no changes" leaves it open); `diff` and `approve` compare it
+  with the approved version and say so. While a working copy is open, `list`/`status`/`show` call it `editing`, `approve`/`review`/`update` refuse to touch it and `reject` discards it.
+  The new `editing` and `in_place` fields in quarantine metadata are additive.
+- `adopt` of an edit made in place now rebuilds the comparison baseline: it re-fetches the original upstream at the locked commit (a local source is re-read), keeps it in
+  `quarantine/.meta/NAME.base/` only if it hashes to the approved baseline, and `diff`/`approve` compare against it. When it cannot, the approval screen says no comparison is available.
+- `settings.marketplace` (`skigard config set marketplace true`, default off) keeps `marketplace/` in sync: it is rebuilt automatically after every approval
+  (human, auto, forced, adopt, merge), plugin create/delete/add/remove, `lock upgrade` and `migrate`, and `verify` then requires it (a missing `marketplace/` is an error).
+  A failed rebuild is a warning and never undoes the approval; `verify` flags the drift. `config set marketplace true` builds immediately; `false` leaves the directory.
+
+- **`skigard lock protect [NAME...]`** makes approved skills read-only, and `verify` now warns (`skills/NAME is writable`; a failure under `--strict`) about skills approved before read-only existed.
+  It removes write bits only, never touches content, hashes, the lock or installs, and is safe in an agent.
+
+### Fixed
+
+- `skigard verify` says "lock, store and installs agree" when no marketplace has been built, and names the marketplace only once `marketplace/` exists.
+- Declining the strict-mode prompt in `skigard add` no longer prints the cancellation twice (once in the "waiting for a human" block and again as the final `skigard: cancelled` line); other errors still show in the block.
+- The `approve` screen (also shown by a strict-mode `add`) is laid out like `add`: a bold title and an aligned key/value header (`source`, `commit`, `hash`, `replaces`, `merge`), one blank line
+  between sections and before the prompt (it used to have none between sections and two after), the scan block indented and printed once (the hash was repeated), the `safety score:` line and
+  `-` reasons exactly as `add` prints them (with `mode human` or `local`), and coloured badges (`LOCAL FORK`, `WARNING`, `OVERRIDE`, `NO COMPARISON`, the review verdict) on a terminal. The local-fork
+  sentence became a short block with `baseline` and `recorded` rows. `diff` and `approve` now share one "comparing X with Y" phrase (a new skill says every file is shown as added). `adopt` says
+  "finalized your edit of" for an `edit` working copy and keeps "staged your local edits of" for an in-place edit. `update` prints the score for a held-back change, and `add` colours its next-step
+  hints like every other command. `scripts/pty_view.py` runs any command in a coloured pty for checking output.
+- `adopt`, `merge` and `update` now print in the same style as `add`: the scan report is styled on a terminal, a blank line precedes a dim, aligned `next:` block, and `update` shows the
+  `safety score:` line in the `add` format. `update` no longer prints an empty `new commit:` for local sources. `merge --with` writes its progress notes to stderr so `--json` stays clean,
+  and the approval screen splits the long agent-merge note into two lines.
+- `-h` and `--help` now work on every command and subcommand, including groups (`plugin`, `marketplace`, `harness`, `allow`, `lock`, `config`, `review`) and `version`.
+  Help goes to stdout with exit 0 (it used to go to stderr for flag-based commands) and never reads, locks or creates the home. A bare group prints a usage error
+  (exit 2) that points at `-h`; `skigard help CMD [SUB]` works; group subcommands live in one table that feeds usage, completion and `docs/commands.md`.
+
+### Changed
+
+- Approved skills are read-only after approval (dirs `0555`, files `0444`, executable files `0555`; not on Windows) so an in-place edit is a deliberate act. This is a deterrent,
+  not a security boundary; the lock hash is. Existing skills become read-only when next approved. `verify` and the marketplace error now point at `adopt` and `edit`. If you delete a home
+  by hand, `chmod -R u+w` its `skills/` first.
+- `verify` checks the generated marketplace only when `marketplace/` exists (opt-in via `skigard marketplace build`); a home that uses plugins only for
+  `install --plugin` no longer fails with "marketplace/ is missing". Once built it is enforced as before, and `marketplace check` still reports a missing directory.
+
+### Added
+
+- **Local forks.** `skigard adopt NAME` stages your edits of an approved skill into quarantine (it changes nothing else); `skigard approve NAME` then records the
+  skill with `mode = "local"` and a new `upstream_hash` in the lock (additive, `omitempty`; the lock `version` stays 1 and old locks load unchanged).
+  `verify --require-human` accepts `local` approvals (a human approved them); `status` counts them. `verify` now hints at `adopt` when a skill differs from the lock.
+- `update` knows about local edits: it compares upstream with the pinned baseline, reports `up to date (local fork)` and unadopted edits, and when upstream changed
+  it puts the new version in quarantine for `skigard diff NAME` (your copy against the new upstream) and never auto-approves it, even in `auto` mode
+  (`local_changes` in `--json`). The approval screen warns when approving replaces local edits.
+- **`skigard merge NAME [--pick | --with HARNESS] [--note TEXT]`** brings a new upstream version (from `update`) into your locally edited copy. `--pick` is an interactive hunk
+  picker on `/dev/tty` (default keep mine; humans only). `--with HARNESS` has a verified reviewer-template harness do the merge with the same confinement as `review`
+  (tools and MCP off, empty cwd, scrubbed env, OS sandbox; `--allow-policy-only` as for review) and a strict, hand-parsed output format; invalid output stages nothing. Either way
+  only quarantine changes: the result is scanned, scored and approved by a human like anything else (recorded `local`, with `upstream_hash` from the pristine upstream). The quarantine metadata
+  records `merge_mode`, `merged_by` and `merge_isolation` (additive), shown on the `approve` screen, in `list` and in `show`. `internal/diff` gained a hunk API.
+
 ## [0.3.0] - 2026-11-27
 
 ### Changed

@@ -26,11 +26,13 @@ type Entry struct {
 	Review   string `json:"review,omitempty"`
 	Override bool   `json:"override,omitempty"`
 	// Mode (human, auto or forced), Score and Threshold come from the approval record.
-	Mode      string   `json:"mode,omitempty"`
-	Score     int      `json:"score,omitempty"`
-	Threshold int      `json:"threshold,omitempty"`
-	Drift     bool     `json:"drift,omitempty"`
-	Installs  []string `json:"installs,omitempty"`
+	Mode      string `json:"mode,omitempty"`
+	Score     int    `json:"score,omitempty"`
+	Threshold int    `json:"threshold,omitempty"`
+	Drift     bool   `json:"drift,omitempty"`
+	// Merge is set for a quarantined merge result: "pick" or "agent:<harness>".
+	Merge    string   `json:"merge,omitempty"`
+	Installs []string `json:"installs,omitempty"`
 }
 
 // List returns approved and quarantined skills.
@@ -65,9 +67,19 @@ func (a *App) List() ([]Entry, error) {
 		if err != nil {
 			continue
 		}
-		e := Entry{Name: n, State: "quarantined", Source: m.Source, Commit: m.Commit, Hash: m.ContentHash}
+		state := "quarantined"
+		if m.Editing {
+			state = "editing"
+		}
+		e := Entry{Name: n, State: state, Source: m.Source, Commit: m.Commit, Hash: m.ContentHash}
 		if rec, _ := ReviewInfo(m); rec != nil {
 			e.Review = rec.Verdict
+		}
+		if m.MergeMode != "" {
+			e.Merge = m.MergeMode
+			if m.MergedBy != "" {
+				e.Merge += ":" + m.MergedBy
+			}
 		}
 		out = append(out, e)
 	}
@@ -97,6 +109,14 @@ func (a *App) ShowDoc(name string) (*SkillDoc, error) {
 	}
 	dir := a.Home.QuarantineSkill(name)
 	state := "quarantined (UNTRUSTED)"
+	if m, err := store.LoadMeta(a.Home, name); err == nil && isDir(dir) {
+		if m.Editing {
+			state = "editing (working copy, UNTRUSTED; `skigard adopt " + name + "` finalizes it)"
+		}
+		if mergeNote(m) != "" {
+			state += ", " + mergeNote(m)
+		}
+	}
 	if !isDir(dir) {
 		dir = a.Home.SkillDir(name)
 		state = "approved"

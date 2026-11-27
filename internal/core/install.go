@@ -158,7 +158,7 @@ func (a *App) install(o InstallOpts) ([]Installed, []string, error) {
 		}
 		dir := a.Home.SkillDir(n)
 		if st, err := hash.Check(dir, ls.Identity()); err != nil || !st.OK() {
-			return out, notes, util.Policyf("%q does not match its approved hash; refusing to install (run: skigard verify)", n)
+			return out, notes, util.Policyf("%q does not match its approved hash; refusing to install (run: skigard verify; an intentional in-place edit goes through `skigard adopt %s`)", n, n)
 		}
 		for _, t := range ts {
 			rec, err := harness.InstallSkill(t.Dir, n, dir, mode, ls.Identity(), o.Force)
@@ -252,12 +252,17 @@ func (a *App) Verify() ([]Problem, error) {
 		case err != nil:
 			add("error", "%s: cannot hash: %v", s.Name, err)
 		case !st.ContentOK:
-			add("error", "%s: content changed since approval (%s, approved %s)", s.Name, hash.Short(st.Got, 12), hash.Short(s.ContentHash, 12))
+			add("error", "%s: content changed since approval (%s, approved %s); skills/ is read-only and must not be edited in place. If this is an intentional edit already made, run `skigard adopt %s`; to make future edits safely use `skigard edit %s`", s.Name, hash.Short(st.Got, 12), hash.Short(s.ContentHash, 12), s.Name, s.Name)
 		case !st.ExecOK:
-			add("error", "%s: executable files changed since approval (now %s, approved %s)", s.Name, execList(st.ExecGot), execList(s.ExecSet))
+			add("error", "%s: executable files changed since approval (now %s, approved %s); skills/ is read-only and must not be edited in place. If this is an intentional edit already made, run `skigard adopt %s`; to make future edits safely use `skigard edit %s`", s.Name, execList(st.ExecGot), execList(s.ExecSet), s.Name, s.Name)
 		}
 		if err == nil && st.ExecNA && s.HashVersion >= 2 {
 			add("info", "%s: exec-bit check not applicable on this OS (%d executable file(s) recorded at approval)", s.Name, len(s.ExecSet))
+		}
+		if runtime.GOOS != "windows" && isDir(a.Home.SkillDir(s.Name)) {
+			if w, werr := util.TreeWritable(a.Home.SkillDir(s.Name)); werr == nil && w {
+				add("warn", "%s: skills/%s is writable; edit it with `skigard edit %s`, and run `skigard lock protect` to make approved skills read-only", s.Name, s.Name, s.Name)
+			}
 		}
 		if s.Approval.Override {
 			add("warn", "%s: approved with an override (%s)", s.Name, util.Clean(s.Approval.Reason))
@@ -306,7 +311,14 @@ func (a *App) Verify() ([]Problem, error) {
 	if fi, err := os.Stat(a.Home.QuarantineDir()); err == nil && runtime.GOOS != "windows" && fi.Mode().Perm()&0o077 != 0 {
 		add("warn", "quarantine/ is accessible to other users (mode %o)", fi.Mode().Perm())
 	}
-	if len(man.Plugins) > 0 {
+	// The marketplace is opt-in: it is checked only once `marketplace build` has created it.
+	// Installs never read it (they use the lock and approved store), so its absence hides nothing.
+	// With settings.marketplace on it is required instead.
+	_, serr := os.Stat(a.Home.MarketplaceDir())
+	if serr != nil && man.Settings.EffectiveMarketplace() {
+		add("error", "marketplace is enabled in settings but marketplace/ is missing; run: skigard marketplace build")
+	}
+	if serr == nil && (len(man.Plugins) > 0 || man.Settings.EffectiveMarketplace()) {
 		drift, err := marketplace.Check(a.Home, a.User)
 		if err != nil {
 			add("error", "marketplace: %v", err)

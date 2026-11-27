@@ -19,10 +19,11 @@ hash_version = 2                # default scheme for entries that carry no hash_
   exec_set = ["scripts/run.sh"] # files that had an execute bit at fetch time (hash_version 2; omitted when empty)
   exec_hash = "sha256:..."      # digest of exec_set (always present for hash_version 2, also when the set is empty)
   # upgraded_from = "sha256:..." # only after `skigard lock upgrade`: the version 1 hash this entry replaced
+  # upstream_hash = "sha256:..."  # only for a local fork: the upstream content it was edited from (see below)
 
   [skill.scan]
     tool = "skigard 0.3.0"
-    rules = "2026.3"
+    rules = "2026.4"
     verdict = "block"           # pass | review | block
     coverage = "complete"       # complete | partial
     risk = 100
@@ -37,10 +38,10 @@ hash_version = 2                # default scheme for entries that carry no hash_
   [skill.approval]
     by = "dzung"                 # the person for human and forced; "skigard (auto)" for mode = auto
     at = "2026-11-17T20:35:53Z"
-    mode = "human"               # human | auto | forced; absent in older locks and read as human
+    mode = "human"               # human | local | auto | forced; absent in older locks and read as human
     score = 9                   # safety score 1..10 at approval time (omitted when not recorded)
     threshold = 7               # threshold in force when `add` decided (omitted for a plain `approve`)
-    score_version = "1"         # formula version that produced score
+    score_version = "2"         # formula version that produced score
     override = true             # approved despite block / partial coverage / failing review
     reason = "read it; the credential regex is a deny-list"
     [[skill.approval.accepted]] # findings accepted with a reason (low/medium only), optionally expiring
@@ -51,11 +52,12 @@ hash_version = 2                # default scheme for entries that carry no hash_
 
 ### Approval fields
 
-- `mode`: `human` (a person confirmed on the terminal with `approve`, or in strict mode), `auto` (`add` or `update` in auto mode, no prompt) or `forced`
+- `mode`: `human` (a person confirmed on the terminal with `approve`, or in strict mode), `local` (a person approved their own edits of a skill that was staged with `skigard adopt`; see `upstream_hash`), `auto` (`add`, `update` or `adopt` in auto mode, no prompt; an `adopt` entry also carries `upstream_hash`) or `forced`
   (`add --force-install`). Locks without these fields read as `human`.
 - `by`: who decided. For `human` and `forced` it is the OS user (or `--by`); for `auto` it is always `skigard (auto)`, because a machine decided, not a person. That value is reserved: a lock that uses it with another mode fails to load. Locks written before this change may carry the OS user with `mode = "auto"`; rely on `mode`, not `by`.
 - `score`, `threshold`, `score_version`: the safety score (1..10, 10 = no concern), the threshold in force, and the version of the formula. `approve` records the score and `score_version` but no threshold; `add` (auto, forced, or confirmed in strict mode) records all three. A formula change bumps `score_version`, like the rules version.
-- All four are additive and `omitempty`; the lock `version` stays 1. `skigard verify --require-human` fails if any approval is `auto` or `forced`. `list`, `show` and `status` display mode and score.
+- `upstream_hash` (on the skill entry, not under `approval`): the upstream content hash, in the entry's own `hash_version`, when the approved content is a **local fork**. Absent means `content_hash` is the upstream content. `adopt` pins the baseline (the previous `upstream_hash`, else the previous `content_hash`); `update` compares the freshly fetched upstream with it, so local edits are never mistaken for an upstream change and are never replaced silently. The lock stores no copy of the old upstream, so comparisons are two-way (your copy against the new upstream). `edit` keeps the approved version in `skills/` to compare with; for an edit made in place, `adopt` tries to rebuild the upstream in quarantine (see [concepts](concepts.md#editing-a-skill)). A malformed value fails to load. `adopt` needs a `hash_version = 2` entry. The walkthrough is in [customizing a skill](customizing-skills.md).
+- All four are additive and `omitempty`; the lock `version` stays 1. `skigard verify --require-human` fails if any approval is `auto` or `forced`; `local` passes, because a person approved those exact bytes, but `list`, `status` (a `local` count) and `show` keep it distinguishable from `human`. `list`, `show` and `status` display mode and score.
 
 `reviews/<name>/<hash12>.json` holds the evidence for each approval: the full scan report, the review record and the
 approval.
@@ -65,8 +67,8 @@ approval.
 | Command | Reads the lock | Verifies |
 |---|---|---|
 | `install`, `sync` | which skills are approved | recomputes `content_hash` (and, on Unix, the exec set) of `skills/<name>` and refuses on mismatch |
-| `verify` | everything | lock vs `skills/` vs install records vs marketplace; unapproved directories in `skills/` are errors |
-| `update` | source, ref, subpath, approval score | re-fetches; unchanged content and exec set is "up to date". A change goes to quarantine, except in `auto` mode when it scores at or above the threshold with no hard stop and not lower than the approved score: then it is approved and installed |
+| `verify` | everything | lock vs `skills/` vs install records vs marketplace (when built, or required when `settings.marketplace` is on); unapproved directories in `skills/` are errors; a still-writable approved skill (approved before read-only existed) is a warning, fixed by `skigard lock protect` |
+| `update` | source, ref, subpath, approval score | re-fetches; unchanged content and exec set (for a local fork, unchanged against `upstream_hash`) is "up to date". A change goes to quarantine (always, when the skill is a local fork or has unadopted local edits), except in `auto` mode when it scores at or above the threshold with no hard stop and not lower than the approved score: then it is approved and installed |
 | `lock upgrade` | hash versions | upgrades version 1 entries to version 2, only where the version 1 hash still matches |
 
 ## Content hash and exec set

@@ -1,5 +1,5 @@
 {
-  "version": "dev+5e179c2",
+  "version": "dev+1a7d5f8",
   "lines": [
     {
       "t": "$ skigard add ./examples/hello-skill --quarantine-only",
@@ -30,19 +30,23 @@
       "c": "out"
     },
     {
-      "t": "  source:  <repo>/examples/hello-skill",
+      "t": "  source  <repo>/examples/hello-skill",
       "c": "out"
     },
     {
-      "t": "  hash:    sha256:9f4c343fd0b879a849dec0ea4a46a36598f5380af5dfd76ae68b0f2bfc352531",
+      "t": "  hash    sha256:9f4c343fd0b879a849dec0ea4a46a36598f5380af5dfd76ae68b0f2bfc352531",
       "c": "out"
     },
     {
-      "t": "scan: PASS  coverage: complete  risk: 0/100 (higher is riskier)  (1 files, 0 scripts)",
+      "t": "  scan: PASS  coverage: complete  risk: 0/100 (higher is riskier)  (1 files, 0 scripts)",
       "c": "out"
     },
     {
-      "t": "safety score: 10/10 (ok; threshold 7): no findings",
+      "t": "safety score: 10/10 (higher is safer; ok; threshold 7; mode human)",
+      "c": "out"
+    },
+    {
+      "t": "  - no findings",
       "c": "out"
     },
     {
@@ -50,7 +54,7 @@
       "c": "out"
     },
     {
-      "t": "changes:",
+      "t": "changes  a new skill: every file is shown as added",
       "c": "out"
     },
     {
@@ -90,7 +94,7 @@
       "c": "out"
     },
     {
-      "t": "✔ ok lock, store, installs and marketplace agree",
+      "t": "✔ ok lock, store and installs agree",
       "c": "ok"
     }
   ]

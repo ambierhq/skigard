@@ -2,8 +2,10 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -19,6 +21,9 @@ import (
 )
 
 func cmdVersion(c *ctx, args []string) error {
+	if _, err := parse(c.flags("version"), args); err != nil {
+		return err
+	}
 	c.printf("skigard %s\n", Version)
 	return nil
 }
@@ -222,10 +227,10 @@ func printOutcomes(c *ctx, ocs []core.AddOutcome) error {
 		if o.Review != nil {
 			c.printf("review: %s %s\n", verdictStyle(st, o.Review.Verdict), st.Dim("(advisory)"))
 		}
-		c.printf("\n%s %s %s\n", st.Bold("safety score:"), scoreStyle(st, fmt.Sprintf("%d/10", o.Score)), st.Dim(fmt.Sprintf("(higher is safer; %s; threshold %d; mode %s)", o.Tier, o.Safety.Threshold, o.Mode)))
-		for _, r := range o.Reasons {
-			c.printf("  %s %s\n", st.Dim("-"), util.Clean(r))
-		}
+		c.printf("\n")
+		sf := o.Safety
+		sf.Score, sf.Reasons = o.Score, o.Reasons
+		scan.WriteScore(c.out, st, sf, o.Mode)
 		switch o.Decision {
 		case core.DecisionInstalled, core.DecisionForced:
 			word := "approved and installed"
@@ -239,14 +244,23 @@ func printOutcomes(c *ctx, ocs []core.AddOutcome) error {
 				c.printf("  %s %s %s %s %s\n", st.Green("installed"), st.Bold(g.Name), st.Dim("->"), g.Path, st.Dim("("+g.Mode+"; "+strings.Join(g.Harnesses, ", ")+")"))
 			}
 		case core.DecisionWarned:
-			c.printf("%s %q was NOT installed; it is still in quarantine.\n", st.Badge("33", "WARNING"), o.Name)
-			c.printf("%s skigard diff %s\n      skigard review %s   (optional)\n      skigard approve %s  (in a real terminal)\n      skigard install %s\n      or: skigard add ... --force-install (human terminal only)\n", st.Dim("next:"), o.Name, o.Name, o.Name, o.Name)
+			c.printf("%s %q was NOT installed; it is still in quarantine.\n", st.Tag("33", "WARNING"), o.Name)
+			c.nextSteps("", "",
+				"skigard diff "+o.Name,
+				"skigard review "+o.Name+"   (optional)",
+				"skigard approve "+o.Name+"  (in a real terminal)",
+				"skigard install "+o.Name,
+				"or: skigard add ... --force-install (human terminal only)")
 		case core.DecisionNeedsApproval:
 			c.printf("%s %q is in quarantine and waiting for a human.\n", st.Yellow("●"), o.Name)
-			if o.Err != nil {
+			// A declined prompt is reported once, by the final "skigard: cancelled" line.
+			if o.Err != nil && util.CodeOf(o.Err) != util.ExitCancelled {
 				c.printf("  (%s)\n", util.Clean(o.Err.Error()))
 			}
-			c.printf("next: skigard review %s   (optional)\n      skigard approve %s  (in a real terminal)\n      skigard install %s\n", o.Name, o.Name, o.Name)
+			c.nextSteps("", "",
+				"skigard review "+o.Name+"   (optional)",
+				"skigard approve "+o.Name+"  (in a real terminal)",
+				"skigard install "+o.Name)
 		default:
 			c.printf("%q was approved but installing failed: %s\n", o.Name, util.Clean(errText(o.Err)))
 		}
@@ -267,14 +281,25 @@ func errText(err error) string {
 }
 
 func cmdConfig(c *ctx, args []string) error {
-	fs := c.flags("config")
+	name := "config"
+	for _, a := range args { // name the verb so `config set -h` shows its usage
+		if !strings.HasPrefix(a, "-") {
+			if a == "get" || a == "set" {
+				name += " " + a
+			}
+			break
+		}
+	}
+	fs := c.flags(name)
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
 	}
-	usage := "config get [KEY] | config set KEY VALUE   (keys: " + strings.Join(core.ConfigKeys, ", ") + ")"
 	if len(pos) == 0 {
-		return util.Errf("usage: skigard %s", usage)
+		return util.Errf("usage: skigard config %s (see `skigard config -h`)", verbList("config"))
+	}
+	if pos[0] != "get" && pos[0] != "set" {
+		return util.Errf("unknown config command %q (see `skigard config -h`)", pos[0])
 	}
 	if err := c.open(); err != nil {
 		return err
@@ -322,9 +347,16 @@ func cmdConfig(c *ctx, args []string) error {
 			return err
 		}
 		c.printf("%s: %s -> %s\n", pos[1], old, pos[2])
+		if pos[1] == "marketplace" {
+			if v, _ := strconv.ParseBool(pos[2]); v {
+				c.printf("marketplace/ built; it is rebuilt after every approval and plugin change, and verify requires it\n")
+			} else {
+				c.printf("marketplace/ was left in place; verify checks it only while it exists\n")
+			}
+		}
 		return nil
 	}
-	return util.Errf("usage: skigard %s", usage)
+	return util.Errf("unknown config command %q", pos[0]) // unreachable: validated above
 }
 
 func cmdScan(c *ctx, args []string) error {
@@ -333,7 +365,8 @@ func cmdScan(c *ctx, args []string) error {
 	failOn := fs.String("fail-on", "high", "exit 1 at this severity or above: low, medium, high, critical, none")
 	incomplete := fs.Bool("fail-on-incomplete", false, "exit 4 when scan coverage is incomplete")
 	out := fs.String("output", "", "write the report to a file")
-	plain := fs.Bool("plain", false, "text format: no colours and no grouping (the default when not on a terminal)")
+	plain := fs.Bool("plain", false, "text format: no colours (the default when not on a terminal)")
+	all := fs.Bool("all", false, "text format: show every finding instead of a summary")
 	pos, err := parse(fs, args)
 	if err != nil {
 		return err
@@ -363,9 +396,13 @@ func cmdScan(c *ctx, args []string) error {
 	switch *format {
 	case "text":
 		if st := c.style(*plain); st.On && *out == "" {
-			scan.WriteStyled(w, rep, st)
+			scan.WriteStyledOpts(w, rep, st, c.scanOptions(*all))
 		} else {
-			scan.WriteText(w, rep)
+			opt := c.scanOptions(*all)
+			if *out != "" {
+				opt.Width = term.DefaultWidth
+			}
+			scan.WriteTextOpts(w, rep, opt)
 		}
 	case "json":
 		err = scan.WriteJSON(w, rep)
@@ -395,7 +432,7 @@ func cmdScan(c *ctx, args []string) error {
 }
 
 func cmdReview(c *ctx, args []string) error {
-	if len(args) > 0 && args[0] == "record" {
+	if len(args) > 0 && args[0] == groups["review"][0].name {
 		return cmdReviewRecord(c, args[1:])
 	}
 	fs := c.flags("review")
@@ -500,15 +537,7 @@ func printReviewStyled(c *ctx, st term.Style, name string, rec *review.Record) {
 	c.printf("\n%s skigard approve %s\n", st.Dim("next:"), name)
 }
 
-func verdictStyle(st term.Style, v string) string {
-	switch strings.ToLower(v) {
-	case "pass":
-		return st.Badge("32", "PASS")
-	case "fail":
-		return st.Badge("31", "FAIL")
-	}
-	return st.Badge("33", strings.ToUpper(util.Clean(v)))
-}
+func verdictStyle(st term.Style, v string) string { return st.Verdict(util.Clean(v)) }
 
 func sevLabelPad(st term.Style, sev string) string {
 	return sevStyle(st, fmt.Sprintf("%-8s", sev))
@@ -522,7 +551,7 @@ func pickReviewer(c *ctx, rv []core.Reviewer) (string, error) {
 		}
 	}
 	if len(usable) == 0 {
-		return "", util.Errf("no harness that can review headlessly was found (claude-code, pi, omp, gemini-cli). Use --manual, or install one")
+		return "", util.Errf("no harness that can review headlessly was found (claude-code, pi, omp). Use --manual, or install one")
 	}
 	if !stdinIsTerminal() {
 		var ids []string
@@ -594,14 +623,20 @@ func cmdDiff(c *ctx, args []string) error {
 	if err := c.open(); err != nil {
 		return err
 	}
-	d, err := c.app.Diff(pos[0])
+	d, err := c.app.DiffAgainst(pos[0])
 	if err != nil {
 		return err
 	}
-	if d == "" {
-		d = "no differences from the approved version\n"
+	st := c.style(false)
+	if d.NoBaseline {
+		c.printf("%s no comparison is available: the original upstream of this in-place edit could not be rebuilt.\n  Read the files in quarantine instead (skigard show %s).\n", st.Yellow("●"), pos[0])
+		return nil
 	}
-	c.printf("%s", term.Diff(c.style(false), d))
+	c.printf("%s\n", st.Dim(d.Phrase))
+	if d.Text == "" {
+		c.printf("no differences\n")
+	}
+	c.printf("%s", term.Diff(st, d.Text))
 	return nil
 }
 
@@ -628,6 +663,212 @@ func cmdApprove(c *ctx, args []string) error {
 	st := c.style(false)
 	c.printf("%s approved %q (%s)\n%s %s\n%s skigard install %s\n", st.Green("✔"), res.Name, hash.Short(res.Hash, 12), st.Dim("evidence:"), res.Record, st.Dim("next:"), res.Name)
 	return nil
+}
+
+func cmdAdopt(c *ctx, args []string) error {
+	fs := c.flags("adopt")
+	mode := fs.String("mode", "", "strict or auto (default: your setting; inside an agent only a stricter one than the setting is allowed)")
+	threshold := fs.Int("threshold", 0, "minimum safety score 1..10 for automatic approval (default: your setting; inside an agent it cannot be lower)")
+	rev := fs.Bool("review", false, "run an advisory review before scoring (sends the skill to a model provider)")
+	revHarness := fs.String("review-harness", "", "harness that runs the review (default: your saved choice)")
+	pos, err := parse(fs, args)
+	if err != nil {
+		return err
+	}
+	if err := needArgs(pos, 1, "adopt NAME [--review] [--mode M] [--threshold N]"); err != nil {
+		return err
+	}
+	if err := c.open(); err != nil {
+		return err
+	}
+	o, err := c.app.AdoptAndApprove(c.ctx, pos[0], core.AdoptOpts{Mode: *mode, Threshold: *threshold, Review: *rev, ReviewOpts: core.ReviewOpts{Harness: *revHarness}})
+	if err != nil {
+		return err
+	}
+	q := o.Q
+	if c.json {
+		m := map[string]any{
+			"name": o.Name, "content_hash": o.Hash, "upstream_hash": q.Meta.UpstreamHash, "mode": o.Mode, "decision": o.Decision,
+			"no_changes": q.NoChanges, "baseline_warning": q.BaselineWarning, "report": q.Report, "scan": q.Report,
+			"reasons": o.Reasons, "notes": o.Notes, "installs_refreshed": o.Refreshed, "installs_stale": o.Stale,
+		}
+		if o.Decision != core.DecisionNoChanges {
+			m["score"] = o.Safety
+		}
+		if o.Review != nil {
+			m["review"] = o.Review
+		}
+		return c.printJSON(m)
+	}
+	st := c.style(false)
+	if q.NoChanges {
+		c.printf("%s no changes: the working copy of %q is identical to the approved version\n  %s\n", st.Yellow("●"), q.Name, st.Dim("(it is still open: edit "+c.app.Home.QuarantineSkill(q.Name)+" or discard it with `skigard reject "+q.Name+"`)"))
+		return nil
+	}
+	if o.Decision != core.DecisionAdopted {
+		verb := "finalized your edit of"
+		if q.Meta.InPlace {
+			verb = "staged your local edits of"
+		}
+		c.printf("%s %s %q in quarantine\n  %s\n", st.Green("✔"), verb, q.Name, st.Dim("(skills/, the lock and installs are unchanged)"))
+	}
+	c.writeScan(q.Report)
+	if q.BaselineWarning != "" {
+		c.printf("%s no comparison is available for this in-place edit: %s\n  `skigard diff` and the approve screen cannot show what changed; read every file in quarantine.\n", st.Yellow("●"), q.BaselineWarning)
+	}
+	if o.Review != nil {
+		c.printf("review: %s %s\n", verdictStyle(st, o.Review.Verdict), st.Dim("(advisory)"))
+	}
+	c.printf("\n")
+	sf := o.Safety
+	sf.Score, sf.Reasons = o.Score, o.Reasons
+	scan.WriteScore(c.out, st, sf, o.Mode)
+	if o.Decision == core.DecisionAdopted {
+		c.printf("\n%s approved automatically (recorded in the lock as mode = auto)\n", st.Green("✔"))
+		for _, p := range o.Refreshed {
+			c.printf("  %s %s %s\n", st.Green("refreshed"), util.Clean(p), st.Dim("(symlink to skills/; shows the new version)"))
+		}
+		for _, p := range o.Stale {
+			c.printf("  %s %s %s\n", st.Yellow("stale"), util.Clean(p), st.Dim("(copy install)"))
+		}
+		if len(o.Stale) > 0 {
+			fmt.Fprintf(c.errw, "%s copy installs of %q still hold the old version; run `skigard sync`\n", st.Yellow("note:"), q.Name)
+		} else if len(o.Refreshed) > 0 {
+			fmt.Fprintf(c.errw, "%s run `skigard sync` to update the install records of %q\n", st.Yellow("note:"), q.Name)
+		}
+		c.printf("\n")
+		return nil
+	}
+	c.printf("\n")
+	against := "your edits vs the approved version"
+	if q.Meta.InPlace {
+		against = "your edits vs the original upstream"
+	}
+	if o.Decision == core.DecisionWarned {
+		c.printf("%s %q was NOT approved; it is still in quarantine.\n", st.Tag("33", "WARNING"), q.Name)
+	} else {
+		c.printf("%s %q is in quarantine and waiting for a human.\n", st.Yellow("●"), q.Name)
+	}
+	c.nextSteps("", "",
+		fmt.Sprintf("skigard diff %s   (%s)", q.Name, against),
+		fmt.Sprintf("skigard review %s   (optional)", q.Name),
+		fmt.Sprintf("skigard approve %s  (in a real terminal)", q.Name))
+	return nil
+}
+
+func cmdEdit(c *ctx, args []string) error {
+	fs := c.flags("edit")
+	pos, err := parse(fs, args)
+	if err != nil {
+		return err
+	}
+	if err := needArgs(pos, 1, "edit NAME"); err != nil {
+		return err
+	}
+	if err := c.open(); err != nil {
+		return err
+	}
+	q, err := c.app.Edit(pos[0])
+	if err != nil {
+		return err
+	}
+	dir := c.app.Home.QuarantineSkill(q.Name)
+	if c.json {
+		return c.printJSON(map[string]any{"name": q.Name, "path": dir, "content_hash": q.Hash})
+	}
+	st := c.style(false)
+	c.printf("%s editable working copy of %q\n  %s\n  %s\n", st.Green("✔"), q.Name, util.Clean(dir), st.Dim("(skills/, the lock and installs are unchanged; the approved version stays live)"))
+	c.nextSteps("\n", "",
+		fmt.Sprintf("edit the files in %s", util.Clean(dir)),
+		fmt.Sprintf("skigard diff %s     (see your changes)", q.Name),
+		fmt.Sprintf("skigard adopt %s    (finalize; approves automatically when your mode and threshold allow)", q.Name),
+		fmt.Sprintf("skigard approve %s  (in a real terminal, if adopt left it staged)", q.Name))
+	return nil
+}
+
+func cmdMerge(c *ctx, args []string) error {
+	fs := c.flags("merge")
+	pick := fs.Bool("pick", false, "choose hunk by hunk in your terminal what to take from upstream (default for every hunk: keep mine)")
+	with := fs.String("with", "", "have this harness (a reviewer template id: claude-code, pi, omp) merge, confined like a reviewer")
+	note := fs.String("note", "", "guidance for the merge agent, for example \"use mise run playwright\" (sent to the agent; max 2000 bytes)")
+	model := fs.String("model", "", "model for the merge agent, if it supports --model")
+	policyOnly := fs.Bool("allow-policy-only", false, "if no OS sandbox works here, run the merge agent isolated by policy only (same meaning as for review; has no effect on approval)")
+	pos, err := parse(fs, args)
+	if err != nil {
+		return err
+	}
+	if err := needArgs(pos, 1, "merge NAME [--pick | --with HARNESS] [--note TEXT]"); err != nil {
+		return err
+	}
+	if *pick && *with != "" {
+		return util.Errf("choose one of --pick and --with")
+	}
+	if *note != "" && *with == "" {
+		return util.Errf("--note is for the merge agent; use it with --with HARNESS")
+	}
+	if err := c.open(); err != nil {
+		return err
+	}
+	name := pos[0]
+	if !*pick && *with == "" {
+		if !stdinIsTerminal() || c.json || c.out != io.Writer(os.Stdout) {
+			return util.Errf("choose how to merge: --pick (you choose hunk by hunk) or --with HARNESS (an agent merges, then you review and approve)")
+		}
+		switch strings.ToLower(ask("merge by [p]ick hunks yourself or with an [a]gent? [p/a]: ")) {
+		case "p", "pick":
+			*pick = true
+		case "a", "agent":
+			rv, err := c.app.Reviewers()
+			if err != nil {
+				return err
+			}
+			if *with, err = pickReviewer(c, rv); err != nil {
+				return err
+			}
+		default:
+			return util.Cancelled("no merge mode chosen")
+		}
+	}
+	var m *core.Merged
+	if *pick {
+		ch, closeFn, err := ttyChooser(c.style(false))
+		if err != nil {
+			return err
+		}
+		defer closeFn()
+		if m, err = c.app.PickMerge(name, ch); err != nil {
+			return err
+		}
+	} else {
+		iso, isoErr := review.SandboxStatus()
+		if isoErr != nil {
+			fmt.Fprintf(c.errw, "note: no OS sandbox is available here (%s)\n", util.OneLine(isoErr.Error(), 200))
+		}
+		fmt.Fprintf(c.errw, "merging %q with %s (tools disabled, isolation: %s). This sends your local copy, the new upstream version and your note to its model provider, and uses your own %s plan/credits once.\n", name, *with, iso.Mode, *with)
+		if m, err = c.app.AgentMerge(c.ctx, name, core.MergeOpts{Harness: *with, Model: *model, Note: *note, AllowPolicyOnly: *policyOnly}); err != nil {
+			return err
+		}
+	}
+	if c.json {
+		return c.printJSON(map[string]any{"name": m.Name, "mode": m.Mode, "merged_by": m.Meta.MergedBy, "isolation": m.Isolation.Mode,
+			"content_hash": m.Hash, "upstream_hash": m.Meta.UpstreamHash, "report": m.Report})
+	}
+	printMerged(c, m)
+	return nil
+}
+
+// printMerged is the human summary of a staged merge.
+func printMerged(c *ctx, m *core.Merged) {
+	how := "your picks"
+	if m.Mode == core.MergeAgent {
+		how = fmt.Sprintf("agent %s (isolation: %s)", util.Clean(m.Meta.MergedBy), m.Isolation.Mode)
+	}
+	c.printf("%s staged the merge of %q from %s in quarantine\n  %s\n", c.style(false).Green("✔"), m.Name, how, c.style(false).Dim("(skills/, the lock and installs are unchanged)"))
+	c.writeScan(m.Report)
+	c.nextSteps("\n", "",
+		fmt.Sprintf("skigard diff %s   (your current copy vs the merge)", m.Name),
+		fmt.Sprintf("skigard review %s   (optional)", m.Name),
+		fmt.Sprintf("skigard approve %s  (in a real terminal)", m.Name))
 }
 
 func cmdReject(c *ctx, args []string) error {
@@ -668,19 +909,39 @@ func cmdUpdate(c *ctx, args []string) error {
 	if len(rs) == 0 {
 		c.printf("nothing is approved yet\n")
 	}
+	st := c.style(false)
 	for _, r := range rs {
-		c.printf("%s: %s\n", r.Name, util.Clean(r.Note))
+		c.printf("%s: %s\n", st.Bold(util.Clean(r.Name)), util.Clean(r.Note))
 		if r.Changed && r.Report != nil {
-			c.printf("  new commit: %s\n", r.NewSHA)
-			scan.WriteText(c.out, r.Report)
-			if r.Safety.Score > 0 {
-				c.printf("  safety score: %s (%s; threshold %d)\n", scoreStyle(c.style(false), fmt.Sprintf("%d/10", r.Safety.Score)), r.Safety.Tier, r.Safety.Threshold)
+			if r.NewSHA != "" {
+				c.printf("  new commit: %s\n", r.NewSHA)
 			}
+			c.printf("\n")
+			c.writeScan(r.Report)
+			if r.Safety.Score > 0 {
+				c.printf("\n")
+				scan.WriteScore(c.out, st, r.Safety, "")
+			}
+			c.printf("\n")
 			if r.Applied {
-				c.printf("  approved automatically (recorded in the lock as mode = auto)\n")
+				c.printf("%s approved automatically (recorded in the lock as mode = auto)\n\n", st.Green("✔"))
 				continue
 			}
-			c.printf("  left in quarantine. next: skigard diff %s; skigard review %s; skigard approve %s\n", r.Name, r.Name, r.Name)
+			if r.LocalChanges {
+				c.printf("%s %q is in quarantine; it differs from your local copy.\n", st.Yellow("●"), r.Name)
+				c.nextSteps("", "",
+					fmt.Sprintf("skigard diff %s   (your copy vs new upstream)", r.Name),
+					fmt.Sprintf("skigard merge %s --pick   (keep your edits; or --with HARNESS [--note TEXT])", r.Name),
+					fmt.Sprintf("skigard approve %s  (in a real terminal; takes upstream wholesale and drops your edits)", r.Name))
+				c.printf("\n")
+				continue
+			}
+			c.printf("%s %q is in quarantine.\n", st.Yellow("●"), r.Name)
+			c.nextSteps("", "",
+				fmt.Sprintf("skigard diff %s", r.Name),
+				fmt.Sprintf("skigard review %s   (optional)", r.Name),
+				fmt.Sprintf("skigard approve %s  (in a real terminal)", r.Name))
+			c.printf("\n")
 		}
 	}
 	return nil
@@ -777,7 +1038,7 @@ func cmdUninstall(c *ctx, args []string) error {
 
 func cmdVerify(c *ctx, args []string) error {
 	fs := c.flags("verify")
-	strict := fs.Bool("strict", false, "treat warnings (overrides, non-pass reviews) as failures")
+	strict := fs.Bool("strict", false, "treat warnings (overrides, non-pass reviews, writable approved skills) as failures")
 	requireHuman := fs.Bool("require-human", false, "fail if any approval was made automatically (mode auto) or forced")
 	if _, err := parse(fs, args); err != nil {
 		return err
@@ -795,7 +1056,8 @@ func cmdVerify(c *ctx, args []string) error {
 			return err
 		}
 		for _, sk := range lock.Skills {
-			if m := sk.Approval.EffectiveMode(); m != store.ApprovalHuman {
+			// local is a human approval of the user's own edits (flagged in list/status as local); it is allowed here.
+			if m := sk.Approval.EffectiveMode(); m != store.ApprovalHuman && m != store.ApprovalLocal {
 				ps = append(ps, core.Problem{Level: "error", Msg: fmt.Sprintf("%s: approved with mode %s, not by a human (--require-human)", sk.Name, m)})
 			}
 		}
@@ -821,7 +1083,11 @@ func cmdVerify(c *ctx, args []string) error {
 			c.printf("%s %s\n", st.Level(fmt.Sprintf("%-5s", p.Level)), util.Clean(p.Msg))
 		}
 		if !bad {
-			c.printf("%s lock, store, installs and marketplace agree\n", st.Green("✔ ok"))
+			what := "lock, store and installs agree"
+			if fi, err := os.Stat(c.app.Home.MarketplaceDir()); err == nil && fi.IsDir() {
+				what = "lock, store, installs and marketplace agree"
+			}
+			c.printf("%s %s\n", st.Green("✔ ok"), what)
 		}
 	}
 	if bad {
@@ -861,6 +1127,9 @@ func cmdList(c *ctx, args []string) error {
 		}
 		if e.Drift {
 			flags += " [DRIFT]"
+		}
+		if e.Merge != "" {
+			flags += " [merged: " + util.Clean(e.Merge) + "]"
 		}
 		score := "-"
 		if e.Score > 0 {
@@ -903,18 +1172,7 @@ func sevStyle(st term.Style, sev string) string {
 }
 
 // scoreStyle colours "N/10" by the same bands as the safety tiers.
-func scoreStyle(st term.Style, cell string) string {
-	n, err := strconv.Atoi(strings.TrimSuffix(cell, "/10"))
-	switch {
-	case err != nil:
-		return st.Dim(cell)
-	case n >= 7:
-		return st.Green(cell)
-	case n >= 4:
-		return st.Yellow(cell)
-	}
-	return st.Red(cell)
-}
+func scoreStyle(st term.Style, cell string) string { return st.Score(cell) }
 
 func dash(s string) string {
 	if s == "" {
@@ -996,7 +1254,7 @@ func cmdStatus(c *ctx, args []string) error {
 	st := c.style(false)
 	c.printf("%s %s\n%s %s (%d with override)\n", st.Dim("home:       "), c.app.Home.Root, st.Dim("approved:   "), st.Green(strconv.Itoa(appr)), over)
 	if appr > 0 {
-		c.printf("%s %d human, %d auto, %d forced\n", st.Dim("  by mode:  "), modes[store.ApprovalHuman], modes[store.ApprovalAuto], modes[store.ApprovalForced])
+		c.printf("%s %d human, %d local, %d auto, %d forced\n", st.Dim("  by mode:  "), modes[store.ApprovalHuman], modes[store.ApprovalLocal], modes[store.ApprovalAuto], modes[store.ApprovalForced])
 	}
 	qs := strconv.Itoa(quar)
 	if quar > 0 {
@@ -1096,13 +1354,13 @@ func cmdStats(c *ctx, args []string) error {
 }
 
 func cmdPlugin(c *ctx, args []string) error {
-	if len(args) == 0 {
-		return util.Errf("usage: skigard plugin create|delete|add|remove|show|list ...")
+	sub, args, err := c.verb("plugin", args)
+	if err != nil {
+		return err
 	}
-	sub := args[0]
 	fs := c.flags("plugin " + sub)
 	desc := fs.String("description", "", "plugin description (create)")
-	pos, err := parse(fs, args[1:])
+	pos, err := parse(fs, args)
 	if err != nil {
 		return err
 	}
@@ -1182,21 +1440,22 @@ func cmdPlugin(c *ctx, args []string) error {
 		}))
 		return nil
 	}
-	return util.Errf("unknown plugin command %q", sub)
+	return util.Errf("unknown plugin command %q", sub) // unreachable: verb() validated it
 }
 
 func cmdMarketplace(c *ctx, args []string) error {
-	if len(args) == 0 {
-		return util.Errf("usage: skigard marketplace build|check")
+	sub, args, err := c.verb("marketplace", args)
+	if err != nil {
+		return err
 	}
-	fs := c.flags("marketplace " + args[0])
-	if _, err := parse(fs, args[1:]); err != nil {
+	fs := c.flags("marketplace " + sub)
+	if _, err := parse(fs, args); err != nil {
 		return err
 	}
 	if err := c.open(); err != nil {
 		return err
 	}
-	switch args[0] {
+	switch sub {
 	case "build":
 		if err := c.app.MarketplaceBuild(); err != nil {
 			return err
@@ -1217,22 +1476,21 @@ func cmdMarketplace(c *ctx, args []string) error {
 		c.printf("marketplace is up to date\n")
 		return nil
 	}
-	return util.Errf("unknown marketplace command %q", args[0])
+	return util.Errf("unknown marketplace command %q", sub)
 }
 
 func cmdHarness(c *ctx, args []string) error {
-	if len(args) == 0 {
-		return util.Errf("usage: skigard harness list|add")
+	sub, args, err := c.verb("harness", args)
+	if err != nil {
+		return err
 	}
-	sub := args[0]
 	fs := c.flags("harness " + sub)
 	id := fs.String("id", "", "harness id (add)")
 	name := fs.String("name", "", "display name (add)")
 	global := fs.String("global", "", "user-scope skills dir, e.g. ~/.mytool/skills (add)")
 	project := fs.String("project", "", "project-scope skills dir, e.g. .mytool/skills (add)")
 	bin := fs.String("bin", "", "executable name used for detection (add)")
-	pos, err := parse(fs, args[1:])
-	_ = pos
+	_, err = parse(fs, args)
 	if err != nil {
 		return err
 	}
@@ -1363,12 +1621,67 @@ func cmdMigrate(c *ctx, args []string) error {
 	return nil
 }
 
+// cmdLockProtect makes approved skills read-only. It only removes write bits, so it is allowed in an agent.
+func cmdLockProtect(c *ctx, args []string) error {
+	fs := c.flags("lock protect")
+	pos, err := parse(fs, args)
+	if err != nil {
+		return err
+	}
+	if err := c.open(); err != nil {
+		return err
+	}
+	res, err := c.app.Protect(pos)
+	if err != nil {
+		return err
+	}
+	if c.json {
+		if res == nil {
+			res = []core.ProtectResult{}
+		}
+		return c.printJSON(res)
+	}
+	if runtime.GOOS == "windows" {
+		c.printf("nothing to do: Windows permission bits are not meaningful, so approved skills are not made read-only there\n")
+		return nil
+	}
+	if len(res) == 0 {
+		c.printf("no approved skills\n")
+		return nil
+	}
+	st := c.style(false)
+	changed, already := 0, 0
+	for _, r := range res {
+		switch {
+		case r.Changed:
+			changed++
+			c.printf("%s %s is now read-only\n", st.Green("✔"), util.Clean(r.Name))
+		case r.Note == "already read-only":
+			already++
+		default:
+			c.printf("%s: %s\n", util.Clean(r.Name), r.Note)
+		}
+	}
+	if already > 0 {
+		c.printf("%d already read-only\n", already)
+	}
+	if changed > 0 {
+		c.printf("%s\n", st.Dim("(permissions only: content, hashes, the lock and installs are unchanged)"))
+		c.nextSteps("", "", "skigard verify", "skigard edit NAME   # to change a skill from now on")
+	}
+	return nil
+}
+
 func cmdLock(c *ctx, args []string) error {
-	if len(args) == 0 || args[0] != "upgrade" {
-		return util.Errf("usage: skigard lock upgrade [NAME...]")
+	verb, args, err := c.verb("lock", args)
+	if err != nil {
+		return err
+	}
+	if verb == "protect" {
+		return cmdLockProtect(c, args)
 	}
 	fs := c.flags("lock upgrade")
-	pos, err := parse(fs, args[1:])
+	pos, err := parse(fs, args)
 	if err != nil {
 		return err
 	}

@@ -14,6 +14,7 @@ import (
 	"github.com/ambierhq/skigard/internal/scan"
 	"github.com/ambierhq/skigard/internal/skill"
 	"github.com/ambierhq/skigard/internal/store"
+	"github.com/ambierhq/skigard/internal/term"
 	"github.com/ambierhq/skigard/internal/util"
 )
 
@@ -122,11 +123,7 @@ func (a *App) Approve(name string, o ApproveOpts) (*Approved, error) {
 		return nil, util.Errf("%q is reserved for automatic approvals; use another name", store.AutoApprover)
 	}
 	prev, replacing := lock.Get(name)
-	oldDir := ""
-	if replacing {
-		oldDir = a.Home.SkillDir(name)
-	}
-	d, err := diff.Dirs(oldDir, dir)
+	d, err := a.compare(meta, replacing, dir)
 	if err != nil {
 		return nil, err
 	}
@@ -137,10 +134,14 @@ func (a *App) Approve(name string, o ApproveOpts) (*Approved, error) {
 	}
 	approval := store.ApprovalRec{By: by, At: util.Now(), Override: o.Override && len(why) > 0, Reason: strings.TrimSpace(o.Reason), Accepted: accepted,
 		Mode: store.ApprovalHuman, Score: sf.Score, ScoreVersion: sf.Version}
+	if isFork(meta) {
+		approval.Mode = store.ApprovalLocal
+	}
 	recPath, err := a.promote(meta, dir, rep, rev, approval, lock)
 	if err != nil {
 		return nil, err
 	}
+	a.syncMarketplace(man)
 	return &Approved{Name: name, Hash: meta.ContentHash, Record: recPath, Report: rep}, nil
 }
 
@@ -150,6 +151,9 @@ func (a *App) Approve(name string, o ApproveOpts) (*Approved, error) {
 func (a *App) loadQuarantined(name string) (*store.Meta, string, error) {
 	meta, err := store.LoadMeta(a.Home, name)
 	if err != nil {
+		return nil, "", err
+	}
+	if err := refuseEditing(meta); err != nil {
 		return nil, "", err
 	}
 	dir := a.Home.QuarantineSkill(name)
@@ -180,7 +184,7 @@ func (a *App) promote(meta *store.Meta, dir string, rep *scan.Report, rev *revie
 		return "", err
 	}
 	stage := filepath.Join(a.Home.SkillsDir(), ".staging-"+util.RandomHex(6))
-	defer os.RemoveAll(stage)
+	defer func() { _ = util.RemoveAll(stage) }()
 	if _, err := safefs.CopyTree(dir, stage, safefs.DefaultLimits()); err != nil {
 		return "", err
 	}
@@ -204,6 +208,9 @@ func (a *App) promote(meta *store.Meta, dir string, rep *scan.Report, rev *revie
 		}
 		return "", err
 	}
+	// A deterrent against editing the approved copy in place (installs are symlinks into
+	// it); the lock hash is the real control. Best effort: failing to chmod is not fatal.
+	_ = util.MakeReadOnly(final)
 	bundle := &store.Bundle{Skill: name, Hash: meta.ContentHash, Source: meta.Source, Commit: meta.Commit, Scan: rep, Review: rev, Approval: approval}
 	recPath, err := store.SaveBundle(a.Home, bundle, hash.Short(meta.ContentHash, 12))
 	if err != nil {
@@ -215,6 +222,9 @@ func (a *App) promote(meta *store.Meta, dir string, rep *scan.Report, rev *revie
 		Approval: approval,
 	}
 	ls.SetIdentity(meta.Identity())
+	if isFork(meta) {
+		ls.UpstreamHash = meta.UpstreamHash
+	}
 	if rev != nil {
 		ls.Review = &store.ReviewRec{Reviewer: rev.Reviewer, Verdict: rev.Verdict, Coverage: rev.Coverage, Record: recPath}
 	}
@@ -223,11 +233,28 @@ func (a *App) promote(meta *store.Meta, dir string, rep *scan.Report, rev *revie
 		return "", err
 	}
 	if backup != "" {
-		os.RemoveAll(backup)
+		_ = util.RemoveAll(backup) // the old approved tree is read-only
 	}
 	os.RemoveAll(dir)
+	os.RemoveAll(a.Home.BasePath(name))
 	os.Remove(a.Home.MetaPath(name))
 	return recPath, nil
+}
+
+// isFork reports whether a quarantined skill is a local fork staged by adopt:
+// its content differs from the upstream baseline it records.
+func isFork(meta *store.Meta) bool {
+	return meta.UpstreamHash != "" && meta.UpstreamHash != meta.ContentHash
+}
+
+// hasLocalEdits reports whether skills/<name> exists and differs from the lock identity.
+func (a *App) hasLocalEdits(ls *store.LockSkill) bool {
+	dir := a.Home.SkillDir(ls.Name)
+	if !isDir(dir) {
+		return false
+	}
+	st, err := hash.Check(dir, ls.Identity())
+	return err == nil && !st.OK()
 }
 
 // reviewVerdict is the verdict of a review record, or "" when there is none.
@@ -245,69 +272,209 @@ func nameMismatch(m *skill.Meta, name string) []string {
 	return nil
 }
 
-func (a *App) summary(meta *store.Meta, rep *scan.Report, rev *review.Record, stale bool, d string, prev *store.LockSkill, why []string, o ApproveOpts, sf scan.Safety) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "Approve skill %q\n", meta.Name)
-	fmt.Fprintf(&b, "  source:  %s\n", util.Clean(meta.Source))
-	if meta.Commit != "" {
-		fmt.Fprintf(&b, "  commit:  %s\n", meta.Commit)
+// summary is the approval screen. It is plain text unless a.Style is on; every section is
+// separated by exactly one blank line and the text has no trailing newline.
+func (a *App) summary(meta *store.Meta, rep *scan.Report, rev *review.Record, stale bool, cmp comparison, prev *store.LockSkill, why []string, o ApproveOpts, sf scan.Safety) string {
+	st := a.Style
+	var sections []string
+	add := func(t string) { sections = append(sections, strings.TrimRight(t, "\n")) }
+
+	rows := []term.KV{
+		{Key: "source", Value: util.Clean(meta.Source)},
+		{Key: "commit", Value: util.Clean(meta.Commit)},
+		{Key: "hash", Value: meta.ContentHash},
 	}
-	fmt.Fprintf(&b, "  hash:    %s\n", meta.ContentHash)
 	if prev != nil {
-		fmt.Fprintf(&b, "  replaces approved version %s\n", hash.Short(prev.ContentHash, 12))
+		rows = append(rows, term.KV{Key: "replaces", Value: "approved version " + hash.Short(prev.ContentHash, 12)})
 	}
-	scan.WriteText(&b, rep)
-	fmt.Fprintf(&b, "safety score: %d/10 (%s; threshold %d): %s\n", sf.Score, sf.Tier, sf.Threshold, strings.Join(sf.Reasons, "; "))
-	switch {
-	case rev != nil:
-		fmt.Fprintf(&b, "review (%s, advisory): %s, coverage %s\n  %s\n", util.Clean(rev.Reviewer), strings.ToUpper(rev.Verdict), rev.Coverage, util.Clean(rev.Summary))
-		fmt.Fprintf(&b, "  isolation: %s\n", isolationLine(rev))
-		for _, f := range rev.Findings {
-			fmt.Fprintf(&b, "    [%s] %s:%d %s\n", f.Severity, util.Clean(f.File), f.Line, util.Clean(f.Why))
+	if n := mergeNote(meta); n != "" {
+		rows = append(rows, term.KV{Key: "merge", Value: util.Clean(n)})
+	}
+	add(st.Bold(fmt.Sprintf("Approve skill %q", util.Clean(meta.Name))) + "\n\n" + term.KVBlock(st, "  ", rows))
+
+	if meta.MergeMode == MergeAgent {
+		add(st.Tag("33", "WARNING") + "  the merge agent's output is untrusted\n  read the diff against skills/ below")
+	}
+	if prev != nil {
+		switch {
+		case isFork(meta):
+			add(st.Tag("33", "LOCAL FORK") + "  your edited copy of an approved skill\n" + term.KVBlock(st, "  ", []term.KV{
+				{Key: "baseline", Value: "upstream " + hash.Short(meta.UpstreamHash, 12)},
+				{Key: "recorded", Value: "as mode local"},
+			}))
+		case prev.UpstreamHash != "" || a.hasLocalEdits(prev):
+			add(st.Tag("33", "WARNING") + "  approving replaces your local edits to this skill with the new upstream version")
 		}
-	case stale:
-		b.WriteString("review: a review exists but is for different content (ignored)\n")
-	default:
-		b.WriteString("review: none (run `skigard review` first for a second opinion)\n")
 	}
+
+	// The header already shows the hash; do not print it a second time in the scan block.
+	r := *rep
+	if r.Fingerprint == meta.ContentHash {
+		r.Fingerprint = ""
+	}
+	var sb strings.Builder
+	opt := scan.RenderOptions{Width: term.Width(os.Stdout) - 2} // the block is indented by two
+	if st.On {
+		scan.WriteStyledOpts(&sb, &r, st, opt)
+	} else {
+		scan.WriteTextOpts(&sb, &r, opt)
+	}
+	add(term.Indent(sb.String(), "  "))
+
+	var scoreB strings.Builder
+	mode := store.ApprovalHuman
+	if isFork(meta) {
+		mode = store.ApprovalLocal
+	}
+	scan.WriteScore(&scoreB, st, sf, mode)
+	add(scoreB.String())
+
+	add(a.reviewBlock(rev, stale))
+
 	if len(why) > 0 {
-		fmt.Fprintf(&b, "OVERRIDE: %s\n  reason given: %s\n", strings.Join(why, "; "), util.Clean(o.Reason))
+		add(st.Tag("31", "OVERRIDE") + "  " + strings.Join(why, "; ") + "\n" + term.KVBlock(st, "  ", []term.KV{{Key: "reason", Value: util.Clean(o.Reason)}}))
 	}
 	if o.Accept != "" {
-		fmt.Fprintf(&b, "accepting current low/medium findings: %s\n", util.Clean(o.Accept))
+		add(st.Tag("33", "ACCEPTING") + "  current low/medium findings\n" + term.KVBlock(st, "  ", []term.KV{{Key: "reason", Value: util.Clean(o.Accept)}}))
 	}
-	if d != "" {
-		lines := strings.Split(strings.TrimRight(d, "\n"), "\n")
+
+	switch {
+	case cmp.None:
+		add(st.Tag("33", "NO COMPARISON") + "  this is your in-place edit of an approved skill and the original upstream could not be rebuilt (see `skigard adopt`)\n  there is no diff to read: read every file in quarantine before you approve")
+	case cmp.Text == "":
+		add(st.Bold("changes") + "  " + st.Dim(cmp.Phrase()) + "\n  none")
+	default:
+		lines := strings.Split(strings.TrimRight(cmp.Text, "\n"), "\n")
 		const max = 300
-		b.WriteString("changes:\n")
-		for i, l := range lines {
-			if i >= max {
-				fmt.Fprintf(&b, "  ... %d more lines (run `skigard diff %s`)\n", len(lines)-max, meta.Name)
-				break
-			}
-			b.WriteString("  " + l + "\n")
+		more := ""
+		if len(lines) > max {
+			more = fmt.Sprintf("\n  ... %d more lines (run `skigard diff %s`)", len(lines)-max, util.Clean(meta.Name))
+			lines = lines[:max]
 		}
+		add(st.Bold("changes") + "  " + st.Dim(cmp.Phrase()) + "\n" + term.Indent(term.Diff(st, strings.Join(lines, "\n")+"\n"), "  ") + strings.TrimLeft(more, "\n"))
 	}
-	return b.String()
+	return strings.Join(sections, "\n\n")
+}
+
+// reviewBlock renders the review part of the approval screen.
+func (a *App) reviewBlock(rev *review.Record, stale bool) string {
+	st := a.Style
+	switch {
+	case rev != nil:
+		var b strings.Builder
+		fmt.Fprintf(&b, "review: %s %s\n", st.Verdict(util.Clean(rev.Verdict)), st.Dim(fmt.Sprintf("(%s, advisory; coverage %s)", util.Clean(rev.Reviewer), rev.Coverage)))
+		if rev.Summary != "" {
+			b.WriteString(term.Wrap(util.Clean(rev.Summary), 88, "  ") + "\n")
+		}
+		b.WriteString(term.KVBlock(st, "  ", []term.KV{{Key: "isolation", Value: isolationLine(rev)}}))
+		for _, f := range rev.Findings {
+			fmt.Fprintf(&b, "  [%s] %s:%d %s\n", f.Severity, util.Clean(f.File), f.Line, util.Clean(f.Why))
+		}
+		return b.String()
+	case stale:
+		return "review: " + st.Yellow("stale") + " a review exists but is for different content (ignored)"
+	}
+	return "review: " + st.Dim("none") + " (run `skigard review` first for a second opinion)"
+}
+
+// comparison is what an approval or `diff` compares a quarantined skill with.
+type comparison struct {
+	Text     string // the unified diff
+	Label    string // what Text is against; empty for an ordinary new or updated skill
+	None     bool   // no baseline is available: an empty Text means nothing was compared
+	Approved bool   // an approved copy exists in skills/ (an update, not a new skill)
+	Edit     bool   // the quarantined side is the user's own edit rather than a fetched version
+}
+
+// Phrase says what is compared with what. `diff` and the approval screen both use it, so they
+// cannot word it differently.
+func (c comparison) Phrase() string {
+	switch {
+	case c.Label != "" && c.Edit:
+		return "comparing " + c.Label + " with your edit in quarantine"
+	case c.Label != "":
+		return "comparing " + c.Label + " with the new version in quarantine"
+	case c.Approved:
+		return "comparing the approved version in skills/ with the new version in quarantine"
+	}
+	return "a new skill: every file is shown as added"
+}
+
+// compare diffs the quarantined dir against the right baseline: the pristine
+// approved copy in skills/ for an edit or a fork, the rebuilt upstream for an
+// in-place adopt, and skills/ (when approved) for everything else.
+func (a *App) compare(meta *store.Meta, approved bool, dir string) (comparison, error) {
+	c := comparison{Approved: approved, Edit: meta.Editing || meta.InPlace || (isFork(meta) && meta.MergeMode == "")}
+	old := ""
+	if approved {
+		old = a.Home.SkillDir(meta.Name)
+	}
+	switch {
+	case meta.InPlace:
+		base := a.Home.BasePath(meta.Name)
+		if !isDir(base) {
+			c.None = true
+			return c, nil
+		}
+		old, c.Label = base, "the original upstream version your edit started from"
+	case approved && (meta.Editing || (isFork(meta) && meta.MergeMode == "")):
+		c.Label = "the approved version in skills/"
+	}
+	var err error
+	c.Text, err = diff.Dirs(old, dir)
+	return c, err
+}
+
+// DiffResult is `diff NAME`: the unified diff and what it is against.
+type DiffResult struct {
+	Text string
+	// Against names the baseline for an edit or local fork ("" for an ordinary update).
+	Against string
+	// Phrase is the one-line "comparing X with Y" description shared with the approval screen.
+	Phrase string
+	// NoBaseline is set when the baseline could not be rebuilt for an in-place edit: Text
+	// is empty because nothing was compared, not because nothing changed.
+	NoBaseline bool
+	// Approved is set when skills/ holds an approved copy the text was compared with.
+	Approved bool
+}
+
+// DiffAgainst shows quarantined changes against the right baseline and says which.
+func (a *App) DiffAgainst(name string) (*DiffResult, error) {
+	if err := util.CheckName(name); err != nil {
+		return nil, err
+	}
+	meta, err := store.LoadMeta(a.Home, name)
+	if err != nil {
+		return nil, err
+	}
+	lock, err := store.LoadLock(a.Home)
+	if err != nil {
+		return nil, err
+	}
+	_, ok := lock.Get(name)
+	c, err := a.compare(meta, ok, a.Home.QuarantineSkill(name))
+	if err != nil {
+		return nil, err
+	}
+	return &DiffResult{Text: c.Text, Against: c.Label, Phrase: c.Phrase(), Approved: c.Approved, NoBaseline: c.None}, nil
 }
 
 // Diff shows quarantined changes against the approved version.
 func (a *App) Diff(name string) (string, error) {
-	if err := util.CheckName(name); err != nil {
-		return "", err
-	}
-	if _, err := store.LoadMeta(a.Home, name); err != nil {
-		return "", err
-	}
-	lock, err := store.LoadLock(a.Home)
+	r, err := a.DiffAgainst(name)
 	if err != nil {
 		return "", err
 	}
-	old := ""
-	if _, ok := lock.Get(name); ok {
-		old = a.Home.SkillDir(name)
+	return r.Text, nil
+}
+
+// refuseEditing stops approval-side flows on a working copy that `adopt` has not finalized.
+func refuseEditing(meta *store.Meta) error {
+	if meta.Editing {
+		return util.Policyf("%s is still an editable working copy; run `skigard adopt %s` to finalize it, or `skigard reject %s` to discard", meta.Name, meta.Name, meta.Name)
 	}
-	return diff.Dirs(old, a.Home.QuarantineSkill(name))
+	return nil
 }
 
 // isolationLine describes how the reviewer was confined, for the approval screen.

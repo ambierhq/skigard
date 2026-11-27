@@ -39,6 +39,7 @@ func run(t *testing.T, home string, args ...string) (int, string, string) {
 	var out, errb bytes.Buffer
 	t.Setenv("SKIGARD_HOME", home)
 	isolateUserHome(t, home)
+	t.Cleanup(func() { util.MakeWritable(home) }) // approved skills are read-only; let TempDir remove them
 	// Tests must behave the same inside and outside an agent harness.
 	for _, n := range []string{"CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CODEX_SANDBOX", "CODEX_THREAD_ID", "GEMINI_CLI", "OPENCODE", "CURSOR_AGENT", "PI_CODING_AGENT", "GOOSE_TERMINAL", "AMP_CURRENT_THREAD_ID"} {
 		t.Setenv(n, "")
@@ -360,5 +361,23 @@ func TestConfig(t *testing.T) {
 		if code, _, errs := runAgent(t, home, "config", "set", kv[0], kv[1]); code != util.ExitPolicy || !strings.Contains(errs, "inside an agent") {
 			t.Fatalf("agent config set %s: %d %s", kv[0], code, errs)
 		}
+	}
+}
+
+func TestMergeNeedsAFlagWithoutTerminal(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "h")
+	code, _, errs := run(t, home, "merge", "demo")
+	if code != util.ExitUsage || !strings.Contains(errs, "--pick") || !strings.Contains(errs, "--with") {
+		t.Fatalf("%d %s", code, errs)
+	}
+	if code, _, errs := run(t, home, "merge", "demo", "--pick", "--with", "pi"); code != util.ExitUsage || !strings.Contains(errs, "one of") {
+		t.Fatalf("%d %s", code, errs)
+	}
+	if code, _, errs := run(t, home, "merge", "demo", "--note", "x"); code != util.ExitUsage || !strings.Contains(errs, "--with") {
+		t.Fatalf("%d %s", code, errs)
+	}
+	// A named skill that is not approved is refused before anything runs.
+	if code, _, errs := run(t, home, "merge", "demo", "--with", "pi"); code == 0 || errs == "" {
+		t.Fatalf("%d %s", code, errs)
 	}
 }

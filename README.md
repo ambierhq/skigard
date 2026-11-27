@@ -42,6 +42,7 @@ skigard puts a check in front of that: **fetch to quarantine, scan, agent review
 | Whatever is on the branch today | Pinned to a commit and a SHA-256 content hash in `skigard.lock` |
 | You skim it, maybe | A deterministic scan, an agent review (on by default, advisory), and a diff against what you approved before |
 | An agent can install more skills | `approve`, `--force-install` and changing `mode`/`threshold` need a human at a terminal, and agents skigard can detect are refused. In `auto` mode an agent's `add` can still install skills that clear your threshold, and the lock records it |
+| You want to change a skill | `skigard edit` copies it to a working copy, `adopt` scans and records your edit as a local fork, and `update` never replaces it; `merge` brings new upstream changes in ([guide](docs/customizing-skills.md)) |
 | A skill changes silently on update | Changes are re-scored; in `auto` mode only a skill that clears the threshold and does not score lower than before is installed, otherwise it goes back to quarantine with a diff |
 | Each agent has its own skills folder | Installs once into every detected harness (Claude Code, Pi, Codex, Cursor, Gemini CLI, OpenCode and 72 more of the 78 in the registry; only 3 are verified) |
 | No way to notice drift | `skigard verify` fails CI if the lock, the store or the installs change |
@@ -60,7 +61,7 @@ skigard puts a check in front of that: **fetch to quarantine, scan, agent review
 
 - **One static binary**, no runtime, no telemetry, one dependency (a TOML parser).
 - **Approve, force and mode changes need a human at a terminal.** `approve` reads the terminal device only: there is no `--yes`, no stdin path and no environment variable, and skigard refuses `approve`, `--force-install` and `config set mode|threshold` when it detects an agent harness in its environment or among its parent processes (best effort, evadable by re-parenting). A process that creates its own pseudo-terminal can still type the answer, so this stops accidents and ordinary prompt injection, not a determined agent ([details](docs/threat-model.md#the-pseudo-terminal-case)). In `auto` mode an agent's `add` can install skills that clear your threshold; use `--mode strict` to prevent it. Signed approvals (a key in your OS keychain or a passkey) are planned.
-- **Reproducible.** `skigard.lock` records source, commit, content hash, scan result, review, score and how it was approved (`human`, `auto` or `forced`). Commit it.
+- **Reproducible.** `skigard.lock` records source, commit, content hash, scan result, review, score and how it was approved (`human`, `local`, `auto` or `forced`). Commit it.
 - **Portable.** The content hash is identical on Linux, macOS and Windows.
 
 > The scanner is heuristic and an agent review can be fooled. A high score is not a safety certificate. Read the skill,
@@ -128,7 +129,7 @@ skigard approve review-skill --override --reason "reviewed by hand: it only desc
 ```
 
 Large skills can produce hundreds of findings; read the verdict and the counts first, then the files. A step-by-step version is in
-[Getting started](docs/getting-started.md).
+[Getting started](docs/getting-started.md); changing a skill you approved is covered in [Customizing a skill](docs/customizing-skills.md).
 
 Update later: `skigard update` re-fetches approved skills; in `auto` mode a changed skill that clears the threshold (and does not score lower than before) is installed, anything else goes back to quarantine with a diff.
 New machine: clone your home repository to `~/.config/skigard` and run `skigard sync`.
@@ -162,6 +163,7 @@ Settings live in the `[settings]` table of `skigard.toml` and are read and chang
 |---|---|---|---|
 | `mode` | `auto`, `strict` | `auto` | `auto` installs at or above the threshold; `strict` always asks a human |
 | `threshold` | `1` to `10` | `7` | minimum safety score for an automatic install |
+| `marketplace` | `true`, `false` | `false` | keep `marketplace/` rebuilt after every approval and plugin change, and make `verify` require it (`config set marketplace true` builds it now; `false` leaves the directory) |
 | `auto_review` | `true`, `false` | `true` | run the agent review on every `add` and `update` with the saved `review_harness`, else the first detected verified reviewer (sends the skill to a model provider) |
 | `review_harness` | `auto` or a harness id (`claude-code`, `pi`, `omp`, ...) | `auto` | the reviewer: `auto` uses the first detected, verified one; `config get review_harness` shows what would run |
 
@@ -182,23 +184,27 @@ Per run, `add` takes `--mode`, `--threshold`, `--review`, `--quarantine-only` an
 |---|---|
 | `init [--git]`, `detect [--all]` | create the home; list harnesses (`installed`, `configured`, `absent`) |
 | `add SOURCE [--skill N \| --all] [--mode M] [--threshold N] [--review] [--force-install] [--quarantine-only]` | fetch, scan, score and (per mode) install; `--quarantine-only` stops after the scan. `SOURCE`: `github:owner/repo[/path][@ref]`, `owner/repo`, a github.com URL, or a local path |
-| `scan NAME\|PATH [--format text\|json\|sarif] [--fail-on LEVEL] [--plain]` | deterministic scan; grouped and coloured on a terminal, `--plain` for the flat text |
+| `scan NAME\|PATH [--format text\|json\|sarif] [--fail-on LEVEL] [--plain] [--all]` | deterministic scan; repeated low findings are folded into one line with a count (every medium and above is listed), coloured on a terminal; `--all` lists every finding, `--json` is always complete |
 | `review NAME [--harness ID \| --manual]` | advisory agent review ([how it works](docs/review.md)) |
-| `diff NAME` | quarantined vs approved |
-| `approve NAME [--override --reason R] [--accept R]` | **human only** (records `mode = "human"`) |
+| `edit NAME` | copy an approved skill into quarantine as an editable working copy (`skills/` is read-only and untouched) |
+| `adopt NAME [--review] [--mode M] [--threshold N]` | finalize the working copy from `edit` (or an edit made in place): scan and score it; in `auto` mode it is approved when it clears the threshold (`mode = "auto"`), otherwise it stays in quarantine for a human `approve` (`mode = "local"`). Merge results always need a human |
+| `diff NAME` | quarantined vs approved (for an edit: against the approved version, or the rebuilt upstream for an in-place edit; it says which) |
+| `approve NAME [--override --reason R] [--accept R]` | **human only** (records `mode = "human"`, or `local` for an adopted edit) |
+| `merge NAME [--pick \| --with HARNESS] [--note TEXT]` | bring the new upstream version of a locally edited skill into your copy, staged in quarantine; `--pick` is a hunk picker on `/dev/tty` (human only), `--with` has a verified reviewer harness (claude-code, pi, omp) merge, confined like a review and sending the files to its provider. Never auto-approved ([guide](docs/customizing-skills.md)) |
 | `allow add SOURCE\|SKILL RULE... --reason R`, `allow list`, `allow remove SOURCE [RULE...]` | **human only**: stop reporting medium/low scanner rules for one source; high and critical are never hidden |
-| `config get\|set mode\|threshold\|auto_review\|review_harness` | read or change settings; `set` of `mode`/`threshold` is human only |
+| `config get\|set mode\|threshold\|auto_review\|review_harness\|marketplace` | read or change settings; `set` of `mode`/`threshold` is human only |
 | `reject NAME` | delete from quarantine |
-| `update [NAME...]` | re-fetch approved skills; changes go to quarantine |
+| `update [NAME...]` | re-fetch approved skills; changes go to quarantine (a locally edited skill is compared with its `upstream_hash` and never auto-approved over your edits) |
 | `install NAME... [--to IDS] [--scope user\|project] [--copy]`, `uninstall`, `sync` | put approved skills into harnesses, remove them, or install everything approved |
-| `verify [--strict] [--require-human]` | lock, store, installs and marketplace agree (exit 1 if not); `--require-human` also fails on any `auto` or `forced` approval |
+| `verify [--strict] [--require-human]` | lock, store, installs and marketplace (if `marketplace/` exists) agree (exit 1 if not); `--strict` also fails on warnings, including a still-writable approved skill; `--require-human` also fails on any `auto` or `forced` approval |
 | `list`, `show [--plain]`, `status`, `doctor`, `stats --tokens` | inspect (`list`, `show` and `status` show approval mode and score; `show` renders the Markdown on a terminal, `--plain` prints it raw) |
-| `plugin ...`, `marketplace build\|check` | group skills; generate a Claude Code / OMP marketplace |
+| `plugin create\|add\|remove\|delete\|show\|list`, `marketplace build\|check` | group skills (`install --plugin NAME`); optionally generate a Claude Code / OMP marketplace to publish them (opt-in: `config set marketplace true` keeps it in sync) |
 | `harness list\|add`, `rules` | the harness registry and the scanner rules |
-| `lock upgrade` | move older lock entries to hash v2, only where the old hash still matches |
+| `lock upgrade`, `lock protect [NAME...]` | move older lock entries to hash v2, only where the old hash still matches; make approved skills read-only (permissions only, safe in an agent) |
+| `init-ci` | write a GitHub workflow that runs `skigard verify` |
 | `completion bash\|zsh\|fish\|powershell`, `migrate --from-skm PATH` | shell completions; import from the predecessor tool |
 
-Every command takes `--json` and `--home PATH`. Exit codes: `0` ok, `1` policy/drift/findings, `2` usage or error, `3` cancelled, `4` incomplete coverage.
+Every command takes `--json`, `--home PATH` and `-h`/`--help` (`skigard help COMMAND [SUB]` works too). Exit codes: `0` ok, `1` policy/drift/findings, `2` usage or error, `3` cancelled, `4` incomplete coverage.
 Full reference: [docs/commands.md](docs/commands.md) (generated from the CLI).
 
 ### How skigard decides
@@ -293,7 +299,7 @@ No. Scan, score, approve, lock and verify need no agent. Review does.
 
 <details><summary><b>How do I uninstall, and how do I report a malicious skill?</b></summary>
 
-`skigard uninstall`, then delete the binary (and the home to drop approvals). Report malicious skills to GitHub; if one gets past a rule, open an issue or PR with a defanged fixture. Flaws in skigard itself: see [SECURITY.md](SECURITY.md).
+`skigard uninstall`, then delete the binary (and the home to drop approvals; approved skills are read-only, so `chmod -R u+w` the home's `skills/` first if the delete is refused). Report malicious skills to GitHub; if one gets past a rule, open an issue or PR with a defanged fixture. Flaws in skigard itself: see [SECURITY.md](SECURITY.md).
 </details>
 
 ## What skigard does not protect against

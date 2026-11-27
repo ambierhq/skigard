@@ -87,6 +87,7 @@ func (a *App) LockUpgrade(names []string) ([]UpgradeResult, error) {
 		if err := lock.Save(a.Home); err != nil {
 			return out, err
 		}
+		a.syncMarketplace(nil)
 	}
 	return out, nil
 }

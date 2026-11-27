@@ -6,11 +6,17 @@ import (
 	"io"
 	"strings"
 
+	"github.com/ambierhq/skigard/internal/term"
 	"github.com/ambierhq/skigard/internal/util"
 )
 
-// WriteText renders a human-readable report. All untrusted text is escaped.
-func WriteText(w io.Writer, r *Report) {
+// WriteText renders the summarized plain-text report on a 100-column line.
+func WriteText(w io.Writer, r *Report) { WriteTextOpts(w, r, RenderOptions{}) }
+
+// WriteTextOpts renders a human-readable report. Low findings of one rule are folded into one
+// line with a count; medium and above are printed one by one, with the evidence cut to one line.
+// All untrusted text is escaped.
+func WriteTextOpts(w io.Writer, r *Report, opt RenderOptions) {
 	scripts := 0
 	for _, f := range r.Files {
 		if f.Script {
@@ -25,24 +31,41 @@ func WriteText(w io.Writer, r *Report) {
 	if len(r.Capabilities) > 0 {
 		fmt.Fprintf(w, "capabilities: %s\n", strings.Join(r.Capabilities, ", "))
 	}
-	for _, f := range r.Findings {
-		loc := f.File
-		if f.Line > 0 {
-			loc = fmt.Sprintf("%s:%d", f.File, f.Line)
+	rd := newRenderer(r, opt)
+	width := opt.width()
+	if sc := severityCounts(rd.counts); sc != "" {
+		fmt.Fprintf(w, "findings: %d (%s)\n", len(r.Findings), sc)
+	}
+	const pad = "             "
+	for _, e := range rd.entries {
+		f := e.first
+		head := fmt.Sprintf("  [%-8s] %-15s %-20s", f.Severity, f.Rule, f.Name)
+		if e.total() > 1 {
+			fmt.Fprintf(w, "%s %s\n", head, e.countText())
+			fmt.Fprintf(w, "%sat %s\n", pad, term.Truncate(e.locText(", "), width-len(pad)-3))
+			if ev := rd.evidence(f, min(width-plainEvPrefix, groupEvidence)); ev != "" {
+				fmt.Fprintf(w, "%s> %s\n", pad, ev)
+			}
+			continue
 		}
-		if loc == "" {
-			loc = "(skill)"
+		loc, msg := util.Clean(location(f)), util.Clean(f.Message)
+		if line := fmt.Sprintf("%s %s - %s", head, loc, msg); term.DisplayWidth(line) <= width {
+			fmt.Fprintln(w, line)
+		} else {
+			fmt.Fprintf(w, "%s %s\n%s%s\n", head, loc, pad, term.Truncate(msg, width-len(pad)))
 		}
-		fmt.Fprintf(w, "  [%-8s] %-15s %-20s %s - %s\n", f.Severity, f.Rule, f.Name, util.Clean(loc), util.Clean(f.Message))
-		if f.Evidence != "" {
-			fmt.Fprintf(w, "             > %s\n", f.Evidence)
+		if ev := rd.evidence(f, width-plainEvPrefix); ev != "" {
+			fmt.Fprintf(w, "%s> %s\n", pad, ev)
 		}
 	}
-	for _, n := range r.Notes {
+	for _, n := range rd.notes {
 		fmt.Fprintf(w, "  note: %s\n", util.Clean(n))
 	}
 	if len(r.Suppressed) > 0 {
 		fmt.Fprintf(w, "  (%d accepted finding(s) suppressed)\n", len(r.Suppressed))
+	}
+	if f := rd.footer(); f != "" {
+		fmt.Fprintf(w, "%s\n", f)
 	}
 	fmt.Fprintln(w, "note: the scanner is heuristic. A pass is not a safety certificate.")
 }

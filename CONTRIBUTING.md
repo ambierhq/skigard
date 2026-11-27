@@ -17,7 +17,8 @@ mise run snapshot  # optional: GoReleaser snapshot build into ./dist (archives, 
 - **Adding a scanner rule:** add it to `internal/scan/rules.go` with a `Pre` prefilter, add samples to
   `TestPrefilterCoversSamples`, a fixture to `TestMaliciousFixtures`, bump `RulesVersion`, and run
   `go test ./internal/scan -run Docs -update`.
-- **Adding a reviewer template:** see `docs/review.md`. It must disable tools, MCP and extensions and take input on stdin.
+- **Adding a reviewer template:** see `docs/review.md`. It must disable tools, MCP and extensions and take input on stdin. The same templates run `merge --with`, so a template also has to be safe to hand merge input to (verified ones only).
+- Docs: `docs/commands.md`, `docs/harnesses.md` and `docs/rules.md` are generated (`mise run docs`); the rest is hand-written. Put a new page in the docs table of the README and the sidebar of the website.
 - Do not copy code from other projects. Learn from them, reimplement, and credit them in `THIRD_PARTY_NOTICES.md`.
 
 ## Demo media

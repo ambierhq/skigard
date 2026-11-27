@@ -16,19 +16,24 @@ import (
 	"github.com/ambierhq/skigard/internal/scan"
 	"github.com/ambierhq/skigard/internal/source"
 	"github.com/ambierhq/skigard/internal/store"
+	"github.com/ambierhq/skigard/internal/term"
 	"github.com/ambierhq/skigard/internal/util"
 )
 
 // App holds everything a workflow needs, so tests can substitute any of it.
 type App struct {
-	Home          store.Home
-	Env           harness.Env
-	Fetcher       *source.Fetcher
-	Runner        review.Runner
+	Home    store.Home
+	Env     harness.Env
+	Fetcher *source.Fetcher
+	Runner  review.Runner
+	// MergeRunner runs the merge agent; nil uses Runner. Tests inject a fake so no real agent runs.
+	MergeRunner   AgentRunner
 	Out, Err      io.Writer
 	Version       string
 	User          string
 	RefuseInAgent bool // approve refuses when an agent harness is detected
+	// Style colours the approval screen; the zero value is plain text.
+	Style term.Style
 	// AgentAncestor reports an agent harness among this process's ancestors
 	// (best effort, see harness.AgentAncestor). Nil disables the check.
 	AgentAncestor func() (string, bool)
@@ -134,6 +139,9 @@ func (a *App) Reject(name string) error {
 		return err
 	}
 	if err := os.RemoveAll(a.Home.QuarantineSkill(name)); err != nil {
+		return err
+	}
+	if err := os.RemoveAll(a.Home.BasePath(name)); err != nil {
 		return err
 	}
 	return os.Remove(a.Home.MetaPath(name))

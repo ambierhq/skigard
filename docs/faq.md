@@ -29,10 +29,14 @@ source. `review`, which `add` and `update` run by default (`auto_review`), sends
 If you run `skigard review`, pass `--review` to `add`, or leave `auto_review` on (the default) and a reviewer harness is detected: the harness you pick (Pi, Oh My Pi, Claude Code and so on; by default the first detected, verified one, see `review_harness`) sends it to whatever provider that harness uses. The scan, approve, lock and verify steps need no
 model and no network.
 
+## How do I change a skill I approved?
+
+Not by editing `skills/NAME` (it is read-only, and an in-place edit is live in every agent, unreviewed). Run `skigard edit NAME`, change the working copy in quarantine, then `skigard adopt NAME`: it is scanned and scored like `add`, and approved at once in `auto` mode if it clears the threshold, otherwise by `skigard approve` (recorded as `mode = "local"`). `update` then never replaces your edits, and `skigard merge NAME` brings new upstream changes into your copy. Walkthrough: [customizing a skill](customizing-skills.md).
+
 ## What happens when a skill updates?
 
 `skigard update` re-fetches approved skills. Unchanged content is reported as up to date. In `strict` mode a changed skill goes back to quarantine with a diff and has to be approved again. In `auto` mode it is installed if it scores at or above the threshold, has no hard stop and does not score lower than the approved version; otherwise it goes back to quarantine with a warning and the diff.
-The installed copy stays at the approved version until then.
+The installed copy stays at the approved version until then. A skill you edited (a local fork) always goes to quarantine when upstream changes, in any mode, and your copy stays installed; see [customizing a skill](customizing-skills.md).
 
 ## How is it different from vercel-labs/skills?
 
@@ -52,7 +56,7 @@ skigard credits vercel-labs/skills for the harness map and the shared `.agents/s
 
 [`asm`](https://github.com/luongnv89/asm) is a scriptable skill manager with a big catalog, a TUI, `--json`/`--yes` for automation, inventory and context-cost reporting, and a pre-install security scan.
 It is built to be driven by agents and scripts. skigard differs on one point: `approve`, forcing an install and lowering your threshold need a human at a terminal (a process that builds its own pseudo-terminal can still type the answer: see the [threat model](threat-model.md#the-pseudo-terminal-case)), and
-every approval is pinned to a hash and labelled `human`, `auto` or `forced` in a lockfile you commit. If you want a catalog and convenience, asm fits; if you want a score and an auditable approval trail, skigard does. We borrowed ideas from asm (`doctor`,
+every approval is pinned to a hash and labelled `human`, `local`, `auto` or `forced` in a lockfile you commit. If you want a catalog and convenience, asm fits; if you want a score and an auditable approval trail, skigard does. We borrowed ideas from asm (`doctor`,
 `--json` everywhere, token cost reporting); see [Acknowledgements](../README.md#acknowledgements).
 
 ## Does it work on Windows?
@@ -72,7 +76,7 @@ No. Scan, score, approve, lock and verify work without any agent. Review needs o
 ## How do I uninstall?
 
 `skigard uninstall` removes what skigard installed into your agents (it leaves your approvals). Then delete the binary. To drop everything, also delete the skigard home (`~/.config/skigard`, or
-`%APPDATA%\skigard` and `%LOCALAPPDATA%\skigard` on Windows).
+`%APPDATA%\skigard` and `%LOCALAPPDATA%\skigard` on Windows). Approved skills are read-only, so run `chmod -R u+w SKIGARD_HOME/skills` before `rm -rf` if the delete is refused.
 
 ## How do I report a malicious skill?
 
@@ -92,7 +96,7 @@ accepted away: `add` leaves it in quarantine. Read the skill, then approve with 
 
 ## What does the lockfile pin, and can I move it between machines?
 
-Source, commit, a SHA-256 content hash identical on every OS, the exec set, scan and review results, the score, and the approval (mode `human`, `auto` or `forced`). Commit it (or the whole home as a private git repo) and run `skigard sync` elsewhere. Locks from before
+Source, commit, a SHA-256 content hash identical on every OS, the exec set, scan and review results, the score, and the approval (mode `human`, `local`, `auto` or `forced`). Commit it (or the whole home as a private git repo) and run `skigard sync` elsewhere. Locks from before
 hash v2 keep verifying; `skigard lock upgrade` moves them. See [lockfile](lockfile.md).
 
 ## Is it free? Who makes it?

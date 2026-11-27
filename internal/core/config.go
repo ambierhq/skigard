@@ -9,7 +9,7 @@ import (
 )
 
 // ConfigKeys are the settings `config get|set` manages.
-var ConfigKeys = []string{"mode", "threshold", "auto_review", "review_harness"}
+var ConfigKeys = []string{"mode", "threshold", "auto_review", "review_harness", "marketplace"}
 
 // ConfigGet returns the effective value of a setting, as text.
 func (a *App) ConfigGet(key string) (string, error) {
@@ -26,8 +26,10 @@ func (a *App) ConfigGet(key string) (string, error) {
 		return strconv.FormatBool(man.Settings.EffectiveAutoReview()), nil
 	case "review_harness":
 		return a.DefaultReviewHarness(man.Settings), nil
+	case "marketplace":
+		return strconv.FormatBool(man.Settings.EffectiveMarketplace()), nil
 	}
-	return "", util.Errf("unknown setting %q (want mode, threshold, auto_review or review_harness)", util.Clean(key))
+	return "", util.Errf("unknown setting %q (want mode, threshold, auto_review, review_harness or marketplace)", util.Clean(key))
 }
 
 // ConfigSet changes a setting. Changing mode or threshold decides how much an
@@ -67,6 +69,13 @@ func (a *App) ConfigSet(key, value string, confirm Confirmer) (old string, err e
 		}
 		old = strconv.FormatBool(s.EffectiveAutoReview())
 		value = strconv.FormatBool(b)
+	case "marketplace":
+		b, perr := strconv.ParseBool(value)
+		if perr != nil {
+			return "", util.Errf("marketplace must be true or false")
+		}
+		old = strconv.FormatBool(s.EffectiveMarketplace())
+		value = strconv.FormatBool(b)
 	case "review_harness":
 		// "auto" clears the saved choice so the first detected reviewer is used again.
 		old = a.DefaultReviewHarness(*s)
@@ -76,7 +85,7 @@ func (a *App) ConfigSet(key, value string, confirm Confirmer) (old string, err e
 			}
 		}
 	default:
-		return "", util.Errf("unknown setting %q (want mode, threshold, auto_review or review_harness)", util.Clean(key))
+		return "", util.Errf("unknown setting %q (want mode, threshold, auto_review, review_harness or marketplace)", util.Clean(key))
 	}
 	if human {
 		if v, ok := a.agentVar(); ok {
@@ -102,9 +111,21 @@ func (a *App) ConfigSet(key, value string, confirm Confirmer) (old string, err e
 	case "auto_review":
 		on := value == "true"
 		s.AutoReview = &on
+	case "marketplace":
+		on := value == "true"
+		s.Marketplace = &on
 	}
 	if err := s.Validate(); err != nil {
 		return "", util.Errf("%v", err)
 	}
-	return old, store.SaveManifest(a.Home, man)
+	if err := store.SaveManifest(a.Home, man); err != nil {
+		return "", err
+	}
+	if key == "marketplace" && value == "true" {
+		// Build now so verify passes right away. The setting is saved either way; a failed build is reported.
+		if err := a.marketplaceBuild(); err != nil {
+			return old, util.Errf("marketplace is now enabled, but the build failed: %v; fix it and run: skigard marketplace build", err)
+		}
+	}
+	return old, nil
 }

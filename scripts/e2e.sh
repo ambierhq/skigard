@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 BIN="${1:-}"
 if [ -z "$BIN" ]; then BIN="$(mktemp -d)/skigard"; go build -o "$BIN" ./cmd/skigard; fi
-W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
+W="$(mktemp -d)"; trap 'chmod -R u+w "$W" 2>/dev/null; rm -rf "$W"' EXIT  # approved skills are read-only
 export SKIGARD_HOME="$W/home" HOME="$W/user"
 mkdir -p "$HOME" "$W/src/good" "$W/src/evil"
 fail() { echo "FAIL: $*" >&2; exit 1; }
@@ -67,6 +67,8 @@ out=$(python3 scripts/detach.py "$BIN" approve evil)
 "$BIN" harness add --id fake --name Fake --global "$W/fake/skills" >/dev/null
 "$BIN" install good --to fake >/dev/null || fail "install"
 "$BIN" verify >/dev/null || fail "verify should pass"
+[[ ! -w "$SKIGARD_HOME/skills/good/SKILL.md" ]] || fail "approved skill should be read-only"
+chmod -R u+w "$SKIGARD_HOME/skills/good"
 echo tampered >> "$SKIGARD_HOME/skills/good/SKILL.md"
 "$BIN" verify >/dev/null 2>&1 && fail "verify should fail after tampering"
 "$BIN" install good --to fake >/dev/null 2>&1 && fail "install of tampered skill should fail"
@@ -95,6 +97,22 @@ out=$(python3 scripts/detach.py "$BIN" add "$W/src/evil" --home "$AUTO_HOME" --t
 out=$("$BIN" list --home "$AUTO_HOME"); [[ "$out" == *forced* ]] || fail "list does not show forced: $out"
 "$BIN" verify --home "$AUTO_HOME" >/dev/null || fail "verify after auto add"
 "$BIN" verify --home "$AUTO_HOME" --require-human >/dev/null 2>&1 && fail "--require-human should fail on auto/forced"
+
+# 6b. edit -> adopt: auto mode approves the edit when it clears the threshold; strict leaves it for a human
+out=$("$BIN" edit good --home "$AUTO_HOME" 2>&1) || fail "edit: $out"
+[[ "$out" == *"approves automatically when your mode and threshold allow"* ]] || fail "edit hints: $out"
+echo "extra prose" >> "$AUTO_HOME/quarantine/good/SKILL.md"
+out=$("$BIN" adopt good --home "$AUTO_HOME" 2>&1) || fail "auto adopt: $out"
+[[ "$out" == *"approved automatically (recorded in the lock as mode = auto)"* ]] || fail "auto adopt output: $out"
+grep -q "extra prose" "$AUTO_HOME/skills/good/SKILL.md" || fail "adopted edit not in skills/"
+[[ ! -w "$AUTO_HOME/skills/good/SKILL.md" ]] || fail "adopted skill should be read-only"
+"$BIN" verify --home "$AUTO_HOME" --require-human >/dev/null 2>&1 && fail "adopt auto approval should be flagged by --require-human"
+"$BIN" edit good --home "$AUTO_HOME" >/dev/null || fail "second edit"
+echo "more prose" >> "$AUTO_HOME/quarantine/good/SKILL.md"
+out=$("$BIN" adopt good --home "$AUTO_HOME" --mode strict 2>&1) || fail "strict adopt: $out"
+[[ "$out" == *"waiting for a human"* && "$out" == *"skigard approve good"* ]] || fail "strict adopt output: $out"
+grep -q "more prose" "$AUTO_HOME/skills/good/SKILL.md" && fail "strict adopt approved"
+"$BIN" reject good --home "$AUTO_HOME" >/dev/null
 
 # 7. strict mode on a real pty: the human confirms (or cancels) inside add; an agent stays in quarantine
 STRICT_HOME="$W/strict"

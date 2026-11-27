@@ -2,7 +2,7 @@
 
 # Command reference
 
-Usage: `skigard COMMAND [ARGS]`. Flags may come before or after positional arguments, and both `-flag` and `--flag` work.
+Usage: `skigard COMMAND [ARGS]`. Flags may come before or after positional arguments, and both `-flag` and `--flag` work. Every command and subcommand accepts `-h` or `--help`, which prints its usage to stdout and exits 0 without reading or changing your home.
 
 ## Flags every command takes
 
@@ -30,13 +30,16 @@ Usage: `skigard COMMAND [ARGS]`. Flags may come before or after positional argum
 - [`review`](#skigard-review): have an agent harness review a quarantined skill (advisory)
 - [`diff`](#skigard-diff): show quarantined changes against the approved version
 - [`approve`](#skigard-approve): HUMAN ONLY: approve a quarantined skill
+- [`edit`](#skigard-edit): copy an approved skill into quarantine as an editable working copy (skills/ stays untouched)
+- [`adopt`](#skigard-adopt): finalize your edit of an approved skill (from `edit`, or made in place): scan and score it, then approve automatically in auto mode when it clears the threshold, else leave it for a human `approve`
+- [`merge`](#skigard-merge): merge the new upstream version of an edited skill into your local copy (staged in quarantine)
 - [`reject`](#skigard-reject): delete a quarantined skill
 - [`update`](#skigard-update): re-fetch approved skills; changes go to quarantine
 - [`install`](#skigard-install): install approved skills into harnesses
 - [`uninstall`](#skigard-uninstall): remove skills installed by skigard
 - [`sync`](#skigard-sync): install every approved skill into the default harnesses
-- [`config`](#skigard-config): read or change mode, threshold, auto_review and review_harness (set of mode/threshold is human only)
-- [`verify`](#skigard-verify): check lock, store, installs and marketplace (CI-friendly)
+- [`config`](#skigard-config): read or change mode, threshold, auto_review, review_harness and marketplace (set of mode/threshold is human only)
+- [`verify`](#skigard-verify): check lock, store, installs and marketplace if built (CI-friendly)
 - [`lock`](#skigard-lock): upgrade lock entries to hash version 2 (only if the old hash still matches)
 - [`init-ci`](#skigard-init-ci): write a GitHub workflow that runs skigard verify
 - [`list`](#skigard-list): list approved and quarantined skills
@@ -46,7 +49,7 @@ Usage: `skigard COMMAND [ARGS]`. Flags may come before or after positional argum
 - [`stats`](#skigard-stats): estimate the context cost of approved skills
 - [`allow`](#skigard-allow): HUMAN ONLY: stop reporting medium/low scanner rules for one source
 - [`plugin`](#skigard-plugin): manage plugins (groups of approved skills)
-- [`marketplace`](#skigard-marketplace): generate or check the Claude/OMP marketplace
+- [`marketplace`](#skigard-marketplace): optional: build or check a Claude/OMP marketplace for publishing plugins
 - [`harness`](#skigard-harness): inspect or extend the harness registry
 - [`rules`](#skigard-rules): list scanner rules
 - [`migrate`](#skigard-migrate): import approved skills from an skm repository
@@ -113,11 +116,12 @@ skigard scan NAME|PATH [--format text|json|sarif]
 
 | Flag | Description |
 |---|---|
+| `--all` | text format: show every finding instead of a summary |
 | `--fail-on STRING` | exit 1 at this severity or above: low, medium, high, critical, none (default "high") |
 | `--fail-on-incomplete` | exit 4 when scan coverage is incomplete |
 | `--format STRING` | text, json or sarif (default "text") |
 | `--output STRING` | write the report to a file |
-| `--plain` | text format: no colours and no grouping (the default when not on a terminal) |
+| `--plain` | text format: no colours (the default when not on a terminal) |
 
 ## skigard review
 
@@ -126,6 +130,10 @@ Have an agent harness review a quarantined skill (advisory).
 ```
 skigard review NAME [--harness ID | --manual]
 ```
+
+| Subcommand | Description |
+|---|---|
+| `record NAME --verdict V --summary S` | record a manual review (advisory) |
 
 | Flag | Description |
 |---|---|
@@ -158,6 +166,45 @@ skigard approve NAME
 | `--accept-expires STRING` | expiry date (YYYY-MM-DD) for --accept |
 | `--override` | approve despite a BLOCK verdict, incomplete coverage or a FAIL review |
 | `--reason STRING` | why the override is acceptable (required with --override) |
+
+## skigard edit
+
+Copy an approved skill into quarantine as an editable working copy (skills/ stays untouched).
+
+```
+skigard edit NAME
+```
+
+## skigard adopt
+
+Finalize your edit of an approved skill (from `edit`, or made in place): scan and score it, then approve automatically in auto mode when it clears the threshold, else leave it for a human `approve`.
+
+```
+skigard adopt NAME [--review] [--mode strict|auto] [--threshold N]
+```
+
+| Flag | Description |
+|---|---|
+| `--mode STRING` | strict or auto (default: your setting; inside an agent only a stricter one than the setting is allowed) |
+| `--review` | run an advisory review before scoring (sends the skill to a model provider) |
+| `--review-harness STRING` | harness that runs the review (default: your saved choice) |
+| `--threshold INT` | minimum safety score 1..10 for automatic approval (default: your setting; inside an agent it cannot be lower) |
+
+## skigard merge
+
+Merge the new upstream version of an edited skill into your local copy (staged in quarantine).
+
+```
+skigard merge NAME [--pick | --with HARNESS] [--note TEXT]
+```
+
+| Flag | Description |
+|---|---|
+| `--allow-policy-only` | if no OS sandbox works here, run the merge agent isolated by policy only (same meaning as for review; has no effect on approval) |
+| `--model STRING` | model for the merge agent, if it supports --model |
+| `--note STRING` | guidance for the merge agent, for example "use mise run playwright" (sent to the agent; max 2000 bytes) |
+| `--pick` | choose hunk by hunk in your terminal what to take from upstream (default for every hunk: keep mine) |
+| `--with STRING` | have this harness (a reviewer template id: claude-code, pi, omp) merge, confined like a reviewer |
 
 ## skigard reject
 
@@ -224,15 +271,20 @@ skigard sync
 
 ## skigard config
 
-Read or change mode, threshold, auto_review and review_harness (set of mode/threshold is human only).
+Read or change mode, threshold, auto_review, review_harness and marketplace (set of mode/threshold is human only).
 
 ```
 skigard config get [KEY] | set KEY VALUE
 ```
 
+| Subcommand | Description |
+|---|---|
+| `get [KEY]` | print one setting, or all of them (keys: mode, threshold, auto_review, review_harness, marketplace) |
+| `set KEY VALUE` | change a setting (mode and threshold: human terminal only) |
+
 ## skigard verify
 
-Check lock, store, installs and marketplace (CI-friendly).
+Check lock, store, installs and marketplace if built (CI-friendly).
 
 ```
 skigard verify [--strict] [--require-human]
@@ -241,15 +293,20 @@ skigard verify [--strict] [--require-human]
 | Flag | Description |
 |---|---|
 | `--require-human` | fail if any approval was made automatically (mode auto) or forced |
-| `--strict` | treat warnings (overrides, non-pass reviews) as failures |
+| `--strict` | treat warnings (overrides, non-pass reviews, writable approved skills) as failures |
 
 ## skigard lock
 
 Upgrade lock entries to hash version 2 (only if the old hash still matches).
 
 ```
-skigard lock upgrade [NAME...]
+skigard lock upgrade|protect [NAME...]
 ```
+
+| Subcommand | Description |
+|---|---|
+| `upgrade [NAME...]` | upgrade lock entries to hash version 2 (only if the old hash still matches) |
+| `protect [NAME...]` | make approved skills read-only (changes permissions only, never content, hash or lock) |
 
 ## skigard init-ci
 
@@ -321,6 +378,12 @@ HUMAN ONLY: stop reporting medium/low scanner rules for one source.
 skigard allow add SOURCE|SKILL RULE... --reason R | list | remove SOURCE [RULE...]
 ```
 
+| Subcommand | Description |
+|---|---|
+| `add SOURCE|SKILL RULE... --reason R` | HUMAN ONLY: stop reporting medium/low rules for one source |
+| `list` | list allowed rules |
+| `remove SOURCE [RULE...]` | HUMAN ONLY: remove allowed rules |
+
 ## skigard plugin
 
 Manage plugins (groups of approved skills).
@@ -329,13 +392,27 @@ Manage plugins (groups of approved skills).
 skigard plugin create|delete|add|remove|show|list
 ```
 
+| Subcommand | Description |
+|---|---|
+| `create NAME [--description D]` | create an empty plugin |
+| `delete NAME` | delete a plugin |
+| `add NAME SKILL...` | add approved skills to a plugin |
+| `remove NAME SKILL...` | remove skills from a plugin |
+| `show NAME` | show a plugin's skills |
+| `list` | list plugins |
+
 ## skigard marketplace
 
-Generate or check the Claude/OMP marketplace.
+Optional: build or check a Claude/OMP marketplace for publishing plugins.
 
 ```
 skigard marketplace build|check
 ```
+
+| Subcommand | Description |
+|---|---|
+| `build` | write the marketplace/ directory |
+| `check` | report drift between marketplace/ and the approved skills |
 
 ## skigard harness
 
@@ -344,6 +421,11 @@ Inspect or extend the harness registry.
 ```
 skigard harness list|add
 ```
+
+| Subcommand | Description |
+|---|---|
+| `list` | list known harnesses and whether they were detected |
+| `add --id ID [--name N] [--global DIR] [--project DIR] [--bin B]` | add a harness to skigard.toml |
 
 ## skigard rules
 

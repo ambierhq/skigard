@@ -46,6 +46,10 @@ parsing), and the standard library offers no OS-level substitute. So skigard doe
 Use `skigard review NAME --manual` and `skigard review record` instead. Review stays advisory: the scanner and your
 approval do not depend on it, unless you set `require_review`, in which case record a manual review.
 
+## Read-only skills
+
+On Linux and macOS approved skills are made read-only after approval. Windows permission bits are synthetic, so this is skipped there and `skigard lock protect` does nothing. `edit`, `adopt` and `merge` work the same; the lock hash is the control either way.
+
 ## Line endings and the content hash
 
 The content hash covers raw bytes. skigard never normalises or rewrites line endings: skills are fetched as

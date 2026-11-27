@@ -2,7 +2,7 @@
 
 Two jobs fit CI, and neither needs an agent or a terminal:
 
-- **`skigard verify`** fails the build when the lockfile, the approved store, the installs or the generated marketplace no longer agree.
+- **`skigard verify`** fails the build when the lockfile, the approved store, the installs or the generated marketplace (when `marketplace/` exists, or always with `settings.marketplace`) no longer agree.
   It catches a skill that changed without a re-approval, an unapproved directory that appeared, or a lock edited by hand.
 - **`skigard scan`** checks a skill you are *writing* (or reviewing in a PR) and can emit SARIF.
 
@@ -33,8 +33,8 @@ jobs:
 A copy lives in [`examples/verify-workflow.yml`](../examples/verify-workflow.yml). The installer is taken from the release and pinned with `SKIGARD_VERSION=v0.3.0`, so
 a CI run cannot change behaviour under you; never pipe the installer from `main`.
 
-`--strict` also fails on warnings, such as an approval that used `--override` or a review that did not pass. Without it, only errors fail.
-If you want the guarantee that a person confirmed every skill, add `--require-human`: it fails if any approval in the lock has `mode = "auto"` or `"forced"`.
+`--strict` also fails on warnings, such as an approval that used `--override`, a review that did not pass, or an approved skill that is still writable (approved before read-only existed; fix it with `skigard lock protect`). Without it, only errors fail.
+If you want the guarantee that a person confirmed every skill, add `--require-human`: it fails if any approval in the lock has `mode = "auto"` or `"forced"`. Approvals with `mode = "human"` or `"local"` (a person approved their own edit of a skill) pass. An edit that `adopt` approved automatically is `auto` and fails.
 
 ```sh
 skigard verify --strict --require-human

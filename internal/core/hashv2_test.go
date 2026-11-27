@@ -191,6 +191,7 @@ func TestUpgradeRefusesWhenV1HashNoLongerMatches(t *testing.T) {
 	writeSkill(t, src, "alpha", nil)
 	writeSkill(t, src, "beta", nil)
 	writeV1Lock(t, a, src, "alpha", "beta")
+	util.MakeWritable(a.Home.SkillDir("alpha"))
 	os.WriteFile(filepath.Join(a.Home.SkillDir("alpha"), "SKILL.md"), []byte("tampered"), 0o644)
 	lockBefore, _ := os.ReadFile(a.Home.LockPath())
 

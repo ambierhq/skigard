@@ -89,9 +89,12 @@ func (a *App) Review(ctx context.Context, name string, o ReviewOpts) (*review.Re
 	if err != nil {
 		return nil, err
 	}
+	if err := refuseEditing(meta); err != nil {
+		return nil, err
+	}
 	t, ok := review.TemplateFor(o.Harness)
 	if !ok {
-		return nil, util.Errf("%q cannot run reviews headlessly yet. Supported: claude-code, pi, omp, gemini-cli. Or use --manual", o.Harness)
+		return nil, util.Errf("%q cannot run reviews headlessly yet. Supported: claude-code, pi, omp. Or use --manual", o.Harness)
 	}
 	if !t.Verified && !o.AllowUnverified {
 		return nil, util.Errf("the %s reviewer template is unverified (%s); pass --allow-unverified to use it anyway", t.ID, t.Note)
@@ -135,6 +138,9 @@ func (a *App) RecordManual(name, verdict, summary, by string) (*review.Record, e
 	if err != nil {
 		return nil, err
 	}
+	if err := refuseEditing(meta); err != nil {
+		return nil, err
+	}
 	switch verdict {
 	case review.Pass, review.Concerns, review.Fail:
 	default:
@@ -154,7 +160,11 @@ func (a *App) RecordManual(name, verdict, summary, by string) (*review.Record, e
 
 // ManualPrompt returns the instructions and material for reviewing by hand.
 func (a *App) ManualPrompt(name string) (string, error) {
-	if _, err := store.LoadMeta(a.Home, name); err != nil {
+	meta, err := store.LoadMeta(a.Home, name)
+	if err != nil {
+		return "", err
+	}
+	if err := refuseEditing(meta); err != nil {
 		return "", err
 	}
 	dir := a.Home.QuarantineSkill(name)

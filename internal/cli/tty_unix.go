@@ -2,7 +2,10 @@
 
 package cli
 
-import "os"
+import (
+	"io"
+	"os"
+)
 
 // ttyConfirm shows the summary on the controlling terminal and requires the
 // human to type want. It deliberately has no flag, environment variable or
@@ -20,4 +23,13 @@ func ttyConfirm(summary, want string) error {
 func stdinIsTerminal() bool {
 	fi, err := os.Stdin.Stat()
 	return err == nil && fi.Mode()&os.ModeCharDevice != 0
+}
+
+// openTerminal opens the controlling terminal for prompts that must come from a human.
+func openTerminal() (io.Reader, io.Writer, func(), error) {
+	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	if err != nil {
+		return nil, nil, nil, noTerminal("no controlling terminal found")
+	}
+	return tty, tty, func() { tty.Close() }, nil
 }

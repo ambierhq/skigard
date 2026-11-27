@@ -67,7 +67,20 @@ This takes about a minute and ends with a skill pinned in your lockfile and inst
    skigard verify
    ```
 
-   `verify` re-checks the lockfile, the approved store, the installs and the marketplace. It exits 1 on any drift. Run it in [CI](ci.md).
+   `verify` re-checks the lockfile, the approved store, the installs and, if you built one, the marketplace. It exits 1 on any drift. Run it in [CI](ci.md).
+
+## Change a skill you approved
+
+Do not edit `skills/NAME` in place. Copy it to a working copy, change it, adopt it, and let `update` and `merge` carry your changes forward:
+
+```sh
+skigard edit playwright-cli      # working copy in quarantine; skills/ stays untouched
+skigard adopt playwright-cli     # scan and score your edit; approved at once in auto mode if it clears the threshold, else `approve`
+skigard update playwright-cli    # later: new upstream waits in quarantine, never approved over your edits
+skigard merge playwright-cli --with claude-code --note "use mise exec -- playwright"    # or --pick
+```
+
+The full walkthrough, with a plugin installed into one project, is in [Customizing a skill](customizing-skills.md).
 
 ## Where things are
 
@@ -78,6 +91,7 @@ repository with `skigard init --git`. On another machine, clone it there and run
 ## Next
 
 - [Concepts](concepts.md): quarantine, scan, review, approve, lockfile, harnesses.
+- [Customizing a skill](customizing-skills.md): edit, adopt, update and merge.
 - [Command reference](commands.md).
 - [Using skigard in CI](ci.md).
 - [Writing skills that pass the scanner honestly](writing-safe-skills.md).

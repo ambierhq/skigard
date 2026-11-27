@@ -52,14 +52,17 @@ func init() {
 		{"review", "NAME [--harness ID | --manual]", "have an agent harness review a quarantined skill (advisory)", cmdReview},
 		{"diff", "NAME", "show quarantined changes against the approved version", cmdDiff},
 		{"approve", "NAME", "HUMAN ONLY: approve a quarantined skill", cmdApprove},
+		{"edit", "NAME", "copy an approved skill into quarantine as an editable working copy (skills/ stays untouched)", cmdEdit},
+		{"adopt", "NAME [--review] [--mode strict|auto] [--threshold N]", "finalize your edit of an approved skill (from `edit`, or made in place): scan and score it, then approve automatically in auto mode when it clears the threshold, else leave it for a human `approve`", cmdAdopt},
+		{"merge", "NAME [--pick | --with HARNESS] [--note TEXT]", "merge the new upstream version of an edited skill into your local copy (staged in quarantine)", cmdMerge},
 		{"reject", "NAME", "delete a quarantined skill", cmdReject},
 		{"update", "[NAME...]", "re-fetch approved skills; changes go to quarantine", cmdUpdate},
 		{"install", "NAME... | --plugin P", "install approved skills into harnesses", cmdInstall},
 		{"uninstall", "[NAME...]", "remove skills installed by skigard", cmdUninstall},
 		{"sync", "", "install every approved skill into the default harnesses", cmdSync},
-		{"config", "get [KEY] | set KEY VALUE", "read or change mode, threshold, auto_review and review_harness (set of mode/threshold is human only)", cmdConfig},
-		{"verify", "[--strict] [--require-human]", "check lock, store, installs and marketplace (CI-friendly)", cmdVerify},
-		{"lock", "upgrade [NAME...]", "upgrade lock entries to hash version 2 (only if the old hash still matches)", cmdLock},
+		{"config", "get [KEY] | set KEY VALUE", "read or change mode, threshold, auto_review, review_harness and marketplace (set of mode/threshold is human only)", cmdConfig},
+		{"verify", "[--strict] [--require-human]", "check lock, store, installs and marketplace if built (CI-friendly)", cmdVerify},
+		{"lock", "upgrade|protect [NAME...]", "upgrade lock entries to hash version 2 (only if the old hash still matches)", cmdLock},
 		{"init-ci", "[--version X.Y.Z] [--action-sha SHA]", "write a GitHub workflow that runs skigard verify", cmdInitCI},
 		{"list", "", "list approved and quarantined skills", cmdList},
 		{"show", "NAME", "print a skill's SKILL.md and file list", cmdShow},
@@ -68,7 +71,7 @@ func init() {
 		{"stats", "--tokens", "estimate the context cost of approved skills", cmdStats},
 		{"allow", "add SOURCE|SKILL RULE... --reason R | list | remove SOURCE [RULE...]", "HUMAN ONLY: stop reporting medium/low scanner rules for one source", cmdAllow},
 		{"plugin", "create|delete|add|remove|show|list", "manage plugins (groups of approved skills)", cmdPlugin},
-		{"marketplace", "build|check", "generate or check the Claude/OMP marketplace", cmdMarketplace},
+		{"marketplace", "build|check", "optional: build or check a Claude/OMP marketplace for publishing plugins", cmdMarketplace},
 		{"harness", "list|add", "inspect or extend the harness registry", cmdHarness},
 		{"rules", "", "list scanner rules", cmdRules},
 		{"migrate", "--from-skm PATH", "import approved skills from an skm repository", cmdMigrate},
@@ -79,9 +82,12 @@ func init() {
 
 // Run executes skigard and returns the process exit code.
 func Run(args []string, stdout, stderr io.Writer) int {
-	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
+	if len(args) == 0 || isHelp(args[0]) || (args[0] == "help" && len(args) == 1) {
 		usage(stdout)
 		return util.ExitOK
+	}
+	if args[0] == "help" { // `skigard help CMD [SUB]` is `skigard CMD [SUB] -h`
+		return Run(append(append([]string{}, args[1:]...), "-h"), stdout, stderr)
 	}
 	if args[0] == "-v" || args[0] == "--version" {
 		fmt.Fprintln(stdout, "skigard", Version)
@@ -120,16 +126,56 @@ func usage(w io.Writer) {
 	}
 	fmt.Fprintln(w, "\nTypical flow:  add (fetch, scan, score, install if it clears your threshold)")
 	fmt.Fprintln(w, "Step by step:  add --quarantine-only -> review -> approve (in a real terminal) -> install")
-	fmt.Fprintln(w, "Run `skigard COMMAND -h` for a command's flags. Home: $SKIGARD_HOME or ~/.config/skigard.")
+	fmt.Fprintln(w, "Run `skigard COMMAND -h` (or `skigard help COMMAND`) for a command's flags and subcommands. Home: $SKIGARD_HOME or ~/.config/skigard.")
 }
 
 // flags creates a FlagSet with the flags every command shares.
 func (c *ctx) flags(name string) *flag.FlagSet {
 	fs := flag.NewFlagSet("skigard "+name, flag.ContinueOnError)
-	fs.SetOutput(c.errw)
+	// -h/--help prints usage to stdout; a parse error prints the message and
+	// the usage to stderr. flag writes the error before it calls Usage.
+	failed := false
+	fs.SetOutput(&errSink{w: c.errw, seen: &failed})
+	fs.Usage = func() {
+		w := c.out
+		if failed {
+			w = c.errw
+		}
+		c.flagUsage(fs, w)
+	}
 	fs.StringVar(&c.home, "home", "", "skigard home directory (default $SKIGARD_HOME, ~/.config/skigard, or %APPDATA%\\skigard on Windows)")
 	fs.BoolVar(&c.json, "json", false, "machine-readable output")
 	return fs
+}
+
+// errSink records that flag reported a parse error.
+type errSink struct {
+	w    io.Writer
+	seen *bool
+}
+
+func (e *errSink) Write(p []byte) (int, error) {
+	*e.seen = true
+	return e.w.Write(p)
+}
+
+// flagUsage prints a command's usage line, summary and flags (with the
+// subcommand list for a group) to w.
+func (c *ctx) flagUsage(fs *flag.FlagSet, w io.Writer) {
+	line, summary := usageFor(fs.Name())
+	fmt.Fprintf(w, "Usage: %s\n\n", line)
+	if summary != "" {
+		fmt.Fprintf(w, "%s.\n\n", capitalise(summary))
+	}
+	fmt.Fprintln(w, "Flags:")
+	out := fs.Output()
+	fs.SetOutput(w)
+	fs.PrintDefaults()
+	fs.SetOutput(out)
+	if name := strings.TrimPrefix(fs.Name(), "skigard "); groups[name] != nil {
+		fmt.Fprintln(w)
+		c.groupUsage(w, name)
+	}
 }
 
 // parse allows flags and positional arguments in any order.
@@ -154,6 +200,7 @@ func (c *ctx) open() error {
 		return err
 	}
 	c.app = core.New(h, Version, c.out, c.errw)
+	c.app.Style = c.style(false)
 	if !c.json && c.errw == io.Writer(os.Stderr) && term.StderrIsTerminal(os.Getenv) {
 		c.app.ReviewProgress = c.reviewProgress
 	}
@@ -191,11 +238,39 @@ func (c *ctx) style(plain bool) term.Style {
 
 // writeScan prints a scan report, styled on a terminal and as plain text otherwise.
 func (c *ctx) writeScan(r *scan.Report) {
+	opt := c.scanOptions(false)
 	if st := c.style(false); st.On {
-		scan.WriteStyled(c.out, r, st)
+		scan.WriteStyledOpts(c.out, r, st, opt)
 		return
 	}
-	scan.WriteText(c.out, r)
+	scan.WriteTextOpts(c.out, r, opt)
+}
+
+// scanOptions is how scan findings are laid out: the terminal width when stdout is one, else 100
+// columns, and every finding only when all is set.
+func (c *ctx) scanOptions(all bool) scan.RenderOptions {
+	opt := scan.RenderOptions{All: all, Width: term.DefaultWidth}
+	if c.out == io.Writer(os.Stdout) {
+		opt.Width = term.Width(os.Stdout)
+	}
+	return opt
+}
+
+// nextSteps prints the dim "next:" hint used after every command that leaves a skill in quarantine:
+// the first step follows the label, the rest are aligned under it. lead is printed before it ("\n"
+// for a blank line), indent is put before every line.
+func (c *ctx) nextSteps(lead, indent string, steps ...string) {
+	st := c.style(false)
+	var b strings.Builder
+	b.WriteString(lead)
+	for i, s := range steps {
+		if i == 0 {
+			b.WriteString(indent + st.Dim("next:") + " " + s + "\n")
+		} else {
+			b.WriteString(indent + "      " + s + "\n")
+		}
+	}
+	fmt.Fprint(c.out, b.String())
 }
 
 func (c *ctx) printf(format string, args ...any) { fmt.Fprintf(c.out, format, args...) }

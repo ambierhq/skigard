@@ -260,3 +260,63 @@ func TestApprovalFieldsRoundTripAndOldLock(t *testing.T) {
 		t.Error("the auto approver was accepted for a human approval")
 	}
 }
+
+func TestUpstreamHashRoundTripAndValidation(t *testing.T) {
+	h := Home{Root: t.TempDir()}
+	up := "sha256:" + strings.Repeat("a", 64)
+	l := &Lock{Version: 1, HashVersion: 1}
+	l.Put(LockSkill{Name: "a", ContentHash: "sha256:aa", HashVersion: 1, UpstreamHash: up, Approval: ApprovalRec{By: "me", Mode: ApprovalLocal}})
+	// An entry without upstream_hash must not write the key.
+	l.Put(LockSkill{Name: "b", ContentHash: "sha256:bb", HashVersion: 1})
+	if err := l.Save(h); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(h.LockPath())
+	if strings.Count(string(raw), "upstream_hash") != 1 {
+		t.Fatalf("upstream_hash should be written once:\n%s", raw)
+	}
+	got, err := LoadLock(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s, _ := got.Get("a"); s.UpstreamHash != up || s.Approval.EffectiveMode() != ApprovalLocal {
+		t.Fatalf("%+v", s)
+	}
+	if s, _ := got.Get("b"); s.UpstreamHash != "" {
+		t.Fatalf("%+v", s)
+	}
+	bad := strings.Replace(string(raw), up, "sha256:zz", 1)
+	os.WriteFile(h.LockPath(), []byte(bad), 0o644)
+	if _, err := LoadLock(h); err == nil {
+		t.Error("malformed upstream_hash accepted")
+	}
+}
+
+func TestSettingsMarketplace(t *testing.T) {
+	h := Home{Root: t.TempDir()}
+	load := func(body string) (*Manifest, error) {
+		os.WriteFile(h.ManifestPath(), []byte("version = 1\n[settings]\n"+body), 0o644)
+		return LoadManifest(h)
+	}
+	for body, want := range map[string]bool{"": false, "marketplace = true\n": true, "marketplace = false\n": false} {
+		m, err := load(body)
+		if err != nil || m.Settings.EffectiveMarketplace() != want {
+			t.Errorf("%q: %v %v", body, m, err)
+		}
+	}
+	if m, _ := load(""); m.Settings.Marketplace != nil {
+		t.Error("unset must stay nil")
+	}
+	for _, bad := range []string{"marketplace = \"yes\"\n", "marketplace = 1\n"} {
+		if _, err := load(bad); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+	on := true
+	if err := SaveManifest(h, &Manifest{Version: 1, Settings: Settings{Marketplace: &on}}); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := LoadManifest(h); err != nil || !got.Settings.EffectiveMarketplace() {
+		t.Fatalf("%+v %v", got, err)
+	}
+}

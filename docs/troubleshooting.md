@@ -16,7 +16,7 @@ Inside an agent, `--mode` and `--threshold` can only be stricter than your store
 
 ## `verify --require-human` fails
 
-At least one approval was written by `add` or `update` in `auto` mode, or by `--force-install`. `skigard list` shows each skill's mode. Re-approve it with `skigard approve`, or drop `--require-human`.
+At least one approval was written by `add`, `update` or `adopt` in `auto` mode, or by `--force-install`. `skigard list` shows each skill's mode. Re-approve it with `skigard approve`, or drop `--require-human`. Approvals recorded as `human` or `local` pass.
 
 ## A skill I trust is blocked
 
@@ -26,8 +26,33 @@ Read the skill and the finding (`skigard scan NAME`), then `skigard approve NAME
 
 ## `install` refuses with a hash mismatch
 
-The approved copy in `skills/<name>` no longer matches the lock. Something edited it, or a sync tool rewrote line endings. Run `skigard verify` to see what
+The approved copy in `skills/<name>` no longer matches the lock. Something edited it (`skills/` is read-only, so that took a `chmod` or a tool that ignores permissions), or a sync tool rewrote line endings. Run `skigard verify` to see what
 changed. Restore the files from your home repository (`git checkout -- skills/NAME`), or re-add and re-approve the skill.
+
+## `verify` says `skills/NAME is writable`
+
+The skill was approved before approved skills were made read-only, so nothing stops an in-place edit (which would be live in every install, unreviewed). It is a warning, not drift: the hash still matches. Run `skigard lock protect` to make
+approved skills read-only (permissions only; content, hashes and the lock are untouched), and use `skigard edit NAME` for future changes. `verify --strict` treats the warning as a failure until you do.
+
+## `verify` warns that an install "was installed from an older approved version"
+
+A skill changed (`update`, `adopt`, `merge` then `approve`) and the install records still hold the old hash. Symlink installs already show the new version; copy installs (always on Windows, and project scope) do not. Run `skigard sync` for user-scope installs; project installs need `skigard install NAME --scope project --project DIR --force`.
+
+## `adopt` says "no changes", or `edit` left a working copy
+
+`adopt` found the working copy identical to the approved version and left it open. Edit the files in `quarantine/NAME` (the path `edit` printed), or discard it with `skigard reject NAME`. While it is open, `approve`, `review` and `update` refuse to touch the skill.
+
+## `update` or `merge` says I have local changes
+
+The skill is a local fork, so a changed upstream goes to quarantine and is never auto-approved over your edits. `skigard diff NAME` shows your copy against the new upstream; `skigard merge NAME --pick` or `--with HARNESS` brings the changes into your copy; `skigard approve NAME` takes upstream wholesale and drops your edits. If `merge --with` fails with `the merge output was invalid`, nothing was staged; try again, reword `--note`, or use `--pick`. See [customizing a skill](customizing-skills.md).
+
+## `verify` says `marketplace/ is missing`
+
+`settings.marketplace` is on, so `verify` requires `marketplace/`. Run `skigard marketplace build`, or turn it off with `skigard config set marketplace false` (`marketplace/` is optional and only needed to publish plugins).
+
+## Deleting the home fails with permission denied
+
+Approved skills are read-only. Run `chmod -R u+w SKIGARD_HOME/skills` first, then delete.
 
 ## `verify` reports an exec-bit change
 

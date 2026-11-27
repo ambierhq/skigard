@@ -30,6 +30,7 @@ func newApp(t *testing.T) (*App, string) {
 	t.Helper()
 	root := t.TempDir()
 	home := filepath.Join(root, "home")
+	t.Cleanup(func() { util.MakeWritable(home) }) // approved skills are read-only; let TempDir remove them
 	userHome := filepath.Join(root, "user")
 	os.MkdirAll(userHome, 0o755)
 	var out bytes.Buffer
@@ -287,6 +288,7 @@ func TestInstallVerifySyncUninstall(t *testing.T) {
 		t.Fatalf("%+v", ps)
 	}
 	// tamper with the approved store
+	util.MakeWritable(a.Home.SkillDir("alpha"))
 	os.WriteFile(filepath.Join(a.Home.SkillDir("alpha"), "SKILL.md"), []byte("evil"), 0o644)
 	ps, _ := a.Verify()
 	if !HasErrors(ps) {
@@ -363,6 +365,56 @@ func TestProjectScopeCopies(t *testing.T) {
 	}
 }
 
+func TestVerifyMarketplaceOptIn(t *testing.T) {
+	a, _ := newApp(t)
+	src := t.TempDir()
+	writeSkill(t, src, "alpha", nil)
+	approveLocal(t, a, src, "alpha")
+	if err := a.PluginCreate("dev", "dev tools"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.PluginAdd("dev", []string{"alpha"}); err != nil {
+		t.Fatal(err)
+	}
+	noMarket := func(when string) {
+		t.Helper()
+		ps, _ := a.Verify()
+		for _, p := range ps {
+			if strings.Contains(p.Msg, "marketplace") {
+				t.Errorf("%s: unexpected problem %+v", when, p)
+			}
+		}
+		if HasErrors(ps) {
+			t.Errorf("%s: %+v", when, ps)
+		}
+	}
+	noMarket("never built")
+	if err := a.MarketplaceBuild(); err != nil {
+		t.Fatal(err)
+	}
+	noMarket("built")
+	f := filepath.Join(a.Home.MarketplaceDir(), "plugins", "dev", "skills", "alpha", "SKILL.md")
+	if err := os.WriteFile(f, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if ps, _ := a.Verify(); !HasErrors(ps) {
+		t.Error("tampered marketplace not reported")
+	}
+	if err := os.Remove(f); err != nil {
+		t.Fatal(err)
+	}
+	if ps, _ := a.Verify(); !HasErrors(ps) {
+		t.Error("deleted marketplace file not reported")
+	}
+	if err := os.RemoveAll(a.Home.MarketplaceDir()); err != nil {
+		t.Fatal(err)
+	}
+	noMarket("directory removed")
+	if drift, _ := a.MarketplaceCheck(); len(drift) == 0 {
+		t.Error("marketplace check must still report a missing directory")
+	}
+}
+
 func TestPluginsAndMarketplace(t *testing.T) {
 	a, _ := newApp(t)
 	src := t.TempDir()
@@ -423,7 +475,7 @@ func TestReviewWithFakeHarness(t *testing.T) {
 		t.Fatalf("%+v", rec)
 	}
 	if _, err := a.Review(context.Background(), "alpha", ReviewOpts{Harness: "gemini-cli"}); err == nil {
-		t.Error("unverified reviewer allowed without flag")
+		t.Error("harness without a reviewer template accepted")
 	}
 	if _, err := a.Review(context.Background(), "alpha", ReviewOpts{Harness: "cursor"}); err == nil {
 		t.Error("harness without a template accepted")

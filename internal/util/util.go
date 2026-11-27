@@ -7,9 +7,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 	"unicode"
@@ -158,4 +160,115 @@ func RandomHex(n int) string {
 		panic(err)
 	}
 	return hex.EncodeToString(b)
+}
+
+// MakeReadOnly removes the write bits of a tree: directories become 0555,
+// regular files 0444, or 0555 when they are executable (so the execute-bit set
+// that content hash v2 records is unchanged). It is a deterrent against editing
+// an approved skill in place, not a security boundary: the lock hash is. It does
+// nothing on Windows, where permission bits are synthetic. Symlinks are skipped.
+func MakeReadOnly(root string) error {
+	return chmodTree(root, func(d fs.DirEntry) (os.FileMode, bool) {
+		switch {
+		case d.IsDir():
+			return 0o555, true
+		case d.Type().IsRegular():
+			if fi, err := d.Info(); err == nil && fi.Mode().Perm()&0o111 != 0 {
+				return 0o555, true
+			}
+			return 0o444, true
+		}
+		return 0, false
+	})
+}
+
+// MakeWritable undoes MakeReadOnly on a tree so it can be removed or replaced
+// (directories 0755, files gain the owner write bit). Errors are ignored: the
+// caller's next operation reports the real problem.
+func MakeWritable(root string) {
+	_ = chmodTree(root, func(d fs.DirEntry) (os.FileMode, bool) {
+		switch {
+		case d.IsDir():
+			return 0o755, true
+		case d.Type().IsRegular():
+			if fi, err := d.Info(); err == nil {
+				return fi.Mode().Perm() | 0o200, true
+			}
+		}
+		return 0, false
+	})
+}
+
+// TreeWritable reports whether a tree is not in the state MakeReadOnly leaves
+// it in: a directory the owner can write to, or a file anyone can write to.
+// It never follows symlinks and stays inside root. It is false on Windows.
+func TreeWritable(root string) (bool, error) {
+	if runtime.GOOS == "windows" {
+		return false, nil
+	}
+	r, err := os.OpenRoot(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	defer r.Close()
+	found := false
+	err = fs.WalkDir(r.FS(), ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		var perm os.FileMode
+		switch {
+		case d.IsDir(), d.Type().IsRegular():
+			fi, err := d.Info()
+			if err != nil {
+				return err
+			}
+			perm = fi.Mode().Perm()
+		default:
+			return nil
+		}
+		if (d.IsDir() && perm&0o200 != 0) || (!d.IsDir() && perm&0o222 != 0) {
+			found = true
+			return fs.SkipAll
+		}
+		return nil
+	})
+	return found, err
+}
+
+// chmodTree applies the mode pick returns to every directory and regular file
+// under root, through an os.Root so a symlink swapped in mid-walk cannot redirect it.
+func chmodTree(root string, pick func(fs.DirEntry) (os.FileMode, bool)) error {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	r, err := os.OpenRoot(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer r.Close()
+	return fs.WalkDir(r.FS(), ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if mode, ok := pick(d); ok {
+			return r.Chmod(p, mode)
+		}
+		return nil
+	})
+}
+
+// RemoveAll is os.RemoveAll that also works on a read-only tree.
+func RemoveAll(p string) error {
+	if err := os.RemoveAll(p); err == nil {
+		return nil
+	}
+	MakeWritable(p)
+	return os.RemoveAll(p)
 }
