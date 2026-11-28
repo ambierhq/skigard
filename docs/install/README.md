@@ -18,7 +18,6 @@ skigard is one static binary (no runtime, no telemetry). Pick your system:
 | PowerShell installer | `irm https://ambierhq.com/skigard/install.ps1 \| iex` | Windows | live (tested in CI on `windows-latest`; not tested by hand on Windows) |
 | GitHub Releases | archives, `.deb`, `.rpm`, `.apk`, Arch packages, checksums, SBOMs, cosign signatures | all | live |
 | Homebrew | `brew install ambierhq/tap/skigard` | macOS, Linux | live |
-| winget | `winget install Ambier.Skigard` | Windows | submitted, in review at Microsoft ([winget-pkgs#484914](https://github.com/microsoft/winget-pkgs/pull/484914)); not installable yet |
 | Scoop | `scoop bucket add ambierhq https://github.com/ambierhq/scoop-bucket` then `scoop install skigard` | Windows | live (updated by the release workflow); not tested by hand on Windows |
 | mise | `mise use -g github:ambierhq/skigard` | all | live (`github:` backend, checked with v0.1.2; the short name `skigard` needs a registry entry, not submitted) |
 | Nix | `nix run github:ambierhq/skigard` | Linux, macOS | the flake builds in CI (Linux and macOS), not tested by hand; a nixpkgs package (`pkgs.skigard`) is submitted and in review ([nixpkgs#590787](https://github.com/NixOS/nixpkgs/pull/590787)), not available yet |

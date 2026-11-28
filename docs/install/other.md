@@ -1,6 +1,6 @@
 # Other install channels
 
-Status of each channel is in the [status table](README.md#channels-and-status): npm, mise and Go are available now; Nix works through our flake (CI-built, not tested by hand); nixpkgs and winget are in review.
+Status of each channel is in the [status table](README.md#channels-and-status): npm, mise and Go are available now; Nix works through our flake (CI-built, not tested by hand); nixpkgs is in review.
 
 ## npx and npm
 
