@@ -5,6 +5,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Removed
+
+- **skigard is no longer submitted to winget.** The release workflow's `winget` job and the `scripts/winget-*.sh` helpers are gone; nothing was ever published there (the upstream pull requests were closed). A maintainer can delete the `WINGET_TOKEN` secret and the `ambierhq/winget-pkgs` fork.
+
 ## [0.4.0] - 2026-11-27
 
 ### Added

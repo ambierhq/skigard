@@ -79,7 +79,6 @@ skigard puts a check in front of that: **fetch to quarantine, scan, agent review
 | PowerShell (Windows) | `irm https://ambierhq.com/skigard/install.ps1 \| iex` | live (tested in CI on `windows-latest`; not tested by hand on Windows) |
 | GitHub Releases | archives, `.deb`, `.rpm`, `.apk`, `.pkg.tar.zst`, checksums, SBOMs, cosign signatures | live |
 | Homebrew | `brew install ambierhq/tap/skigard` | live |
-| winget | `winget install Ambier.Skigard` | submitted, in review at Microsoft ([winget-pkgs#484914](https://github.com/microsoft/winget-pkgs/pull/484914)); not installable yet |
 | Scoop | `scoop bucket add ambierhq https://github.com/ambierhq/scoop-bucket && scoop install skigard` | live (the bucket is updated by the release workflow); not tested by hand on Windows |
 | mise | `mise use -g github:ambierhq/skigard` | live (`github:` backend, checked with v0.1.2; the short name `skigard` needs a registry entry, not submitted) |
 | Nix | `nix run github:ambierhq/skigard` | the flake builds in CI (Linux and macOS), not tested by hand. A nixpkgs package (`pkgs.skigard`) is submitted and in review ([nixpkgs#590787](https://github.com/NixOS/nixpkgs/pull/590787)); it does not exist yet |
@@ -316,7 +315,7 @@ Releases are signed (cosign, keyless), come with SBOMs and GitHub build attestat
 
 ## Roadmap
 
-- Install channels still to land: winget (in review, #484914), nixpkgs (in review, #590787) and the mise registry.
+- Install channels still to land: nixpkgs (in review, #590787) and the mise registry.
 - `skigard find` (#28): search skills.sh or a catalog (discovery is the main thing skigard lacks today).
 - An importer for `skills-lock.json` (#29) from vercel-labs/skills.
 - Verify more harnesses (each one needs a person to confirm its skills directory).

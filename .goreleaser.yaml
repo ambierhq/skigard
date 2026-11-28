@@ -100,10 +100,6 @@ scoops:
       name: scoop-bucket
       token: '{{ .Env.SCOOP_BUCKET_TOKEN }}'
 
-# winget is NOT published by GoReleaser: its publisher writes the manifests through the GitHub Contents API, which times
-# out on the ~1 GB winget-pkgs fork (v0.1.1). The `winget` job in release.yml renders them with scripts/winget-manifests.sh
-# and pushes them with plain git instead.
-
 # The installers are release assets so ambierhq.com/skigard/install.{sh,ps1} can redirect to
 # https://github.com/ambierhq/skigard/releases/latest/download/install.{sh,ps1}.
 release:
